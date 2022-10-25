@@ -1,0 +1,129 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "/internal/server/proto";
+
+service VestaService {
+    rpc Apply(ApplyRequest) returns (ApplyResponse);
+
+    rpc DeploymentList(ListDeploymentRequest) returns (ListDeploymentResponse);
+    rpc DeploymentStatus(DeploymentStatusRequest) returns (DeploymentStatusResponse);
+}
+
+message DeploymentStatusRequest {
+    string id = 1;
+}
+
+message DeploymentStatusResponse {
+    Deployment deployment = 1;
+}
+
+message ListDeploymentRequest {
+}
+
+message ListDeploymentResponse { 
+    repeated Deployment deployments = 1;
+}
+
+message ApplyRequest {
+    // id name of the action
+    string action = 1;
+
+    // input for the action
+    bytes input = 2;
+}
+
+message ApplyResponse {
+    string id = 1;
+}
+
+message ExitResult {
+    int64 exitCode = 1;
+    int64 signal = 2;
+    bool oomKiller = 3;
+    string err = 4;
+}
+
+// Provisonal name, item is an item on the catalog
+message Item {
+    string name = 1;
+    
+    bytes input = 2;
+
+    bytes output = 3;
+}
+
+// Node1 is a node that can allocate resources
+message Node {
+    string id = 1;
+    string datacenter = 2;
+    string name = 3;
+}
+
+// Deployment represents a node deployment
+message Deployment {
+    string id = 1;
+    repeated Task tasks = 2;
+}
+
+// Task represents an single container process
+message Task {
+    string image = 1;
+    string tag = 2;
+    repeated string args = 3;
+    map<string,string> env = 4;
+    map<string,string> labels = 5;
+    repeated string securityOpt = 7;
+    string id = 8;
+
+    // list of data access for this file
+    Data data = 9;
+}
+
+// Allocation represents an allocation of a deployment
+message Allocation {
+    string id = 1;
+
+    string nodeId = 2;
+    
+    map<string, TaskState> taskStates = 3;
+
+    string deploymentId = 4;
+
+    Deployment deployment = 5;
+}
+
+message TaskState {
+    State state = 1;
+
+    bool failed = 2;
+
+    uint64 restarts = 3;
+    
+    repeated Event events = 5;
+
+    enum State {
+        Pending = 0;
+        Running = 1;
+        Dead = 2;
+    }
+
+    message Event {
+        map<string, string> details = 1;
+    }
+}
+
+message TaskHandle {
+    string containerID = 1;
+    Network network = 2;
+
+    message Network {
+        string ip = 1;
+    }
+}
+
+message Data {
+    string id = 1;
+    map<string, string> data = 2;
+}
