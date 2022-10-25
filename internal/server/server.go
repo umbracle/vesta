@@ -143,10 +143,6 @@ func (s *Server) UpdateAlloc(alloc *proto.Allocation) error {
 	return nil
 }
 
-func (s *Server) GetData(id string) (*proto.Data, error) {
-	return s.state.GetData(id)
-}
-
 type Mount struct {
 	Dest     string
 	Contents string

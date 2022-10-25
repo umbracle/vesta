@@ -5,10 +5,6 @@ import (
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
-var (
-	dataBucket = []byte("data")
-)
-
 type StateStore struct {
 	db *memdb.MemDB
 }
@@ -97,32 +93,6 @@ func (s *StateStore) UpsertCatalog(item *proto.Item) error {
 	defer txn.Abort()
 
 	if err := txn.Insert("item", item); err != nil {
-		return err
-	}
-
-	txn.Commit()
-	return nil
-}
-
-func (s *StateStore) GetData(id string) (*proto.Data, error) {
-	txn := s.db.Txn(false)
-	defer txn.Abort()
-
-	item, err := txn.First("data", "id", id)
-	if err != nil {
-		return nil, err
-	}
-	if item == nil {
-		return nil, nil
-	}
-	return item.(*proto.Data), nil
-}
-
-func (s *StateStore) PutData(data *proto.Data) error {
-	txn := s.db.Txn(true)
-	defer txn.Abort()
-
-	if err := txn.Insert("data", data); err != nil {
 		return err
 	}
 
