@@ -78,7 +78,7 @@ message Task {
     string id = 8;
 
     // list of data access for this file
-    Data data = 9;
+    map<string, string> data = 9;
 }
 
 // Allocation represents an allocation of a deployment
@@ -121,9 +121,4 @@ message TaskHandle {
     message Network {
         string ip = 1;
     }
-}
-
-message Data {
-    string id = 1;
-    map<string, string> data = 2;
 }

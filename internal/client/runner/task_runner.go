@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
@@ -57,14 +58,18 @@ MAIN:
 		}
 
 		{
-			resultCh := t.driver.WaitTask(t.task.Id)
-			select {
-			case <-t.killCh:
-				// TODO
-			case <-t.shutdownCh:
-				return
-			case <-resultCh:
-				// TODO: Use result for backoff restart timeout
+			resultCh, err := t.driver.WaitTask(context.Background(), t.task.Id)
+			if err != nil {
+				t.logger.Error("failed to wait for task", "err", err)
+			} else {
+				select {
+				case <-t.killCh:
+					// TODO
+				case <-t.shutdownCh:
+					return
+				case <-resultCh:
+					// TODO: Use result for backoff restart timeout
+				}
 			}
 		}
 

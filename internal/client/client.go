@@ -26,10 +26,14 @@ type Client struct {
 }
 
 func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
+	driver, err := docker.NewDockerDriver(logger)
+	if err != nil {
+		return nil, err
+	}
 	c := &Client{
 		logger:  logger.Named("agent"),
 		config:  config,
-		driver:  docker.NewDockerDriver(logger),
+		driver:  driver,
 		closeCh: make(chan struct{}),
 		allocs:  map[string]*runner.AllocRunner{},
 	}

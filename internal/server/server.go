@@ -172,7 +172,7 @@ func (r *runtimeHandler) ToProto() *proto.Task {
 		Tag:   r.Tag,
 		Args:  r.Args,
 		Env:   r.Env,
-		Data:  &proto.Data{Data: dataFile},
+		Data:  dataFile,
 	}
 	return c
 }

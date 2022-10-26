@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -17,6 +18,8 @@ import (
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
+var ErrTaskNotFound = fmt.Errorf("task not found")
+
 type Docker struct {
 	logger      hclog.Logger
 	client      *client.Client
@@ -24,41 +27,41 @@ type Docker struct {
 	store       *taskStore
 }
 
-func NewDockerDriver(logger hclog.Logger) *Docker {
+func NewDockerDriver(logger hclog.Logger) (*Docker, error) {
 	if logger == nil {
 		logger = hclog.NewNullLogger()
 	}
 
 	client, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	d := &Docker{
-		logger:      logger.Named("docker"),
+		logger:      hclog.NewNullLogger(),
 		client:      client,
 		coordinator: newDockerImageCoordinator(client),
 		store:       newTaskStore(),
 	}
-	return d
+	return d, nil
 }
 
 func (d *Docker) DestroyTask(taskID string, force bool) error {
 	h, ok := d.store.Get(taskID)
 	if !ok {
-		return fmt.Errorf("task not found")
+		return ErrTaskNotFound
 	}
 
 	c, err := d.client.ContainerInspect(context.Background(), h.containerID)
 	if err != nil {
-		panic(err)
+		return err
 	} else {
 		if c.State.Running {
 			if !force {
-				return fmt.Errorf("must call StopTask for the given task before Destroy or set force to true")
+				return fmt.Errorf("cannot destroy if force not set to true")
 			}
 			if err := d.client.ContainerStop(context.Background(), h.containerID, nil); err != nil {
-				h.logger.Warn("failed to stop container during destroy", "error", err)
+				h.logger.Warn("failed to stop container", "err", err)
 			}
 		}
 	}
@@ -67,19 +70,34 @@ func (d *Docker) DestroyTask(taskID string, force bool) error {
 	return nil
 }
 
-func (d *Docker) WaitTask(taskID string) <-chan *proto.ExitResult {
+func (d *Docker) StopTask(taskID string, timeout time.Duration) error {
+	h, ok := d.store.Get(taskID)
+	if !ok {
+		return ErrTaskNotFound
+	}
+
+	return h.Kill(timeout)
+}
+
+func (d *Docker) WaitTask(ctx context.Context, taskID string) (<-chan *proto.ExitResult, error) {
 	handle, ok := d.store.Get(taskID)
 	if !ok {
-		panic("bad")
+		return nil, ErrTaskNotFound
 	}
 	ch := make(chan *proto.ExitResult)
 	go func() {
 		defer close(ch)
 
-		<-handle.waitCh
-		ch <- handle.exitResult
+		select {
+		case <-handle.waitCh:
+			ch <- handle.exitResult
+		case <-ctx.Done():
+			ch <- &proto.ExitResult{
+				Err: ctx.Err().Error(),
+			}
+		}
 	}()
-	return ch
+	return ch, nil
 }
 
 func (d *Docker) RecoverTask(taskID string, task *proto.TaskHandle) error {
@@ -157,7 +175,7 @@ func (d *Docker) createContainerOptions(task *proto.Task) (*createContainerOptio
 		mountMap[mount] = tmpDir
 	}
 
-	for dest, data := range task.Data.Data {
+	for dest, data := range task.Data {
 		// --- write data ---
 		path := dest
 
@@ -222,6 +240,7 @@ func (d *Docker) createContainerOptions(task *proto.Task) (*createContainerOptio
 }
 
 func (d *Docker) createImage(image string) error {
+
 	_, dockerImageRaw, _ := d.client.ImageInspectWithRaw(context.Background(), image)
 	if dockerImageRaw != nil {
 		// already available
