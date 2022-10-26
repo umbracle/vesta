@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -30,7 +31,8 @@ func (t *taskHandle) run() {
 	select {
 	case err := <-errCh:
 		if err != nil {
-			panic(err)
+			// TODO: unit test
+			t.logger.Error("failed to wait container", "id", t.containerID, "err", err)
 		}
 	case status = <-statusCh:
 	}
@@ -42,4 +44,11 @@ func (t *taskHandle) run() {
 	}
 	t.exitResultLock.Unlock()
 	close(t.waitCh)
+}
+
+func (t *taskHandle) Kill(killTimeout time.Duration) error {
+	if err := t.client.ContainerStop(context.Background(), t.containerID, &killTimeout); err != nil {
+		return err
+	}
+	return nil
 }

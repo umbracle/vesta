@@ -27,13 +27,17 @@ type AllocRunner struct {
 func NewAllocRunner(c *Config) (*AllocRunner, error) {
 	logger := c.Logger.Named("alloc_runner").With("alloc", c.Alloc.Id)
 
+	driver, err := docker.NewDockerDriver(c.Logger)
+	if err != nil {
+		return nil, err
+	}
 	runner := &AllocRunner{
 		config:      c,
 		logger:      logger,
 		tasks:       map[string]*TaskRunner{},
 		waitCh:      make(chan struct{}),
 		alloc:       c.Alloc,
-		driver:      docker.NewDockerDriver(c.Logger),
+		driver:      driver,
 		taskUpdated: make(chan struct{}),
 	}
 	for _, task := range c.Alloc.Deployment.Tasks {
