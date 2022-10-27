@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package proto;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "/internal/server/proto";
 
 service VestaService {
@@ -110,7 +112,9 @@ message TaskState {
     }
 
     message Event {
-        map<string, string> details = 1;
+        string type = 1;
+        map<string, string> details = 2;
+        google.protobuf.Timestamp time = 3;
     }
 }
 
