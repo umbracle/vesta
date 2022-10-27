@@ -5,7 +5,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-memdb"
-	"github.com/umbracle/vesta/internal/client/runner"
+	"github.com/umbracle/vesta/internal/client/allocrunner"
 	"github.com/umbracle/vesta/internal/client/state"
 	"github.com/umbracle/vesta/internal/docker"
 	"github.com/umbracle/vesta/internal/server/proto"
@@ -21,8 +21,8 @@ type Client struct {
 	config  *Config
 	driver  *docker.Docker
 	closeCh chan struct{}
-	state   *state.State
-	allocs  map[string]*runner.AllocRunner
+	state   state.State
+	allocs  map[string]*allocrunner.AllocRunner
 }
 
 func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
@@ -35,7 +35,7 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 		config:  config,
 		driver:  driver,
 		closeCh: make(chan struct{}),
-		allocs:  map[string]*runner.AllocRunner{},
+		allocs:  map[string]*allocrunner.AllocRunner{},
 	}
 
 	if err := c.initState(); err != nil {
@@ -49,7 +49,7 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 }
 
 func (c *Client) initState() error {
-	state, err := state.NewState("client.db")
+	state, err := state.NewBoltdbStore("client.db")
 	if err != nil {
 		return err
 	}
@@ -62,13 +62,14 @@ func (c *Client) initState() error {
 	for _, alloc := range allocs {
 		id := alloc.Id
 
-		config := &runner.Config{
+		config := &allocrunner.Config{
 			Alloc:             alloc,
 			Logger:            c.logger,
 			State:             c.state,
 			AllocStateUpdated: c.updateAlloc,
+			Driver:            c.driver,
 		}
-		handle, err := runner.NewAllocRunner(config)
+		handle, err := allocrunner.NewAllocRunner(config)
 		if err != nil {
 			panic(err)
 		}
@@ -93,14 +94,15 @@ func (c *Client) handle() {
 			handle.Update(a)
 		} else {
 			// create
-			config := &runner.Config{
+			config := &allocrunner.Config{
 				Alloc:             a,
 				Logger:            c.logger,
 				State:             c.state,
 				AllocStateUpdated: c.updateAlloc,
+				Driver:            c.driver,
 			}
 			var err error
-			if handle, err = runner.NewAllocRunner(config); err != nil {
+			if handle, err = allocrunner.NewAllocRunner(config); err != nil {
 				panic(err)
 			}
 

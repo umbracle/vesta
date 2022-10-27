@@ -1,51 +1,56 @@
-package runner
+package allocrunner
 
 import (
 	"github.com/hashicorp/go-hclog"
+	"github.com/umbracle/vesta/internal/client/allocrunner/driver"
+	"github.com/umbracle/vesta/internal/client/allocrunner/taskrunner"
 	"github.com/umbracle/vesta/internal/client/state"
-	"github.com/umbracle/vesta/internal/docker"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
 type Config struct {
 	Logger            hclog.Logger
 	Alloc             *proto.Allocation
-	State             *state.State
+	State             state.State
 	AllocStateUpdated func(alloc *proto.Allocation)
+	Driver            driver.Driver
 }
 
 type AllocRunner struct {
 	config      *Config
 	logger      hclog.Logger
-	tasks       map[string]*TaskRunner
+	tasks       map[string]*taskrunner.TaskRunner
 	waitCh      chan struct{}
 	alloc       *proto.Allocation
-	driver      *docker.Docker
+	driver      driver.Driver
 	taskUpdated chan struct{}
 }
 
 func NewAllocRunner(c *Config) (*AllocRunner, error) {
 	logger := c.Logger.Named("alloc_runner").With("alloc", c.Alloc.Id)
 
-	driver, err := docker.NewDockerDriver(c.Logger)
-	if err != nil {
-		return nil, err
-	}
 	runner := &AllocRunner{
 		config:      c,
 		logger:      logger,
-		tasks:       map[string]*TaskRunner{},
+		tasks:       map[string]*taskrunner.TaskRunner{},
 		waitCh:      make(chan struct{}),
 		alloc:       c.Alloc,
-		driver:      driver,
+		driver:      c.Driver,
 		taskUpdated: make(chan struct{}),
 	}
 	for _, task := range c.Alloc.Deployment.Tasks {
-		taskRunner, err := NewTaskRunner(logger, task, c.Alloc, runner.driver, c.State)
+		config := &taskrunner.Config{
+			Logger:           logger,
+			Task:             task,
+			Allocation:       c.Alloc,
+			Driver:           c.Driver,
+			State:            c.State,
+			TaskStateUpdated: runner.TaskStateUpdated,
+		}
+		taskRunner, err := taskrunner.NewTaskRunner(config)
 		if err != nil {
 			return nil, err
 		}
-		taskRunner.TaskStateUpdated = runner.TaskStateUpdated
 		runner.tasks[task.Id] = taskRunner
 	}
 
