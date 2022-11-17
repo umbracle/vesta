@@ -59,10 +59,13 @@ func formatNodeStatus(r *proto.DeploymentStatusResponse) string {
 
 	rows := make([]string, len(node.Tasks)+1)
 	rows[0] = "Name"
-	for i, d := range node.Tasks {
-		rows[i+1] = fmt.Sprintf("%s",
+
+	i := 1
+	for _, d := range node.Tasks {
+		rows[i] = fmt.Sprintf("%s",
 			d.Id,
 		)
+		i += 1
 	}
 
 	return base + "\n\n" + formatList(rows)

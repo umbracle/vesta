@@ -2,6 +2,7 @@ package taskrunner
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -55,7 +56,22 @@ func NewTaskRunner(config *Config) (*TaskRunner, error) {
 	return tr, nil
 }
 
+func (t *TaskRunner) IsShuttingDown() bool {
+	select {
+	case <-t.killCh:
+		return true
+	default:
+		return false
+	}
+}
+
+func (t *TaskRunner) Task() *proto.Task {
+	return t.task
+}
+
 func (t *TaskRunner) Run() {
+	fmt.Println("_TASK RUNNER STARTED_")
+	defer fmt.Println("_TASK RUNNER STOPPPPED ")
 	defer close(t.waitCh)
 	var result *proto.ExitResult
 
@@ -213,6 +229,7 @@ func (t *TaskRunner) UpdateStatus(status proto.TaskState_State, ev *proto.TaskSt
 	if err := t.state.PutTaskState(t.alloc.Id, t.task.Id, t.status); err != nil {
 		t.logger.Warn("failed to persist task state during update status", "err", err)
 	}
+	fmt.Println("Yikes!")
 	t.taskStateUpdated()
 }
 
@@ -226,6 +243,7 @@ func (t *TaskRunner) EmitEvent(ev *proto.TaskState_Event) {
 		t.logger.Warn("failed to persist task state during emit event", "err", err)
 	}
 
+	fmt.Println("Yikes 2!")
 	t.taskStateUpdated()
 }
 
@@ -236,7 +254,16 @@ func (t *TaskRunner) appendEventLocked(ev *proto.TaskState_Event) {
 	t.status.Events = append(t.status.Events, ev)
 }
 
+func (t *TaskRunner) KillNoWait() {
+	fmt.Println("????? KILL")
+	fmt.Println(t)
+	fmt.Println(t.killCh)
+
+	close(t.killCh)
+}
+
 func (t *TaskRunner) Kill(ctx context.Context, ev *proto.TaskState_Event) error {
+	fmt.Println("????? KILL")
 	close(t.killCh)
 
 	select {

@@ -36,7 +36,7 @@ func setupTaskRunner(t *testing.T, task *proto.Task) *TaskRunner {
 	alloc := &proto.Allocation{
 		Id: uuid.Generate(),
 		Deployment: &proto.Deployment{
-			Tasks: []*proto.Task{task},
+			Tasks: map[string]*proto.Task{"first": task},
 		},
 	}
 

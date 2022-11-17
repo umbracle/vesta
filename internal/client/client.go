@@ -59,15 +59,18 @@ func (c *Client) initState() error {
 	if err != nil {
 		return err
 	}
+	if len(allocs) > 1 {
+		panic("bad for testing")
+	}
 	for _, alloc := range allocs {
 		id := alloc.Id
 
 		config := &allocrunner.Config{
-			Alloc:             alloc,
-			Logger:            c.logger,
-			State:             c.state,
-			AllocStateUpdated: c.updateAlloc,
-			Driver:            c.driver,
+			Alloc:        alloc,
+			Logger:       c.logger,
+			State:        c.state,
+			StateUpdater: c,
+			Driver:       c.driver,
 		}
 		handle, err := allocrunner.NewAllocRunner(config)
 		if err != nil {
@@ -95,11 +98,11 @@ func (c *Client) handle() {
 		} else {
 			// create
 			config := &allocrunner.Config{
-				Alloc:             a,
-				Logger:            c.logger,
-				State:             c.state,
-				AllocStateUpdated: c.updateAlloc,
-				Driver:            c.driver,
+				Alloc:        a,
+				Logger:       c.logger,
+				State:        c.state,
+				StateUpdater: c,
+				Driver:       c.driver,
 			}
 			var err error
 			if handle, err = allocrunner.NewAllocRunner(config); err != nil {
@@ -134,7 +137,7 @@ func (c *Client) handle() {
 	}
 }
 
-func (c *Client) updateAlloc(a *proto.Allocation) {
+func (c *Client) AllocStateUpdated(a *proto.Allocation) {
 	c.config.ControlPlane.UpdateAlloc(a)
 }
 

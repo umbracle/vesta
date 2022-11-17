@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/umbracle/vesta/internal/server/proto"
@@ -15,6 +16,8 @@ type DeployCommand struct {
 	chain string
 
 	typ string
+
+	allocId string
 }
 
 // Help implements the cli.Command interface
@@ -34,6 +37,7 @@ func (c *DeployCommand) Run(args []string) int {
 	flags := c.FlagSet("deploy")
 	flags.StringVar(&c.chain, "chain", "", "")
 	flags.StringVar(&c.typ, "type", "", "")
+	flags.StringVar(&c.allocId, "alloc", "", "")
 
 	if err := flags.Parse(args); err != nil {
 		c.UI.Error(err.Error())
@@ -46,6 +50,8 @@ func (c *DeployCommand) Run(args []string) int {
 	if c.chain != "" {
 		spec["chain"] = c.chain
 	}
+
+	fmt.Println(args)
 
 	for _, raw := range args {
 		parts := strings.SplitN(raw, "=", 2)
@@ -68,8 +74,9 @@ func (c *DeployCommand) Run(args []string) int {
 		return 1
 	}
 	req := &proto.ApplyRequest{
-		Action: c.typ,
-		Input:  raw,
+		Action:       c.typ,
+		Input:        raw,
+		AllocationId: c.allocId,
 	}
 	resp, err := clt.Apply(context.Background(), req)
 	if err != nil {

@@ -26,7 +26,7 @@ func (s *service) Apply(ctx context.Context, req *proto.ApplyRequest) (*proto.Ap
 	}
 
 	// create
-	id, err := s.srv.Create(act, input)
+	id, err := s.srv.Create(req.AllocationId, act, input)
 	if err != nil {
 		return nil, err
 	}
