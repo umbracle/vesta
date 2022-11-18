@@ -91,6 +91,7 @@ func (s *Server) Create(allocId string, act *Action, input map[string]interface{
 	// get the reference for the selected node type
 	nodeCue := v.LookupPath(act.path)
 
+	// TODO: Typed encoding of input
 	if m, ok := input["metrics"]; ok {
 		mm, err := strconv.ParseBool(m.(string))
 		if err != nil {
@@ -120,23 +121,12 @@ func (s *Server) Create(allocId string, act *Action, input map[string]interface{
 	}
 
 	dep := &proto.Deployment{
-		Id:    uuid.Generate(),
 		Tasks: deployableTasks,
 	}
-	if err := s.state.InsertDeployment(dep); err != nil {
-		return "", err
+
+	if allocId == "" {
+		allocId = uuid.Generate()
 	}
-
-	allocId = "id"
-
-	/*
-		if allocId == "" {
-			allocId = uuid.Generate()
-		}
-	*/
-
-	fmt.Println("-- allocation id ", allocId)
-
 	alloc := &proto.Allocation{
 		Id:         allocId,
 		NodeId:     "local",
@@ -145,11 +135,11 @@ func (s *Server) Create(allocId string, act *Action, input map[string]interface{
 	if err := s.state.UpsertAllocation(alloc); err != nil {
 		return "", err
 	}
-	return dep.Id, nil
+	return allocId, nil
 }
 
 func (s *Server) Pull(nodeId string, ws memdb.WatchSet) ([]*proto.Allocation, error) {
-	tasks, err := s.state.AllocationList(nodeId, ws)
+	tasks, err := s.state.AllocationListByNodeId(nodeId, ws)
 	if err != nil {
 		return nil, err
 	}

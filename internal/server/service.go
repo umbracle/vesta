@@ -36,32 +36,27 @@ func (s *service) Apply(ctx context.Context, req *proto.ApplyRequest) (*proto.Ap
 
 func (s *service) DeploymentList(ctx context.Context, req *proto.ListDeploymentRequest) (*proto.ListDeploymentResponse, error) {
 	ws := memdb.NewWatchSet()
-	iter, err := s.srv.state.DeploymentsList(ws)
+	allocs, err := s.srv.state.AllocationList(ws)
 	if err != nil {
 		return nil, err
 	}
 
-	deployments := []*proto.Deployment{}
-	for obj := iter.Next(); obj != nil; obj = iter.Next() {
-		deployments = append(deployments, obj.(*proto.Deployment))
-	}
-
 	resp := &proto.ListDeploymentResponse{
-		Deployments: deployments,
+		Allocations: allocs,
 	}
 	return resp, nil
 }
 
 func (s *service) DeploymentStatus(ctx context.Context, req *proto.DeploymentStatusRequest) (*proto.DeploymentStatusResponse, error) {
-	deployment, err := s.srv.state.GetDeployment(req.Id)
+	allocation, err := s.srv.state.GetAllocation(req.Id)
 	if err != nil {
 		return nil, err
 	}
-	if deployment == nil {
+	if allocation == nil {
 		return nil, fmt.Errorf("not found")
 	}
 	resp := &proto.DeploymentStatusResponse{
-		Deployment: deployment,
+		Allocation: allocation,
 	}
 	return resp, nil
 }

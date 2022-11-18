@@ -18,14 +18,14 @@ message DeploymentStatusRequest {
 }
 
 message DeploymentStatusResponse {
-    Deployment deployment = 1;
+    Allocation allocation = 1;
 }
 
 message ListDeploymentRequest {
 }
 
 message ListDeploymentResponse { 
-    repeated Deployment deployments = 1;
+    repeated Allocation allocations = 1;
 }
 
 message ApplyRequest {
@@ -68,7 +68,6 @@ message Node {
 
 // Deployment represents a node deployment
 message Deployment {
-    string id = 1;
     map<string,Task> tasks = 2;
 }
 

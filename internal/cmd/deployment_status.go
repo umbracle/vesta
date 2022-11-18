@@ -51,19 +51,20 @@ func (c *DeploymentStatusCommand) Run(args []string) int {
 }
 
 func formatNodeStatus(r *proto.DeploymentStatusResponse) string {
-	node := r.Deployment
+	node := r.Allocation
 
 	base := formatKV([]string{
 		fmt.Sprintf("ID|%s", node.Id),
 	})
 
-	rows := make([]string, len(node.Tasks)+1)
-	rows[0] = "Name"
+	rows := make([]string, len(node.Deployment.Tasks)+1)
+	rows[0] = "ID|Name"
 
 	i := 1
-	for _, d := range node.Tasks {
-		rows[i] = fmt.Sprintf("%s",
+	for _, d := range node.Deployment.Tasks {
+		rows[i] = fmt.Sprintf("%s|%s",
 			d.Id,
+			d.Name,
 		)
 		i += 1
 	}
