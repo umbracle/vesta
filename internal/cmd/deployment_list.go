@@ -44,20 +44,21 @@ func (c *DeploymentListCommand) Run(args []string) int {
 		return 1
 	}
 
-	c.UI.Output(formatNodes(resp.Deployments))
+	c.UI.Output(formatNodes(resp.Allocations))
 	return 0
 }
 
-func formatNodes(deps []*proto.Deployment) string {
-	if len(deps) == 0 {
-		return "No nodes found"
+func formatNodes(allocs []*proto.Allocation) string {
+	if len(allocs) == 0 {
+		return "No allocations found"
 	}
 
-	rows := make([]string, len(deps)+1)
-	rows[0] = "Name|Chain|Running"
-	for i, d := range deps {
-		rows[i+1] = fmt.Sprintf("%s",
+	rows := make([]string, len(allocs)+1)
+	rows[0] = "Name|Status"
+	for i, d := range allocs {
+		rows[i+1] = fmt.Sprintf("%s|%s",
 			d.Id,
+			d.Status.String(),
 		)
 	}
 	return formatList(rows)

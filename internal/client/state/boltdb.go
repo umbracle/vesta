@@ -1,6 +1,7 @@
 package state
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/boltdb/bolt"
@@ -12,6 +13,8 @@ var (
 	allocsBucket = []byte("allocs")
 
 	allocKey = []byte("alloc")
+
+	taskSpecKey = []byte("task-spec")
 
 	taskStateKey = []byte("task-state")
 
@@ -92,6 +95,39 @@ func (s *BoltdbStore) GetAllocations() ([]*proto.Allocation, error) {
 	return allocs, nil
 }
 
+func (s *BoltdbStore) GetAllocationTasks(allocID string) ([]*proto.Task, error) {
+	tasks := []*proto.Task{}
+
+	err := s.db.View(func(tx *bolt.Tx) error {
+		allocsBkt := tx.Bucket(allocsBucket)
+
+		allocBkt := allocsBkt.Bucket([]byte(allocID))
+		if allocBkt == nil {
+			return fmt.Errorf("not found")
+		}
+
+		c := allocBkt.Cursor()
+
+		prefix := []byte("task-")
+		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+
+			taskBkt := allocBkt.Bucket(k)
+			task := proto.Task{}
+			if err := dbGet(taskBkt, taskSpecKey, &task); err != nil {
+				return fmt.Errorf("failed to get task spec %s %s", allocID, string(k))
+			}
+			tasks = append(tasks, &task)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get allocation tasks: %v", err)
+	}
+
+	return tasks, nil
+}
+
 func (s *BoltdbStore) GetTaskState(allocID, taskName string) (*proto.TaskState, *proto.TaskHandle, error) {
 	state := proto.TaskState{}
 	handle := proto.TaskHandle{}
@@ -117,10 +153,34 @@ func (s *BoltdbStore) GetTaskState(allocID, taskName string) (*proto.TaskState, 
 		return nil
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to get task state %v", err)
 	}
 
 	return &state, &handle, nil
+}
+
+func (s *BoltdbStore) PutTaskSpec(allocID string, task *proto.Task) error {
+	err := s.db.Update(func(tx *bolt.Tx) error {
+		allocsBkt := tx.Bucket(allocsBucket)
+
+		allocBkt := allocsBkt.Bucket([]byte(allocID))
+		if allocBkt == nil {
+			return fmt.Errorf("not found")
+		}
+
+		taskBkt, err := allocBkt.CreateBucketIfNotExists(taskKey(task.Id))
+		if err != nil {
+			return err
+		}
+		if err := dbPut(taskBkt, taskSpecKey, task); err != nil {
+			return fmt.Errorf("failed to get handle %s %s", allocID, task.Id)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *BoltdbStore) PutTaskLocalState(allocID string, taskName string, handle *proto.TaskHandle) error {
@@ -166,7 +226,7 @@ func (s *BoltdbStore) PutTaskState(allocID string, taskName string, state *proto
 		return nil
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to put task state: %v", err)
 	}
 	return nil
 }

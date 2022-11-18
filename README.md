@@ -16,12 +16,19 @@ Deploy a `Geth` execution node for `goerli`:
 
 ```
 $ go run cmd/main.go deploy --type Geth --chain goerli
+c03b3642-4732-2794-8a53-57cf1972bdde
 ```
 
 Deploy a `Teku` beacon node for `goerli`:
 
 ```
 $ go run cmd/main.go deploy --type Teku --chain goerli
+```
+
+Update a node:
+
+```
+$ go run cmd/main.go deploy --type Geth --chain goerli metrics=false --alloc c03b3642-4732-2794-8a53-57cf1972bdde
 ```
 
 ## Catalog

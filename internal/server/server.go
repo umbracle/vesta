@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"strconv"
 	"time"
 
 	"cuelang.org/go/cue"
@@ -83,53 +85,61 @@ func (s *Server) Stop() {
 	s.grpcServer.Stop()
 }
 
-func (s *Server) Create(act *Action, input map[string]interface{}) (string, error) {
+func (s *Server) Create(allocId string, act *Action, input map[string]interface{}) (string, error) {
 	v := *s.runner.v
 
 	// get the reference for the selected node type
 	nodeCue := v.LookupPath(act.path)
 
+	// TODO: Typed encoding of input
+	if m, ok := input["metrics"]; ok {
+		mm, err := strconv.ParseBool(m.(string))
+		if err != nil {
+			panic(err)
+		}
+		input["metrics"] = mm
+	}
+
 	// apply the input
 	nodeCue = nodeCue.FillPath(cue.MakePath(cue.Str("input")), input)
 	if err := nodeCue.Err(); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to apply input: %v", err)
 	}
 
 	// decode the tasks
 	tasksCue := nodeCue.LookupPath(cue.MakePath(cue.Str("tasks")))
 	if err := tasksCue.Err(); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to decode tasks: %v", err)
 	}
 	rawTasks := map[string]*runtimeHandler{}
 	if err := tasksCue.Decode(&rawTasks); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to decode tasks2: %v", err)
 	}
-	deployableTasks := []*proto.Task{}
-	for _, x := range rawTasks {
-		deployableTasks = append(deployableTasks, x.ToProto())
+	deployableTasks := map[string]*proto.Task{}
+	for name, x := range rawTasks {
+		deployableTasks[name] = x.ToProto(name)
 	}
 
 	dep := &proto.Deployment{
-		Id:    uuid.Generate(),
 		Tasks: deployableTasks,
 	}
-	if err := s.state.InsertDeployment(dep); err != nil {
-		return "", err
-	}
 
+	if allocId == "" {
+		allocId = uuid.Generate()
+	}
 	alloc := &proto.Allocation{
-		Id:         uuid.Generate(),
+		Id:         allocId,
 		NodeId:     "local",
 		Deployment: dep,
 	}
 	if err := s.state.UpsertAllocation(alloc); err != nil {
 		return "", err
 	}
-	return dep.Id, nil
+	return allocId, nil
 }
 
 func (s *Server) Pull(nodeId string, ws memdb.WatchSet) ([]*proto.Allocation, error) {
-	tasks, err := s.state.AllocationList(nodeId, ws)
+	tasks, err := s.state.AllocationListByNodeId(nodeId, ws)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +170,7 @@ type runtimeHandler struct {
 	Mounts map[string]*Mount
 }
 
-func (r *runtimeHandler) ToProto() *proto.Task {
+func (r *runtimeHandler) ToProto(name string) *proto.Task {
 	dataFile := map[string]string{}
 	for _, m := range r.Mounts {
 		dataFile[m.Dest] = m.Contents
@@ -169,6 +179,7 @@ func (r *runtimeHandler) ToProto() *proto.Task {
 	c := &proto.Task{
 		Id:    uuid.Generate(),
 		Image: r.Image,
+		Name:  name,
 		Tag:   r.Tag,
 		Args:  r.Args,
 		Env:   r.Env,

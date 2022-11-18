@@ -39,9 +39,11 @@ type Config struct {
 	TaskStateUpdated func()
 }
 
-func NewTaskRunner(config *Config) (*TaskRunner, error) {
+func NewTaskRunner(config *Config) *TaskRunner {
+	logger := config.Logger.Named("task_runner").With("task-id", config.Task.Id).With("task-name", config.Task.Name)
+
 	tr := &TaskRunner{
-		logger:           config.Logger.Named("task_runner").With("task", config.Task.Id),
+		logger:           logger,
 		driver:           config.Driver,
 		alloc:            config.Allocation,
 		task:             config.Task,
@@ -52,7 +54,20 @@ func NewTaskRunner(config *Config) (*TaskRunner, error) {
 		status:           proto.NewTaskState(),
 		taskStateUpdated: config.TaskStateUpdated,
 	}
-	return tr, nil
+	return tr
+}
+
+func (t *TaskRunner) IsShuttingDown() bool {
+	select {
+	case <-t.killCh:
+		return true
+	default:
+		return false
+	}
+}
+
+func (t *TaskRunner) Task() *proto.Task {
+	return t.task
 }
 
 func (t *TaskRunner) Run() {
@@ -234,6 +249,10 @@ func (t *TaskRunner) appendEventLocked(ev *proto.TaskState_Event) {
 		t.status.Events = []*proto.TaskState_Event{}
 	}
 	t.status.Events = append(t.status.Events, ev)
+}
+
+func (t *TaskRunner) KillNoWait() {
+	close(t.killCh)
 }
 
 func (t *TaskRunner) Kill(ctx context.Context, ev *proto.TaskState_Event) error {

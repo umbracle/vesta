@@ -20,7 +20,38 @@ func NewStateStore() *StateStore {
 	return s
 }
 
-func (s *StateStore) AllocationList(nodeId string, ws memdb.WatchSet) ([]*proto.Allocation, error) {
+func (s *StateStore) GetAllocation(id string) (*proto.Allocation, error) {
+	txn := s.db.Txn(false)
+	defer txn.Abort()
+
+	item, err := txn.First("allocations", "id", id)
+	if err != nil {
+		return nil, err
+	}
+	if item == nil {
+		return nil, nil
+	}
+	return item.(*proto.Allocation), nil
+}
+
+func (s *StateStore) AllocationList(ws memdb.WatchSet) ([]*proto.Allocation, error) {
+	txn := s.db.Txn(false)
+	defer txn.Abort()
+
+	iter, err := txn.Get("allocations", "id")
+	if err != nil {
+		return nil, err
+	}
+	tasks := []*proto.Allocation{}
+	for obj := iter.Next(); obj != nil; obj = iter.Next() {
+		tasks = append(tasks, obj.(*proto.Allocation))
+	}
+
+	ws.Add(iter.WatchCh())
+	return tasks, nil
+}
+
+func (s *StateStore) AllocationListByNodeId(nodeId string, ws memdb.WatchSet) ([]*proto.Allocation, error) {
 	txn := s.db.Txn(false)
 	defer txn.Abort()
 
@@ -65,7 +96,7 @@ func (s *StateStore) GetDeployment(id string) (*proto.Deployment, error) {
 	txn := s.db.Txn(false)
 	defer txn.Abort()
 
-	item, err := txn.First("node", "id", id)
+	item, err := txn.First("deployments", "id", id)
 	if err != nil {
 		return nil, err
 	}

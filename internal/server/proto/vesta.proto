@@ -18,14 +18,14 @@ message DeploymentStatusRequest {
 }
 
 message DeploymentStatusResponse {
-    Deployment deployment = 1;
+    Allocation allocation = 1;
 }
 
 message ListDeploymentRequest {
 }
 
 message ListDeploymentResponse { 
-    repeated Deployment deployments = 1;
+    repeated Allocation allocations = 1;
 }
 
 message ApplyRequest {
@@ -34,6 +34,9 @@ message ApplyRequest {
 
     // input for the action
     bytes input = 2;
+
+    // name of the allocation to modify
+    string allocationId = 3;
 }
 
 message ApplyResponse {
@@ -65,8 +68,7 @@ message Node {
 
 // Deployment represents a node deployment
 message Deployment {
-    string id = 1;
-    repeated Task tasks = 2;
+    map<string,Task> tasks = 2;
 }
 
 // Task represents an single container process
@@ -77,7 +79,12 @@ message Task {
     map<string,string> env = 4;
     map<string,string> labels = 5;
     repeated string securityOpt = 7;
+
+    // unique id of the task
     string id = 8;
+
+    // logical name of the task in the allocation
+    string name = 10;
 
     // list of data access for this file
     map<string, string> data = 9;
@@ -94,6 +101,22 @@ message Allocation {
     string deploymentId = 4;
 
     Deployment deployment = 5;
+
+    Status status = 6;
+
+    DesiredStatus desiredStatus = 7;
+
+    enum Status {
+        Pending = 0;
+        Running = 1;
+        Complete = 2;
+        Failed = 3;
+    }
+
+    enum DesiredStatus {
+        Run = 0;
+        Stop = 1;
+    }
 }
 
 message TaskState {
