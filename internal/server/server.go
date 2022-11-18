@@ -93,11 +93,14 @@ func (s *Server) Create(allocId string, act *Action, input map[string]interface{
 
 	// TODO: Typed encoding of input
 	if m, ok := input["metrics"]; ok {
-		mm, err := strconv.ParseBool(m.(string))
-		if err != nil {
-			panic(err)
+		str, ok := m.(string)
+		if ok {
+			mm, err := strconv.ParseBool(str)
+			if err != nil {
+				return "", fmt.Errorf("failed to parse bool '%s': %v", str, err)
+			}
+			input["metrics"] = mm
 		}
-		input["metrics"] = mm
 	}
 
 	// apply the input
