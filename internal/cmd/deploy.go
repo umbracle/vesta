@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"strings"
 
 	"github.com/umbracle/vesta/internal/server/proto"
@@ -18,6 +19,8 @@ type DeployCommand struct {
 	typ string
 
 	allocId string
+
+	params string
 }
 
 // Help implements the cli.Command interface
@@ -38,6 +41,7 @@ func (c *DeployCommand) Run(args []string) int {
 	flags.StringVar(&c.chain, "chain", "", "")
 	flags.StringVar(&c.typ, "type", "", "")
 	flags.StringVar(&c.allocId, "alloc", "", "")
+	flags.StringVar(&c.params, "params", "", "")
 
 	if err := flags.Parse(args); err != nil {
 		c.UI.Error(err.Error())
@@ -47,11 +51,17 @@ func (c *DeployCommand) Run(args []string) int {
 	args = flags.Args()
 
 	spec := map[string]interface{}{}
-	if c.chain != "" {
-		spec["chain"] = c.chain
+	if c.params != "" {
+		data, err := ioutil.ReadFile(c.params)
+		if err != nil {
+			c.UI.Error(fmt.Sprintf("failed to read params file: %v", err))
+			return 1
+		}
+		if err := json.Unmarshal(data, &spec); err != nil {
+			c.UI.Error(fmt.Sprintf("failed to decode params '%s': %v", c.params, err))
+			return 1
+		}
 	}
-
-	fmt.Println(args)
 
 	for _, raw := range args {
 		parts := strings.SplitN(raw, "=", 2)
@@ -60,6 +70,9 @@ func (c *DeployCommand) Run(args []string) int {
 			return 1
 		}
 		spec[parts[0]] = parts[1]
+	}
+	if c.chain != "" {
+		spec["chain"] = c.chain
 	}
 
 	clt, err := c.Conn()
