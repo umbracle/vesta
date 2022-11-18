@@ -59,9 +59,6 @@ func (c *Client) initState() error {
 	if err != nil {
 		return err
 	}
-	if len(allocs) > 1 {
-		panic("bad for testing")
-	}
 	for _, alloc := range allocs {
 		id := alloc.Id
 

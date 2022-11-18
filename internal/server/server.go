@@ -116,7 +116,7 @@ func (s *Server) Create(allocId string, act *Action, input map[string]interface{
 	}
 	deployableTasks := map[string]*proto.Task{}
 	for name, x := range rawTasks {
-		deployableTasks[name] = x.ToProto()
+		deployableTasks[name] = x.ToProto(name)
 	}
 
 	dep := &proto.Deployment{
@@ -180,7 +180,7 @@ type runtimeHandler struct {
 	Mounts map[string]*Mount
 }
 
-func (r *runtimeHandler) ToProto() *proto.Task {
+func (r *runtimeHandler) ToProto(name string) *proto.Task {
 	dataFile := map[string]string{}
 	for _, m := range r.Mounts {
 		dataFile[m.Dest] = m.Contents
@@ -189,6 +189,7 @@ func (r *runtimeHandler) ToProto() *proto.Task {
 	c := &proto.Task{
 		Id:    uuid.Generate(),
 		Image: r.Image,
+		Name:  name,
 		Tag:   r.Tag,
 		Args:  r.Args,
 		Env:   r.Env,

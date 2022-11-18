@@ -80,7 +80,12 @@ message Task {
     map<string,string> env = 4;
     map<string,string> labels = 5;
     repeated string securityOpt = 7;
+
+    // unique id of the task
     string id = 8;
+
+    // logical name of the task in the allocation
+    string name = 10;
 
     // list of data access for this file
     map<string, string> data = 9;

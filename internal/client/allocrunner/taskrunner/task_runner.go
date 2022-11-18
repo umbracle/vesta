@@ -2,7 +2,6 @@ package taskrunner
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -40,9 +39,11 @@ type Config struct {
 	TaskStateUpdated func()
 }
 
-func NewTaskRunner(config *Config) (*TaskRunner, error) {
+func NewTaskRunner(config *Config) *TaskRunner {
+	logger := config.Logger.Named("task_runner").With("task-id", config.Task.Id).With("task-name", config.Task.Name)
+
 	tr := &TaskRunner{
-		logger:           config.Logger.Named("task_runner").With("task", config.Task.Id),
+		logger:           logger,
 		driver:           config.Driver,
 		alloc:            config.Allocation,
 		task:             config.Task,
@@ -53,7 +54,7 @@ func NewTaskRunner(config *Config) (*TaskRunner, error) {
 		status:           proto.NewTaskState(),
 		taskStateUpdated: config.TaskStateUpdated,
 	}
-	return tr, nil
+	return tr
 }
 
 func (t *TaskRunner) IsShuttingDown() bool {
@@ -70,8 +71,6 @@ func (t *TaskRunner) Task() *proto.Task {
 }
 
 func (t *TaskRunner) Run() {
-	fmt.Println("_TASK RUNNER STARTED_")
-	defer fmt.Println("_TASK RUNNER STOPPPPED ")
 	defer close(t.waitCh)
 	var result *proto.ExitResult
 
@@ -229,7 +228,6 @@ func (t *TaskRunner) UpdateStatus(status proto.TaskState_State, ev *proto.TaskSt
 	if err := t.state.PutTaskState(t.alloc.Id, t.task.Id, t.status); err != nil {
 		t.logger.Warn("failed to persist task state during update status", "err", err)
 	}
-	fmt.Println("Yikes!")
 	t.taskStateUpdated()
 }
 
@@ -243,7 +241,6 @@ func (t *TaskRunner) EmitEvent(ev *proto.TaskState_Event) {
 		t.logger.Warn("failed to persist task state during emit event", "err", err)
 	}
 
-	fmt.Println("Yikes 2!")
 	t.taskStateUpdated()
 }
 
@@ -255,15 +252,10 @@ func (t *TaskRunner) appendEventLocked(ev *proto.TaskState_Event) {
 }
 
 func (t *TaskRunner) KillNoWait() {
-	fmt.Println("????? KILL")
-	fmt.Println(t)
-	fmt.Println(t.killCh)
-
 	close(t.killCh)
 }
 
 func (t *TaskRunner) Kill(ctx context.Context, ev *proto.TaskState_Event) error {
-	fmt.Println("????? KILL")
 	close(t.killCh)
 
 	select {

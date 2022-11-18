@@ -61,9 +61,7 @@ func setupTaskRunner(t *testing.T, task *proto.Task) *TaskRunner {
 		TaskStateUpdated: func() {},
 	}
 
-	r, err := NewTaskRunner(cfg)
-	assert.NoError(t, err)
-
+	r := NewTaskRunner(cfg)
 	return r
 }
 
