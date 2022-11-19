@@ -9,8 +9,10 @@ Unlike other available options ([DappNode](https://www.dappnode.io/), [Sedge](ht
 Deploy the Vesta control plane and the local runner:
 
 ```
-$ go run cmd/main.go server
+$ go run cmd/main.go server [--volume /data]
 ```
+
+You can optionally set a volume directory (`--volume`) as the location to store persistent data.
 
 Deploy a `Geth` execution node for `goerli`:
 

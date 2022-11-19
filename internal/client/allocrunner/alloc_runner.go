@@ -1,6 +1,9 @@
 package allocrunner
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/umbracle/vesta/internal/client/allocrunner/driver"
 	"github.com/umbracle/vesta/internal/client/allocrunner/taskrunner"
@@ -18,6 +21,7 @@ type Config struct {
 	State        state.State
 	StateUpdater StateUpdater
 	Driver       driver.Driver
+	Volume       string
 }
 
 type AllocRunner struct {
@@ -29,6 +33,7 @@ type AllocRunner struct {
 	driver       driver.Driver
 	taskUpdated  chan struct{}
 	stateUpdater StateUpdater
+	volume       string
 }
 
 func NewAllocRunner(c *Config) (*AllocRunner, error) {
@@ -43,6 +48,7 @@ func NewAllocRunner(c *Config) (*AllocRunner, error) {
 		driver:       c.Driver,
 		taskUpdated:  make(chan struct{}),
 		stateUpdater: c.StateUpdater,
+		volume:       c.Volume,
 	}
 	return runner, nil
 }
@@ -124,6 +130,17 @@ func (a *AllocRunner) newTaskRunner(task *proto.Task) *taskrunner.TaskRunner {
 		State:            a.config.State,
 		TaskStateUpdated: a.TaskStateUpdated,
 	}
+
+	if a.volume != "" {
+		// create an alloc dir
+		taskAllocDir := filepath.Join(a.volume, a.alloc.Id, task.Name)
+		if err := os.MkdirAll(taskAllocDir, 0755); err != nil {
+			// TODO
+			panic(err)
+		}
+		config.AllocDir = taskAllocDir
+	}
+
 	return taskrunner.NewTaskRunner(config)
 }
 

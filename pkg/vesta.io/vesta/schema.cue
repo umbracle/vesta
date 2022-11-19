@@ -16,8 +16,13 @@ package vesta
 	}
 }
 
+#Volume: {
+	path: string
+}
+
 #Runtime: {
 	mounts: [name=string]: #Mount
+	volumes: [name=string]: #Volume
 	ports: [name=string]:  #Port
 
 	image: string
@@ -71,6 +76,12 @@ Geth: {
 				}
 			}
 
+			volumes: {
+				data: {
+					path: "/data"
+				}
+			}
+
 			mounts: {
 				"jwt": {
 					dest:     "/var/lib/jwtsecret/jwt.hex"
@@ -80,6 +91,8 @@ Geth: {
 			}
 
 			args: [
+				"--datadir", "/data",
+				
 				if input.chain == "mainnet" {
 					"--mainnet"
 				},

@@ -169,8 +169,11 @@ type runtimeHandler struct {
 		Port uint64
 		Type string
 	}
-	Env    map[string]string
-	Mounts map[string]*Mount
+	Env     map[string]string
+	Mounts  map[string]*Mount
+	Volumes map[string]struct {
+		Path string
+	}
 }
 
 func (r *runtimeHandler) ToProto(name string) *proto.Task {
@@ -180,13 +183,20 @@ func (r *runtimeHandler) ToProto(name string) *proto.Task {
 	}
 
 	c := &proto.Task{
-		Id:    uuid.Generate(),
-		Image: r.Image,
-		Name:  name,
-		Tag:   r.Tag,
-		Args:  r.Args,
-		Env:   r.Env,
-		Data:  dataFile,
+		Id:      uuid.Generate(),
+		Image:   r.Image,
+		Name:    name,
+		Tag:     r.Tag,
+		Args:    r.Args,
+		Env:     r.Env,
+		Data:    dataFile,
+		Volumes: map[string]*proto.Task_Volume{},
+	}
+
+	for name, vol := range r.Volumes {
+		c.Volumes[name] = &proto.Task_Volume{
+			Path: vol.Path,
+		}
 	}
 	return c
 }

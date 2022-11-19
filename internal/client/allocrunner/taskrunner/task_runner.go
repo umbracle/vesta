@@ -19,6 +19,7 @@ type TaskRunner struct {
 	waitCh           chan struct{}
 	alloc            *proto.Allocation
 	task             *proto.Task
+	allocDir         string
 	shutdownCh       chan struct{}
 	killCh           chan struct{}
 	state            state.State
@@ -34,6 +35,7 @@ type Config struct {
 	Logger           hclog.Logger
 	Driver           driver.Driver
 	Allocation       *proto.Allocation
+	AllocDir         string
 	Task             *proto.Task
 	State            state.State
 	TaskStateUpdated func()
@@ -47,6 +49,7 @@ func NewTaskRunner(config *Config) *TaskRunner {
 		driver:           config.Driver,
 		alloc:            config.Allocation,
 		task:             config.Task,
+		allocDir:         config.AllocDir,
 		waitCh:           make(chan struct{}),
 		shutdownCh:       make(chan struct{}),
 		killCh:           make(chan struct{}),
@@ -165,7 +168,7 @@ func (t *TaskRunner) runDriver() error {
 		return nil
 	}
 
-	handle, err := t.driver.StartTask(t.task)
+	handle, err := t.driver.StartTask(t.task, t.allocDir)
 	if err != nil {
 		return err
 	}

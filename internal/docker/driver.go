@@ -122,14 +122,14 @@ func (d *Docker) RecoverTask(taskID string, task *proto.TaskHandle) error {
 	return nil
 }
 
-func (d *Docker) StartTask(task *proto.Task) (*proto.TaskHandle, error) {
+func (d *Docker) StartTask(task *proto.Task, allocDir string) (*proto.TaskHandle, error) {
 	d.logger.Info("Create task", "image", task.Image, "tag", task.Tag)
 
 	if err := d.createImage(task.Image + ":" + task.Tag); err != nil {
 		return nil, err
 	}
 
-	opts, err := d.createContainerOptions(task)
+	opts, err := d.createContainerOptions(task, allocDir)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ type createContainerOptions struct {
 	network *network.NetworkingConfig
 }
 
-func (d *Docker) createContainerOptions(task *proto.Task) (*createContainerOptions, error) {
+func (d *Docker) createContainerOptions(task *proto.Task, allocDir string) (*createContainerOptions, error) {
 	// build any mount path
 	mountMap := map[string]string{}
 	for _, mount := range []string{"/var"} {
@@ -229,6 +229,17 @@ func (d *Docker) createContainerOptions(task *proto.Task) (*createContainerOptio
 	}
 	for dest, src := range mountMap {
 		hostConfig.Binds = append(hostConfig.Binds, src+":"+dest)
+	}
+
+	if allocDir != "" {
+		// for each volume, create an entry in alloc dir and mount it
+		for name, vol := range task.Volumes {
+			path := filepath.Join(allocDir, name)
+			if err := os.Mkdir(path, 0755); err != nil {
+				return nil, fmt.Errorf("failed to create volume dir '%s': %v", name, vol)
+			}
+			hostConfig.Binds = append(hostConfig.Binds, path+":"+vol.Path)
+		}
 	}
 
 	opts := &createContainerOptions{
