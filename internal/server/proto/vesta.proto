@@ -88,6 +88,12 @@ message Task {
 
     // list of data access for this file
     map<string, string> data = 9;
+
+    map<string, Volume> volumes = 11;
+
+    message Volume {
+        string path = 1;
+    }
 }
 
 // Allocation represents an allocation of a deployment

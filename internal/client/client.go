@@ -14,6 +14,11 @@ import (
 type Config struct {
 	NodeID       string
 	ControlPlane ControlPlane
+	Volume       *HostVolume
+}
+
+type HostVolume struct {
+	Path string
 }
 
 type Client struct {
@@ -69,6 +74,10 @@ func (c *Client) initState() error {
 			StateUpdater: c,
 			Driver:       c.driver,
 		}
+		if c.config.Volume != nil {
+			config.Volume = c.config.Volume.Path
+		}
+
 		handle, err := allocrunner.NewAllocRunner(config)
 		if err != nil {
 			panic(err)
@@ -100,6 +109,9 @@ func (c *Client) handle() {
 				State:        c.state,
 				StateUpdater: c,
 				Driver:       c.driver,
+			}
+			if c.config.Volume != nil {
+				config.Volume = c.config.Volume.Path
 			}
 			var err error
 			if handle, err = allocrunner.NewAllocRunner(config); err != nil {

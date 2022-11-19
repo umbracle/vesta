@@ -8,7 +8,7 @@ import (
 )
 
 type Driver interface {
-	StartTask(task *proto.Task) (*proto.TaskHandle, error)
+	StartTask(task *proto.Task, allocDir string) (*proto.TaskHandle, error)
 	RecoverTask(taskID string, task *proto.TaskHandle) error
 	WaitTask(ctx context.Context, taskID string) (<-chan *proto.ExitResult, error)
 	StopTask(taskID string, timeout time.Duration) error

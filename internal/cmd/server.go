@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/mitchellh/cli"
+	flag "github.com/spf13/pflag"
 	"github.com/umbracle/vesta/internal/client"
 	"github.com/umbracle/vesta/internal/server"
 )
@@ -18,6 +19,9 @@ type ServerCommand struct {
 	UI     cli.Ui
 	server *server.Server
 	client *client.Client
+
+	logLevel string
+	volume   string
 }
 
 // Help implements the cli.Command interface
@@ -34,10 +38,18 @@ func (c *ServerCommand) Synopsis() string {
 
 // Run implements the cli.Command interface
 func (c *ServerCommand) Run(args []string) int {
+	flags := flag.NewFlagSet("server", flag.ContinueOnError)
+	flags.StringVar(&c.logLevel, "log-level", "info", "")
+	flags.StringVar(&c.volume, "volume", "", "")
+
+	if err := flags.Parse(args); err != nil {
+		c.UI.Error(err.Error())
+		return 1
+	}
 
 	logger := hclog.New(&hclog.LoggerOptions{
 		Name:  "vesta",
-		Level: hclog.LevelFromString("info"),
+		Level: hclog.LevelFromString(c.logLevel),
 	})
 
 	srv, err := server.NewServer(logger, server.DefaultConfig())
@@ -51,6 +63,14 @@ func (c *ServerCommand) Run(args []string) int {
 		ControlPlane: srv,
 		NodeID:       "local",
 	}
+	if c.volume == "" {
+		logger.Warn("no volume is set")
+	} else {
+		cfg.Volume = &client.HostVolume{
+			Path: c.volume,
+		}
+	}
+
 	client, err := client.NewClient(logger, cfg)
 	if err != nil {
 		c.UI.Output(fmt.Sprintf("failed to start agent: %v", err))

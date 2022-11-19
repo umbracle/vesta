@@ -2,11 +2,14 @@ package docker
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/uuid"
 )
@@ -19,7 +22,7 @@ func TestDriver_CreateContainerOptions_Labels(t *testing.T) {
 			"some": "label",
 		},
 	}
-	opts, err := d.createContainerOptions(tt)
+	opts, err := d.createContainerOptions(tt, "")
 	assert.NoError(t, err)
 
 	assert.Equal(t, opts.config.Labels["some"], "label")
@@ -34,7 +37,7 @@ func TestDriver_CreateContainerOptions_Env(t *testing.T) {
 			"some": "label",
 		},
 	}
-	opts, err := d.createContainerOptions(tt)
+	opts, err := d.createContainerOptions(tt, "")
 	assert.NoError(t, err)
 
 	assert.Equal(t, opts.config.Env, []string{"some=label"})
@@ -47,7 +50,7 @@ func TestDriver_CreateContainerOptions_Image(t *testing.T) {
 		Image: "a",
 		Tag:   "b",
 	}
-	opts, err := d.createContainerOptions(tt)
+	opts, err := d.createContainerOptions(tt, "")
 	assert.NoError(t, err)
 
 	assert.Equal(t, opts.config.Image, "a:b")
@@ -61,7 +64,7 @@ func TestDriver_CreateContainerOptions_DataMount(t *testing.T) {
 			"/var/file3.txt": "c",
 		},
 	}
-	opts, err := d.createContainerOptions(tt)
+	opts, err := d.createContainerOptions(tt, "")
 	assert.NoError(t, err)
 
 	assert.Equal(t, strings.Split(opts.host.Binds[0], ":")[1], "/var")
@@ -76,7 +79,7 @@ func TestDriver_Start_Wait(t *testing.T) {
 		Tag:   "1.29.3",
 		Args:  []string{"nc", "-l", "-p", "3000", "127.0.0.1"},
 	}
-	_, err := d.StartTask(tt)
+	_, err := d.StartTask(tt, "")
 	assert.NoError(t, err)
 
 	defer d.DestroyTask(tt.Id, true)
@@ -98,7 +101,7 @@ func TestDriver_Start_WaitFinished(t *testing.T) {
 		Tag:   "1.29.3",
 		Args:  []string{"echo", "hello"},
 	}
-	_, err := d.StartTask(tt)
+	_, err := d.StartTask(tt, "")
 	assert.NoError(t, err)
 
 	defer d.DestroyTask(tt.Id, true)
@@ -121,7 +124,7 @@ func TestDriver_Start_Kill_Wait(t *testing.T) {
 		Tag:   "1.29.3",
 		Args:  []string{"echo", "hello"},
 	}
-	_, err := d.StartTask(tt)
+	_, err := d.StartTask(tt, "")
 	assert.NoError(t, err)
 
 	defer d.DestroyTask(tt.Id, true)
@@ -148,7 +151,7 @@ func TestDriver_Start_Kill_Timeout(t *testing.T) {
 		Tag:   "1.29.3",
 		Args:  []string{"sleep", "10"},
 	}
-	_, err := d.StartTask(tt)
+	_, err := d.StartTask(tt, "")
 	assert.NoError(t, err)
 
 	defer d.DestroyTask(tt.Id, true)
@@ -164,4 +167,29 @@ func TestDriver_Start_Kill_Timeout(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timeout")
 	}
+}
+
+func TestDriver_Start_WithVolume(t *testing.T) {
+	d, _ := NewDockerDriver(nil)
+
+	tt := &proto.Task{
+		Id:    uuid.Generate(),
+		Image: "busybox",
+		Tag:   "1.29.3",
+		Args:  []string{"touch", "/data/file"},
+		Volumes: map[string]*proto.Task_Volume{
+			"data": {Path: "/data"},
+		},
+	}
+
+	allocDir, err := os.MkdirTemp("/tmp", "driver-")
+	require.NoError(t, err)
+
+	_, err = d.StartTask(tt, allocDir)
+	assert.NoError(t, err)
+
+	defer d.StopTask(tt.Id, 0)
+
+	_, err = os.Stat(filepath.Join(allocDir, "data", "file"))
+	require.NoError(t, err)
 }
