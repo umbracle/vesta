@@ -147,7 +147,9 @@ func (c *Client) handle() {
 }
 
 func (c *Client) AllocStateUpdated(a *proto.Allocation) {
-	c.config.ControlPlane.UpdateAlloc(a)
+	if err := c.config.ControlPlane.UpdateAlloc(a); err != nil {
+		c.logger.Error("failed to update alloc", "id", a.Id, "err", err)
+	}
 }
 
 func (c *Client) Stop() {

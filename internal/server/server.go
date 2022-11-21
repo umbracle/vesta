@@ -150,6 +150,10 @@ func (s *Server) Pull(nodeId string, ws memdb.WatchSet) ([]*proto.Allocation, er
 }
 
 func (s *Server) UpdateAlloc(alloc *proto.Allocation) error {
+	fmt.Println("-- upsert alloc --")
+	fmt.Println(alloc)
+	fmt.Println(alloc.TaskStates)
+
 	if err := s.state.UpsertAllocation(alloc); err != nil {
 		return err
 	}
