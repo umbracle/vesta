@@ -33,6 +33,12 @@ Update a node:
 $ go run cmd/main.go deploy --type Geth --chain goerli metrics=false --alloc c03b3642-4732-2794-8a53-57cf1972bdde
 ```
 
+Destroy a node:
+
+```
+$ go run cmd/main.go destroy --alloc c03b3642-4732-2794-8a53-57cf1972bdde
+```
+
 ## Catalog
 
 The list of all the built-in deployments available can be found [here](https://github.com/umbracle/vesta/blob/main/pkg/vesta.io/vesta/schema.cue).

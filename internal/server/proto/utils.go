@@ -35,9 +35,21 @@ func (t *TaskState_Event) SetSignal(s int64) *TaskState_Event {
 	return t
 }
 
+func (t *TaskState_Event) FailsTask() bool {
+	_, ok := t.Details["fails_task"]
+	return ok
+}
+
+func (t *TaskState_Event) SetFailsTask() *TaskState_Event {
+	t.Details["fails_task"] = "true"
+	return t
+}
+
 const (
-	TaskStarted    = "Started"
-	TaskTerminated = "Terminated"
+	TaskStarted       = "Started"
+	TaskTerminated    = "Terminated"
+	TaskRestarting    = "Restarting"
+	TaskNotRestarting = "Not-restarting"
 )
 
 func (a *Allocation) Copy() *Allocation {

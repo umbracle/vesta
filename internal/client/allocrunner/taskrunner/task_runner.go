@@ -29,6 +29,7 @@ type TaskRunner struct {
 	statusLock       sync.Mutex
 	status           *proto.TaskState
 	handle           *proto.TaskHandle
+	restartCount     uint64
 }
 
 type Config struct {
@@ -193,10 +194,21 @@ func (t *TaskRunner) TaskState() *proto.TaskState {
 	return t.status
 }
 
+var defDelay = time.Duration(2 * time.Second)
+
 func (t *TaskRunner) shouldRestart() (bool, time.Duration) {
 	if t.killed {
-		return false, time.Duration(0)
+		return false, 0
 	}
+
+	t.restartCount++
+	if t.restartCount > 5 {
+		// too many restarts, consider this task dead and do not realocate
+		t.UpdateStatus(proto.TaskState_Dead, proto.NewTaskEvent(proto.TaskNotRestarting).SetFailsTask())
+		return false, 0
+	}
+
+	t.UpdateStatus(proto.TaskState_Pending, proto.NewTaskEvent(proto.TaskRestarting))
 	return true, time.Duration(2 * time.Second)
 }
 
@@ -225,6 +237,9 @@ func (t *TaskRunner) UpdateStatus(status proto.TaskState_State, ev *proto.TaskSt
 	t.status.State = status
 
 	if ev != nil {
+		if ev.FailsTask() {
+			t.status.Failed = true
+		}
 		t.appendEventLocked(ev)
 	}
 
