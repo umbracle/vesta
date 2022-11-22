@@ -94,10 +94,19 @@ func (a *allocReconciler) Compute() *allocResults {
 	// add tasks
 	for name, task := range depTasks {
 		_, ok := a.tasks[name]
-		if !ok || a.tasksState[name].State == proto.TaskState_Dead {
-			// create the task if not found or dead
-			result.newTasks[name] = task
+		if ok {
+			// if the task already exists, we only re-create it if
+			// the task is fully dead and it did not fail
+			taskState := a.tasksState[name]
+			if taskState.State != proto.TaskState_Dead {
+				continue
+			}
+			if taskState.Failed {
+				continue
+			}
 		}
+
+		result.newTasks[name] = task
 	}
 
 	return result
