@@ -49,6 +49,19 @@ func (a *allocReconciler) Compute() *allocResults {
 		newTasks:    map[string]*proto.Task{},
 	}
 
+	// check if the whole deployment has to be destroyed
+	if a.alloc.DesiredStatus == proto.Allocation_Stop {
+		for name, task := range a.tasks {
+			state := a.tasksState[name]
+
+			_, isPendingDelete := a.pendingDelete[name]
+			if state.State != proto.TaskState_Dead && !isPendingDelete {
+				result.removeTasks = append(result.removeTasks, task.Name)
+			}
+		}
+		return result
+	}
+
 	depTasks := map[string]*proto.Task{}
 	for name, task := range a.alloc.Deployment.Tasks {
 		depTasks[name] = task

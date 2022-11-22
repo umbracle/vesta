@@ -42,6 +42,11 @@ func Commands() map[string]cli.CommandFactory {
 				Meta: meta,
 			}, nil
 		},
+		"destroy": func() (cli.Command, error) {
+			return &DestroyCommand{
+				Meta: meta,
+			}, nil
+		},
 		"deploy": func() (cli.Command, error) {
 			return &DeployCommand{
 				Meta: meta,
