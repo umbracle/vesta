@@ -132,7 +132,7 @@ Teku: {
 				if input.chain == "goerli" {
 					"goerli"
 				},
-				"--ee-endpointxx",
+				"--ee-endpoint",
 				"http://127.0.0.1:8551",
 				"--ee-jwt-secret-file",
 				"/var/lib/jwtsecret/jwt.hex",
