@@ -127,17 +127,24 @@ func (s *Server) Create(allocId string, act *Action, input map[string]interface{
 		Tasks: deployableTasks,
 	}
 
-	if allocId == "" {
+	if allocId != "" {
+		// update the deployment
+		if err := s.state.UpdateAllocationDeployment(allocId, dep); err != nil {
+			return "", err
+		}
+	} else {
 		allocId = uuid.Generate()
+
+		alloc := &proto.Allocation{
+			Id:         allocId,
+			NodeId:     "local",
+			Deployment: dep,
+		}
+		if err := s.state.UpsertAllocation(alloc); err != nil {
+			return "", err
+		}
 	}
-	alloc := &proto.Allocation{
-		Id:         allocId,
-		NodeId:     "local",
-		Deployment: dep,
-	}
-	if err := s.state.UpsertAllocation(alloc); err != nil {
-		return "", err
-	}
+
 	return allocId, nil
 }
 
@@ -150,10 +157,6 @@ func (s *Server) Pull(nodeId string, ws memdb.WatchSet) ([]*proto.Allocation, er
 }
 
 func (s *Server) UpdateAlloc(alloc *proto.Allocation) error {
-	fmt.Println("-- upsert alloc --")
-	fmt.Println(alloc)
-	fmt.Println(alloc.TaskStates)
-
 	if err := s.state.UpsertAllocation(alloc); err != nil {
 		return err
 	}

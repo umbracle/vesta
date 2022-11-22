@@ -171,6 +171,9 @@ func (a *AllocRunner) Restore() error {
 }
 
 func (a *AllocRunner) Update(alloc *proto.Allocation) {
+	if alloc.Sequence <= a.alloc.Sequence {
+		return
+	}
 	a.logger.Info("alloc updated")
 	a.alloc = alloc
 	a.TaskStateUpdated()
