@@ -70,6 +70,31 @@ func (s *StateStore) AllocationListByNodeId(nodeId string, ws memdb.WatchSet) ([
 	return tasks, nil
 }
 
+func (s *StateStore) DestroyAllocation(id string) error {
+	txn := s.db.Txn(true)
+	defer txn.Abort()
+
+	// get the allocation
+	item, err := txn.First("allocations", "id", id)
+	if err != nil {
+		return err
+	}
+	if item == nil {
+		return fmt.Errorf("allocation not found")
+	}
+
+	alloc := item.(*proto.Allocation).Copy()
+	alloc.Sequence++
+	alloc.DesiredStatus = proto.Allocation_Stop
+
+	if err := txn.Insert("allocations", alloc); err != nil {
+		return err
+	}
+
+	txn.Commit()
+	return nil
+}
+
 func (s *StateStore) UpdateAllocationDeployment(id string, dep *proto.Deployment) error {
 	txn := s.db.Txn(true)
 	defer txn.Abort()

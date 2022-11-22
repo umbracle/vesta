@@ -8,9 +8,17 @@ option go_package = "/internal/server/proto";
 
 service VestaService {
     rpc Apply(ApplyRequest) returns (ApplyResponse);
-
+    rpc Destroy(DestroyRequest) returns (DestroyResponse);
     rpc DeploymentList(ListDeploymentRequest) returns (ListDeploymentResponse);
     rpc DeploymentStatus(DeploymentStatusRequest) returns (DeploymentStatusResponse);
+}
+
+message DestroyRequest {
+    string id = 1;
+}
+
+message DestroyResponse {
+
 }
 
 message DeploymentStatusRequest {

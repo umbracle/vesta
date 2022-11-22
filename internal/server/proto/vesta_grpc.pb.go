@@ -19,6 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type VestaServiceClient interface {
 	Apply(ctx context.Context, in *ApplyRequest, opts ...grpc.CallOption) (*ApplyResponse, error)
+	Destroy(ctx context.Context, in *DestroyRequest, opts ...grpc.CallOption) (*DestroyResponse, error)
 	DeploymentList(ctx context.Context, in *ListDeploymentRequest, opts ...grpc.CallOption) (*ListDeploymentResponse, error)
 	DeploymentStatus(ctx context.Context, in *DeploymentStatusRequest, opts ...grpc.CallOption) (*DeploymentStatusResponse, error)
 }
@@ -34,6 +35,15 @@ func NewVestaServiceClient(cc grpc.ClientConnInterface) VestaServiceClient {
 func (c *vestaServiceClient) Apply(ctx context.Context, in *ApplyRequest, opts ...grpc.CallOption) (*ApplyResponse, error) {
 	out := new(ApplyResponse)
 	err := c.cc.Invoke(ctx, "/proto.VestaService/Apply", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vestaServiceClient) Destroy(ctx context.Context, in *DestroyRequest, opts ...grpc.CallOption) (*DestroyResponse, error) {
+	out := new(DestroyResponse)
+	err := c.cc.Invoke(ctx, "/proto.VestaService/Destroy", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +73,7 @@ func (c *vestaServiceClient) DeploymentStatus(ctx context.Context, in *Deploymen
 // for forward compatibility
 type VestaServiceServer interface {
 	Apply(context.Context, *ApplyRequest) (*ApplyResponse, error)
+	Destroy(context.Context, *DestroyRequest) (*DestroyResponse, error)
 	DeploymentList(context.Context, *ListDeploymentRequest) (*ListDeploymentResponse, error)
 	DeploymentStatus(context.Context, *DeploymentStatusRequest) (*DeploymentStatusResponse, error)
 	mustEmbedUnimplementedVestaServiceServer()
@@ -74,6 +85,9 @@ type UnimplementedVestaServiceServer struct {
 
 func (UnimplementedVestaServiceServer) Apply(context.Context, *ApplyRequest) (*ApplyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Apply not implemented")
+}
+func (UnimplementedVestaServiceServer) Destroy(context.Context, *DestroyRequest) (*DestroyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Destroy not implemented")
 }
 func (UnimplementedVestaServiceServer) DeploymentList(context.Context, *ListDeploymentRequest) (*ListDeploymentResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeploymentList not implemented")
@@ -108,6 +122,24 @@ func _VestaService_Apply_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(VestaServiceServer).Apply(ctx, req.(*ApplyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VestaService_Destroy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DestroyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VestaServiceServer).Destroy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.VestaService/Destroy",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VestaServiceServer).Destroy(ctx, req.(*DestroyRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -158,6 +190,10 @@ var VestaService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Apply",
 			Handler:    _VestaService_Apply_Handler,
+		},
+		{
+			MethodName: "Destroy",
+			Handler:    _VestaService_Destroy_Handler,
 		},
 		{
 			MethodName: "DeploymentList",

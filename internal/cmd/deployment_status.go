@@ -63,8 +63,6 @@ func formatNodeStatus(r *proto.DeploymentStatusResponse) string {
 	taskRows := make([]string, len(node.Deployment.Tasks)+1)
 	taskRows[0] = "ID|Name|Image|Tag|State"
 
-	fmt.Println(node.TaskStates)
-
 	i := 1
 	for _, d := range node.Deployment.Tasks {
 		var state string

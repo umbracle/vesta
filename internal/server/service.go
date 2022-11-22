@@ -60,3 +60,10 @@ func (s *service) DeploymentStatus(ctx context.Context, req *proto.DeploymentSta
 	}
 	return resp, nil
 }
+
+func (s *service) Destroy(ctx context.Context, req *proto.DestroyRequest) (*proto.DestroyResponse, error) {
+	if err := s.srv.state.DestroyAllocation(req.Id); err != nil {
+		return nil, err
+	}
+	return &proto.DestroyResponse{}, nil
+}
