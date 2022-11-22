@@ -127,17 +127,24 @@ func (s *Server) Create(allocId string, act *Action, input map[string]interface{
 		Tasks: deployableTasks,
 	}
 
-	if allocId == "" {
+	if allocId != "" {
+		// update the deployment
+		if err := s.state.UpdateAllocationDeployment(allocId, dep); err != nil {
+			return "", err
+		}
+	} else {
 		allocId = uuid.Generate()
+
+		alloc := &proto.Allocation{
+			Id:         allocId,
+			NodeId:     "local",
+			Deployment: dep,
+		}
+		if err := s.state.UpsertAllocation(alloc); err != nil {
+			return "", err
+		}
 	}
-	alloc := &proto.Allocation{
-		Id:         allocId,
-		NodeId:     "local",
-		Deployment: dep,
-	}
-	if err := s.state.UpsertAllocation(alloc); err != nil {
-		return "", err
-	}
+
 	return allocId, nil
 }
 

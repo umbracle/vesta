@@ -103,10 +103,8 @@ func (a *AllocRunner) Run() {
 		}
 
 		// Notify about the update on the allocation
-		calloc := &proto.Allocation{
-			Id:         a.alloc.Id,
-			TaskStates: states,
-		}
+		calloc := a.alloc.Copy()
+		calloc.TaskStates = states
 
 		// TODO: Measure also pending tasks to be created
 		calloc.Status = getClientStatus(states)
@@ -173,6 +171,9 @@ func (a *AllocRunner) Restore() error {
 }
 
 func (a *AllocRunner) Update(alloc *proto.Allocation) {
+	if alloc.Sequence <= a.alloc.Sequence {
+		return
+	}
 	a.logger.Info("alloc updated")
 	a.alloc = alloc
 	a.TaskStateUpdated()

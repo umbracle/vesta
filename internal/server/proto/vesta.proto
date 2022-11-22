@@ -112,6 +112,8 @@ message Allocation {
 
     DesiredStatus desiredStatus = 7;
 
+    int64 sequence = 8;
+
     enum Status {
         Pending = 0;
         Running = 1;

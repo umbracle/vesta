@@ -3,6 +3,7 @@ package proto
 import (
 	"fmt"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -38,3 +39,7 @@ const (
 	TaskStarted    = "Started"
 	TaskTerminated = "Terminated"
 )
+
+func (a *Allocation) Copy() *Allocation {
+	return proto.Clone(a).(*Allocation)
+}
