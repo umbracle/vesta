@@ -109,6 +109,57 @@ Geth: {
 	}
 }
 
+Nethermind: {
+	#Node
+
+	input: {
+	}
+
+	tasks: {
+		node: #Runtime & {
+			image: "nethermind/nethermind"
+			tag:   "1.14.0"
+
+			ports: {
+				"engine": {
+					port: 8551
+				}
+			}
+
+			mounts: {
+				"jwt": {
+					dest:     "/var/lib/jwtsecret/jwt.hex"
+					type:     "string"
+					contents: _jwt_token
+				}
+			}
+
+			volumes: {
+				data: {
+					path: "/data"
+				}
+			}
+
+			args: [
+				"--config",
+				if input.chain == "mainnet" {
+					"mainnet"
+				},
+				if input.chain == "goerli" {
+					"goerli"
+				},
+				"--baseDbPath", "/data",
+				"--Sync.SnapSync",
+				"true",
+				"--JsonRpc.JwtSecretFile",
+				"/var/lib/jwtsecret/jwt.hex",
+				"--Metrics.Enabled",
+				"true",
+			]
+		}
+	}
+}
+
 Teku: {
 	#Node
 
@@ -127,11 +178,18 @@ Teku: {
 				}
 			}
 
+			volumes: {
+				data: {
+					path: "/data"
+				}
+			}
+
 			args: [
 				"--network",
 				if input.chain == "goerli" {
 					"goerli"
 				},
+				"--data-base-path", "/data",
 				"--ee-endpoint",
 				"http://127.0.0.1:8551",
 				"--ee-jwt-secret-file",
