@@ -194,8 +194,6 @@ func (t *TaskRunner) TaskState() *proto.TaskState {
 	return t.status
 }
 
-var defDelay = time.Duration(2 * time.Second)
-
 func (t *TaskRunner) shouldRestart() (bool, time.Duration) {
 	if t.killed {
 		return false, 0
