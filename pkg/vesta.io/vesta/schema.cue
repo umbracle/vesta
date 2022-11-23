@@ -101,8 +101,11 @@ Geth: {
 				},
 				"--http", "--http.port", "8545",
 
+				"--metrics.addr", "127.0.0.1",
+
 				if input.metrics {
-					"--metrics"
+					"--metrics",
+					
 				}
 			]
 		}

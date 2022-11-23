@@ -1,0 +1,23 @@
+{
+    "sources": {
+        "id1": {
+            "type": "prometheus_scrape",
+            "endpoints": [
+                "http://localhost:6060/debug/metrics/prometheus"
+            ],
+            "scrape_interval_secs": 15,
+            "instance_tag": "instance",
+            "endpoint_tag": "endpoint"
+        }
+    },
+    "sinks": {
+        "my_sink_id": {
+            "type": "prometheus_exporter",
+            "inputs": [
+                "*"
+            ],
+            "address": "0.0.0.0:9598",
+            "default_namespace": "service"
+        }
+    }
+}

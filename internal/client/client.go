@@ -1,10 +1,17 @@
 package client
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-memdb"
+	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/expfmt"
 	"github.com/umbracle/vesta/internal/client/allocrunner"
 	"github.com/umbracle/vesta/internal/client/state"
 	"github.com/umbracle/vesta/internal/docker"
@@ -46,6 +53,8 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 	if err := c.initState(); err != nil {
 		return nil, err
 	}
+
+	go c.metricsLoop()
 
 	go c.handle()
 	c.logger.Info("agent started")
@@ -154,4 +163,53 @@ func (c *Client) AllocStateUpdated(a *proto.Allocation) {
 
 func (c *Client) Stop() {
 	close(c.closeCh)
+}
+
+func stringPtr(s string) *string {
+	return &s
+}
+
+func (c *Client) metricsLoop() {
+	for {
+		res, err := http.Get("http://localhost:6060/debug/metrics/prometheus")
+		if err != nil {
+			c.logger.Error("failed to get url")
+		} else {
+			/*
+				data, err := io.ReadAll(res.Body)
+				if err != nil {
+					panic(err)
+				}
+			*/
+			metrics, err := getMetricFamilies(res.Body)
+			if err != nil {
+				panic(err)
+			}
+
+			out := new(bytes.Buffer)
+			encoder := expfmt.NewEncoder(out, expfmt.FmtText)
+			for _, mf := range metrics {
+				for _, m := range mf.Metric {
+					m.Label = append(m.Label, &dto.LabelPair{Name: stringPtr("host"), Value: stringPtr("abcd")})
+				}
+				encoder.Encode(mf)
+			}
+			fmt.Println(out.String())
+		}
+
+		select {
+		case <-c.closeCh:
+			return
+		case <-time.After(5 * time.Second):
+		}
+	}
+}
+
+func getMetricFamilies(sourceData io.Reader) (map[string]*dto.MetricFamily, error) {
+	parser := expfmt.TextParser{}
+	metricFamiles, err := parser.TextToMetricFamilies(sourceData)
+	if err != nil {
+		return nil, err
+	}
+	return metricFamiles, nil
 }
