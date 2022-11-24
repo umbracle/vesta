@@ -11,6 +11,7 @@ require (
 	github.com/hashicorp/go-memdb v1.3.3
 	github.com/mitchellh/cli v1.1.4
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db
+	github.com/prometheus/client_golang v1.12.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.37.0
 	github.com/ryanuber/columnize v2.1.2+incompatible
@@ -27,7 +28,9 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.0 // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/armon/go-radix v0.0.0-20180808171621-7fddfc383310 // indirect
+	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.0 // indirect
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cockroachdb/apd/v2 v2.0.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/distribution v2.8.1+incompatible // indirect
@@ -60,6 +63,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/posener/complete v1.1.1 // indirect
+	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/protocolbuffers/txtpbfmt v0.0.0-20201118171849-f6a6b3f636fc // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect

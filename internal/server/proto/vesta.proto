@@ -99,8 +99,15 @@ message Task {
 
     map<string, Volume> volumes = 11;
 
+    Telemetry telemetry = 12;
+
     message Volume {
         string path = 1;
+    }
+
+    message Telemetry {
+        uint64 port = 1;
+        string path = 2;
     }
 }
 

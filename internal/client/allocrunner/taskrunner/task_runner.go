@@ -30,6 +30,7 @@ type TaskRunner struct {
 	status           *proto.TaskState
 	handle           *proto.TaskHandle
 	restartCount     uint64
+	metricsHook      *metricsHook
 }
 
 type Config struct {
@@ -40,6 +41,7 @@ type Config struct {
 	Task             *proto.Task
 	State            state.State
 	TaskStateUpdated func()
+	MetricsUpdater   MetricsUpdater
 }
 
 func NewTaskRunner(config *Config) *TaskRunner {
@@ -57,6 +59,10 @@ func NewTaskRunner(config *Config) *TaskRunner {
 		state:            config.State,
 		status:           proto.NewTaskState(),
 		taskStateUpdated: config.TaskStateUpdated,
+	}
+
+	if config.Task.Telemetry != nil {
+		tr.metricsHook = newMetricsHook(logger, config.Task, config.MetricsUpdater)
 	}
 	return tr
 }
@@ -90,6 +96,11 @@ MAIN:
 
 		if err := t.runDriver(); err != nil {
 			goto RESTART
+		}
+
+		// Run the prestart metrics action
+		if t.metricsHook != nil {
+			t.metricsHook.PostStart()
 		}
 
 		{
@@ -128,6 +139,11 @@ MAIN:
 
 	// task is dead
 	t.UpdateStatus(proto.TaskState_Dead, nil)
+
+	// Run the poststart metrics action
+	if t.metricsHook != nil {
+		t.metricsHook.Stop()
+	}
 }
 
 func (tr *TaskRunner) handleKill(resultCh <-chan *proto.ExitResult) *proto.ExitResult {

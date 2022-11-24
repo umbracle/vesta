@@ -1,17 +1,11 @@
 package client
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"io"
-	"net/http"
-	"time"
+	"net"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-memdb"
-	dto "github.com/prometheus/client_model/go"
-	"github.com/prometheus/common/expfmt"
 	"github.com/umbracle/vesta/internal/client/allocrunner"
 	"github.com/umbracle/vesta/internal/client/state"
 	"github.com/umbracle/vesta/internal/docker"
@@ -29,12 +23,13 @@ type HostVolume struct {
 }
 
 type Client struct {
-	logger  hclog.Logger
-	config  *Config
-	driver  *docker.Docker
-	closeCh chan struct{}
-	state   state.State
-	allocs  map[string]*allocrunner.AllocRunner
+	logger    hclog.Logger
+	config    *Config
+	driver    *docker.Docker
+	closeCh   chan struct{}
+	state     state.State
+	allocs    map[string]*allocrunner.AllocRunner
+	collector *collector
 }
 
 func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
@@ -43,18 +38,19 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 		return nil, err
 	}
 	c := &Client{
-		logger:  logger.Named("agent"),
-		config:  config,
-		driver:  driver,
-		closeCh: make(chan struct{}),
-		allocs:  map[string]*allocrunner.AllocRunner{},
+		logger:    logger.Named("agent"),
+		config:    config,
+		driver:    driver,
+		closeCh:   make(chan struct{}),
+		allocs:    map[string]*allocrunner.AllocRunner{},
+		collector: newCollector(),
 	}
 
 	if err := c.initState(); err != nil {
 		return nil, err
 	}
 
-	go c.metricsLoop()
+	go c.startCollectorPrometheusServer(&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 5555})
 
 	go c.handle()
 	c.logger.Info("agent started")
@@ -77,11 +73,12 @@ func (c *Client) initState() error {
 		id := alloc.Id
 
 		config := &allocrunner.Config{
-			Alloc:        alloc,
-			Logger:       c.logger,
-			State:        c.state,
-			StateUpdater: c,
-			Driver:       c.driver,
+			Alloc:         alloc,
+			Logger:        c.logger,
+			State:         c.state,
+			StateUpdater:  c,
+			Driver:        c.driver,
+			UpdateMetrics: c,
 		}
 		if c.config.Volume != nil {
 			config.Volume = c.config.Volume.Path
@@ -113,11 +110,12 @@ func (c *Client) handle() {
 		} else {
 			// create
 			config := &allocrunner.Config{
-				Alloc:        a,
-				Logger:       c.logger,
-				State:        c.state,
-				StateUpdater: c,
-				Driver:       c.driver,
+				Alloc:         a,
+				Logger:        c.logger,
+				State:         c.state,
+				StateUpdater:  c,
+				Driver:        c.driver,
+				UpdateMetrics: c,
 			}
 			if c.config.Volume != nil {
 				config.Volume = c.config.Volume.Path
@@ -163,53 +161,4 @@ func (c *Client) AllocStateUpdated(a *proto.Allocation) {
 
 func (c *Client) Stop() {
 	close(c.closeCh)
-}
-
-func stringPtr(s string) *string {
-	return &s
-}
-
-func (c *Client) metricsLoop() {
-	for {
-		res, err := http.Get("http://localhost:6060/debug/metrics/prometheus")
-		if err != nil {
-			c.logger.Error("failed to get url")
-		} else {
-			/*
-				data, err := io.ReadAll(res.Body)
-				if err != nil {
-					panic(err)
-				}
-			*/
-			metrics, err := getMetricFamilies(res.Body)
-			if err != nil {
-				panic(err)
-			}
-
-			out := new(bytes.Buffer)
-			encoder := expfmt.NewEncoder(out, expfmt.FmtText)
-			for _, mf := range metrics {
-				for _, m := range mf.Metric {
-					m.Label = append(m.Label, &dto.LabelPair{Name: stringPtr("host"), Value: stringPtr("abcd")})
-				}
-				encoder.Encode(mf)
-			}
-			fmt.Println(out.String())
-		}
-
-		select {
-		case <-c.closeCh:
-			return
-		case <-time.After(5 * time.Second):
-		}
-	}
-}
-
-func getMetricFamilies(sourceData io.Reader) (map[string]*dto.MetricFamily, error) {
-	parser := expfmt.TextParser{}
-	metricFamiles, err := parser.TextToMetricFamilies(sourceData)
-	if err != nil {
-		return nil, err
-	}
-	return metricFamiles, nil
 }

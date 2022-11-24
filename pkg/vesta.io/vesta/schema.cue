@@ -20,6 +20,11 @@ package vesta
 	path: string
 }
 
+#Telemetry: {
+	port: number
+	path: string
+}
+
 #Runtime: {
 	mounts: [name=string]: #Mount
 	volumes: [name=string]: #Volume
@@ -30,6 +35,8 @@ package vesta
 
 	env: [name=string]: string
 	args: [...string]
+
+	telemetry?: #Telemetry
 }
 
 // Description of a blockchain node
@@ -105,9 +112,15 @@ Geth: {
 
 				if input.metrics {
 					"--metrics",
-					
 				}
 			]
+
+			if input.metrics {
+				telemetry: {
+					port: 6060
+					path: "debug/metrics/prometheus"
+				}
+			}
 		}
 	}
 }
@@ -139,7 +152,18 @@ Teku: {
 				"http://127.0.0.1:8551",
 				"--ee-jwt-secret-file",
 				"/var/lib/jwtsecret/jwt.hex",
+
+				if input.metrics {
+					"--metrics-enabled"
+				}
 			]
+
+			if input.metrics {
+				telemetry: {
+					port: 8008
+					path: "metrics"
+				}
+			}
 		}
 	}
 }
