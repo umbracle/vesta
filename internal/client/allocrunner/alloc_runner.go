@@ -4,12 +4,18 @@ import (
 	"os"
 	"path/filepath"
 
+	dto "github.com/prometheus/client_model/go"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/umbracle/vesta/internal/client/allocrunner/driver"
 	"github.com/umbracle/vesta/internal/client/allocrunner/taskrunner"
 	"github.com/umbracle/vesta/internal/client/state"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
+
+type MetricsUpdater interface {
+	UpdateMetrics(string, map[string]*dto.MetricFamily)
+}
 
 type StateUpdater interface {
 	AllocStateUpdated(alloc *proto.Allocation)
@@ -22,6 +28,8 @@ type Config struct {
 	StateUpdater StateUpdater
 	Driver       driver.Driver
 	Volume       string
+
+	UpdateMetrics MetricsUpdater
 }
 
 type AllocRunner struct {
@@ -34,21 +42,24 @@ type AllocRunner struct {
 	taskUpdated  chan struct{}
 	stateUpdater StateUpdater
 	volume       string
+
+	updateMetrics MetricsUpdater
 }
 
 func NewAllocRunner(c *Config) (*AllocRunner, error) {
 	logger := c.Logger.Named("alloc_runner").With("alloc", c.Alloc.Id)
 
 	runner := &AllocRunner{
-		config:       c,
-		logger:       logger,
-		tasks:        map[string]*taskrunner.TaskRunner{},
-		waitCh:       make(chan struct{}),
-		alloc:        c.Alloc,
-		driver:       c.Driver,
-		taskUpdated:  make(chan struct{}),
-		stateUpdater: c.StateUpdater,
-		volume:       c.Volume,
+		config:        c,
+		logger:        logger,
+		tasks:         map[string]*taskrunner.TaskRunner{},
+		waitCh:        make(chan struct{}),
+		alloc:         c.Alloc,
+		driver:        c.Driver,
+		taskUpdated:   make(chan struct{}),
+		stateUpdater:  c.StateUpdater,
+		volume:        c.Volume,
+		updateMetrics: c.UpdateMetrics,
 	}
 	return runner, nil
 }
@@ -127,6 +138,7 @@ func (a *AllocRunner) newTaskRunner(task *proto.Task) *taskrunner.TaskRunner {
 		Driver:           a.config.Driver,
 		State:            a.config.State,
 		TaskStateUpdated: a.TaskStateUpdated,
+		MetricsUpdater:   a.updateMetrics,
 	}
 
 	if a.volume != "" {

@@ -181,6 +181,10 @@ type runtimeHandler struct {
 	Volumes map[string]struct {
 		Path string
 	}
+	Telemetry *struct {
+		Port uint64
+		Path string
+	}
 }
 
 func (r *runtimeHandler) ToProto(name string) *proto.Task {
@@ -198,6 +202,13 @@ func (r *runtimeHandler) ToProto(name string) *proto.Task {
 		Env:     r.Env,
 		Data:    dataFile,
 		Volumes: map[string]*proto.Task_Volume{},
+	}
+
+	if r.Telemetry != nil {
+		c.Telemetry = &proto.Task_Telemetry{
+			Port: r.Telemetry.Port,
+			Path: r.Telemetry.Path,
+		}
 	}
 
 	for name, vol := range r.Volumes {
