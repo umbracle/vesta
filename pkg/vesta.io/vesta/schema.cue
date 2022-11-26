@@ -107,12 +107,20 @@ Geth: {
 					"--goerli"
 				},
 				
+				// Http api
+				"--http.addr", "0.0.0.0",
 				"--http", "--http.port", "8545",
 				"--http.vhosts", "*",
 				"--http.corsdomain", "*",
 
-				"--metrics.addr", "127.0.0.1",
+				// Engine api
+				"--authrpc.addr", "0.0.0.0",
+				"--authrpc.port", "8551",
+				"--authrpc.vhosts", "*",
+				"--authrpc.jwtsecret", "/var/lib/jwtsecret/jwt.hex",
 
+				// Metrics
+				"--metrics.addr", "0.0.0.0",
 				if input.metrics {
 					"--metrics",
 				}
