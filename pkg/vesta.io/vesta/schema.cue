@@ -106,7 +106,10 @@ Geth: {
 				if input.chain == "goerli" {
 					"--goerli"
 				},
+				
 				"--http", "--http.port", "8545",
+				"--http.vhosts", "*",
+				"--http.corsdomain", "*",
 
 				"--metrics.addr", "127.0.0.1",
 
@@ -128,7 +131,9 @@ Geth: {
 Teku: {
 	#Node
 
-	input: {}
+	input: {
+		execution_node: string
+	}
 
 	tasks: {
 		node: #Runtime & {
@@ -149,7 +154,7 @@ Teku: {
 					"goerli"
 				},
 				"--ee-endpoint",
-				"http://127.0.0.1:8551",
+				"http://"+input.execution_node+":8551",
 				"--ee-jwt-secret-file",
 				"/var/lib/jwtsecret/jwt.hex",
 

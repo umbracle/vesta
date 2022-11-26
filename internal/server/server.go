@@ -129,6 +129,9 @@ func (s *Server) Create(allocId string, act *Action, input map[string]interface{
 
 	if allocId != "" {
 		// update the deployment
+		for _, t := range dep.Tasks {
+			t.AllocId = allocId
+		}
 		if err := s.state.UpdateAllocationDeployment(allocId, dep); err != nil {
 			return "", err
 		}
@@ -139,6 +142,9 @@ func (s *Server) Create(allocId string, act *Action, input map[string]interface{
 			Id:         allocId,
 			NodeId:     "local",
 			Deployment: dep,
+		}
+		for _, t := range dep.Tasks {
+			t.AllocId = allocId
 		}
 		if err := s.state.UpsertAllocation(alloc); err != nil {
 			return "", err

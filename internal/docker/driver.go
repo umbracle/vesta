@@ -224,8 +224,7 @@ func (d *Docker) createContainerOptions(task *proto.Task, allocDir string) (*cre
 	}
 
 	hostConfig := &container.HostConfig{
-		Binds:       []string{},
-		NetworkMode: "host",
+		Binds: []string{},
 	}
 	for dest, src := range mountMap {
 		hostConfig.Binds = append(hostConfig.Binds, src+":"+dest)
@@ -243,9 +242,15 @@ func (d *Docker) createContainerOptions(task *proto.Task, allocDir string) (*cre
 	}
 
 	opts := &createContainerOptions{
-		config:  config,
-		host:    hostConfig,
-		network: &network.NetworkingConfig{},
+		config: config,
+		host:   hostConfig,
+		network: &network.NetworkingConfig{
+			EndpointsConfig: map[string]*network.EndpointSettings{
+				"example": {
+					Aliases: []string{task.AllocId},
+				},
+			},
+		},
 	}
 	return opts, nil
 }
