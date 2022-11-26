@@ -166,6 +166,10 @@ Teku: {
 				"--ee-jwt-secret-file",
 				"/var/lib/jwtsecret/jwt.hex",
 
+				// metrics
+				"--metrics-host-allowlist", "*",
+				"--metrics-port", "8008",
+				"--metrics-interface", "0.0.0.0",
 				if input.metrics {
 					"--metrics-enabled"
 				}

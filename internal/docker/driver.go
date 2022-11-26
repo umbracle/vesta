@@ -163,6 +163,16 @@ func (d *Docker) StartTask(task *proto.Task, allocDir string) (*proto.TaskHandle
 		return nil, err
 	}
 
+	container, err := d.client.ContainerInspect(context.Background(), body.ID)
+	if err != nil {
+		return nil, err
+	}
+	net, ok := container.NetworkSettings.Networks[networkName]
+	if !ok {
+		return nil, fmt.Errorf("network settings not found in container")
+	}
+	ip := net.IPAddress
+
 	h := &taskHandle{
 		logger:      d.logger.Named(task.Id),
 		client:      d.client,
@@ -175,6 +185,9 @@ func (d *Docker) StartTask(task *proto.Task, allocDir string) (*proto.TaskHandle
 
 	handle := &proto.TaskHandle{
 		ContainerID: body.ID,
+		Network: &proto.TaskHandle_Network{
+			Ip: ip,
+		},
 	}
 	return handle, nil
 }
