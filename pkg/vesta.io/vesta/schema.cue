@@ -184,6 +184,12 @@ Teku: {
 				"--ee-jwt-secret-file",
 				"/var/lib/jwtsecret/jwt.hex",
 
+				// rest api
+				"--rest-api-host-allowlist", "*",
+      			"--rest-api-enabled", "true",
+      			"--rest-api-interface", "0.0.0.0",
+      			"--rest-api-port", "5052",
+
 				// metrics
 				"--metrics-host-allowlist", "*",
 				"--metrics-port", "8008",
@@ -198,6 +204,19 @@ Teku: {
 					port: 8008
 					path: "metrics"
 				}
+			}
+		}
+
+		babel: #Runtime & {
+			image: "babel",
+			tag: "dev",
+			
+			args: [
+				"--plugin", "ethereum_cl", "server", "url=http://${ALLOCID}:5052"
+			]
+
+			sync: {
+				port: 2020
 			}
 		}
 	}
