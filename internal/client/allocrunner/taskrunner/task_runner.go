@@ -100,7 +100,7 @@ MAIN:
 
 		// Run the prestart metrics action
 		if t.metricsHook != nil {
-			t.metricsHook.PostStart()
+			t.metricsHook.PostStart(t.handle)
 		}
 
 		{
