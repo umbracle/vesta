@@ -31,6 +31,7 @@ type TaskRunner struct {
 	handle           *proto.TaskHandle
 	restartCount     uint64
 	metricsHook      *metricsHook
+	syncHook         *syncHook
 }
 
 type Config struct {
@@ -64,6 +65,11 @@ func NewTaskRunner(config *Config) *TaskRunner {
 	if config.Task.Telemetry != nil {
 		tr.metricsHook = newMetricsHook(logger, config.Task, config.MetricsUpdater)
 	}
+
+	if config.Task.SyncStatus != nil {
+		tr.syncHook = newSyncHook(logger, config.Task)
+	}
+
 	return tr
 }
 
@@ -101,6 +107,9 @@ MAIN:
 		// Run the prestart metrics action
 		if t.metricsHook != nil {
 			t.metricsHook.PostStart()
+		}
+		if t.syncHook != nil {
+			t.syncHook.PostStart()
 		}
 
 		{
@@ -143,6 +152,9 @@ MAIN:
 	// Run the poststart metrics action
 	if t.metricsHook != nil {
 		t.metricsHook.Stop()
+	}
+	if t.syncHook != nil {
+		t.syncHook.Stop()
 	}
 }
 

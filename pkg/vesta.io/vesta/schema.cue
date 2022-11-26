@@ -25,6 +25,10 @@ package vesta
 	path: string
 }
 
+#Sync: {
+	port: number
+}
+
 #Runtime: {
 	mounts: [name=string]: #Mount
 	volumes: [name=string]: #Volume
@@ -37,6 +41,7 @@ package vesta
 	args: [...string]
 
 	telemetry?: #Telemetry
+	sync?: #Sync
 }
 
 // Description of a blockchain node
@@ -120,6 +125,19 @@ Geth: {
 					port: 6060
 					path: "debug/metrics/prometheus"
 				}
+			}
+		}
+
+		babel: #Runtime & {
+			image: "babel",
+			tag: "dev",
+			
+			args: [
+				"--plugin", "ethereum_el", "server", "url=http://localhost:8545"
+			]
+
+			sync: {
+				port: 2020
 			}
 		}
 	}

@@ -101,6 +101,8 @@ message Task {
 
     Telemetry telemetry = 12;
 
+    SyncStatus syncStatus = 13;
+    
     message Volume {
         string path = 1;
     }
@@ -108,6 +110,10 @@ message Task {
     message Telemetry {
         uint64 port = 1;
         string path = 2;
+    }
+
+    message SyncStatus {
+        uint64 port = 1;
     }
 }
 
