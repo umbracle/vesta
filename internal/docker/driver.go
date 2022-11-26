@@ -20,6 +20,8 @@ import (
 
 var ErrTaskNotFound = fmt.Errorf("task not found")
 
+var networkName = "vesta"
+
 type Docker struct {
 	logger      hclog.Logger
 	client      *client.Client
@@ -35,6 +37,25 @@ func NewDockerDriver(logger hclog.Logger) (*Docker, error) {
 	client, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return nil, err
+	}
+
+	// initialize the vesta private network. This is required to have
+	// DNS discovery by docker.
+	networks, err := client.NetworkList(context.Background(), types.NetworkListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	found := false
+	for _, net := range networks {
+		if net.Name == networkName {
+			found = true
+			break
+		}
+	}
+	if !found {
+		if _, err := client.NetworkCreate(context.Background(), networkName, types.NetworkCreate{CheckDuplicate: true}); err != nil {
+			return nil, err
+		}
 	}
 
 	d := &Docker{
@@ -142,6 +163,16 @@ func (d *Docker) StartTask(task *proto.Task, allocDir string) (*proto.TaskHandle
 		return nil, err
 	}
 
+	container, err := d.client.ContainerInspect(context.Background(), body.ID)
+	if err != nil {
+		return nil, err
+	}
+	net, ok := container.NetworkSettings.Networks[networkName]
+	if !ok {
+		return nil, fmt.Errorf("network settings not found in container")
+	}
+	ip := net.IPAddress
+
 	h := &taskHandle{
 		logger:      d.logger.Named(task.Id),
 		client:      d.client,
@@ -154,6 +185,9 @@ func (d *Docker) StartTask(task *proto.Task, allocDir string) (*proto.TaskHandle
 
 	handle := &proto.TaskHandle{
 		ContainerID: body.ID,
+		Network: &proto.TaskHandle_Network{
+			Ip: ip,
+		},
 	}
 	return handle, nil
 }
@@ -224,8 +258,7 @@ func (d *Docker) createContainerOptions(task *proto.Task, allocDir string) (*cre
 	}
 
 	hostConfig := &container.HostConfig{
-		Binds:       []string{},
-		NetworkMode: "host",
+		Binds: []string{},
 	}
 	for dest, src := range mountMap {
 		hostConfig.Binds = append(hostConfig.Binds, src+":"+dest)
@@ -243,9 +276,15 @@ func (d *Docker) createContainerOptions(task *proto.Task, allocDir string) (*cre
 	}
 
 	opts := &createContainerOptions{
-		config:  config,
-		host:    hostConfig,
-		network: &network.NetworkingConfig{},
+		config: config,
+		host:   hostConfig,
+		network: &network.NetworkingConfig{
+			EndpointsConfig: map[string]*network.EndpointSettings{
+				networkName: {
+					Aliases: []string{task.AllocId},
+				},
+			},
+		},
 	}
 	return opts, nil
 }

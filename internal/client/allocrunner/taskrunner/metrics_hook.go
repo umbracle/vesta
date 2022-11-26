@@ -21,6 +21,7 @@ type metricsHook struct {
 	closeCh chan struct{}
 	task    *proto.Task
 	updater MetricsUpdater
+	ip      string
 }
 
 func newMetricsHook(logger hclog.Logger, task *proto.Task, updater MetricsUpdater) *metricsHook {
@@ -37,12 +38,13 @@ func (m *metricsHook) Name() string {
 	return "metrics-hook"
 }
 
-func (m *metricsHook) PostStart() {
+func (m *metricsHook) PostStart(handle *proto.TaskHandle) {
+	m.ip = handle.Network.Ip
 	go m.collectMetrics()
 }
 
 func (m *metricsHook) collectMetrics() {
-	url := fmt.Sprintf("http://localhost:%d/%s", m.task.Telemetry.Port, m.task.Telemetry.Path)
+	url := fmt.Sprintf("http://%s:%d/%s", m.ip, m.task.Telemetry.Port, m.task.Telemetry.Path)
 
 	for {
 		res, err := http.Get(url)

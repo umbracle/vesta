@@ -101,8 +101,10 @@ message Task {
 
     Telemetry telemetry = 12;
 
-    SyncStatus syncStatus = 13;
-    
+    string allocId = 13;
+
+    SyncStatus syncStatus = 14;
+
     message Volume {
         string path = 1;
     }

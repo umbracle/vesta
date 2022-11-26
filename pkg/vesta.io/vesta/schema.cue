@@ -111,10 +111,21 @@ Geth: {
 				if input.chain == "goerli" {
 					"--goerli"
 				},
+				
+				// Http api
+				"--http.addr", "0.0.0.0",
 				"--http", "--http.port", "8545",
+				"--http.vhosts", "*",
+				"--http.corsdomain", "*",
 
-				"--metrics.addr", "127.0.0.1",
+				// Engine api
+				"--authrpc.addr", "0.0.0.0",
+				"--authrpc.port", "8551",
+				"--authrpc.vhosts", "*",
+				"--authrpc.jwtsecret", "/var/lib/jwtsecret/jwt.hex",
 
+				// Metrics
+				"--metrics.addr", "0.0.0.0",
 				if input.metrics {
 					"--metrics",
 				}
@@ -146,7 +157,9 @@ Geth: {
 Teku: {
 	#Node
 
-	input: {}
+	input: {
+		execution_node: string
+	}
 
 	tasks: {
 		node: #Runtime & {
@@ -167,10 +180,14 @@ Teku: {
 					"goerli"
 				},
 				"--ee-endpoint",
-				"http://127.0.0.1:8551",
+				"http://"+input.execution_node+":8551",
 				"--ee-jwt-secret-file",
 				"/var/lib/jwtsecret/jwt.hex",
 
+				// metrics
+				"--metrics-host-allowlist", "*",
+				"--metrics-port", "8008",
+				"--metrics-interface", "0.0.0.0",
 				if input.metrics {
 					"--metrics-enabled"
 				}
