@@ -21,10 +21,10 @@ $ go run cmd/main.go deploy --type Geth --chain goerli
 c03b3642-4732-2794-8a53-57cf1972bdde
 ```
 
-Deploy a `Teku` beacon node for `goerli`:
+Deploy a `Teku` beacon node for `goerli` connected to the `Geth` node from the previous step:
 
 ```
-$ go run cmd/main.go deploy --type Teku --chain goerli
+$ go run cmd/main.go deploy --type Teku --chain goerli execution_node=c03b3642-4732-2794-8a53-57cf1972bdde
 ```
 
 Update a node:
