@@ -144,7 +144,7 @@ Geth: {
 			tag: "dev",
 			
 			args: [
-				"--plugin", "ethereum_el", "server", "url=http://localhost:8545"
+				"--plugin", "ethereum_el", "server", "url=http://${ALLOCID}:8545"
 			]
 
 			sync: {

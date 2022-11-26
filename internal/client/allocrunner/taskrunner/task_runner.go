@@ -109,7 +109,7 @@ MAIN:
 			t.metricsHook.PostStart(t.handle)
 		}
 		if t.syncHook != nil {
-			t.syncHook.PostStart()
+			t.syncHook.PostStart(t.handle)
 		}
 
 		{

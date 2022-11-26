@@ -14,12 +14,15 @@ import (
 
 type syncHook struct {
 	logger  hclog.Logger
+	task    *proto.Task
 	closeCh chan struct{}
+	ip      string
 }
 
 func newSyncHook(logger hclog.Logger, task *proto.Task) *syncHook {
 	h := &syncHook{
 		closeCh: make(chan struct{}),
+		task:    task,
 	}
 	h.logger = logger.Named(h.Name())
 	return h
@@ -29,12 +32,13 @@ func (m *syncHook) Name() string {
 	return "sync-hook"
 }
 
-func (m *syncHook) PostStart() {
+func (m *syncHook) PostStart(handle *proto.TaskHandle) {
+	m.ip = handle.Network.Ip
 	go m.collectMetrics()
 }
 
 func (m *syncHook) collectMetrics() {
-	conn, err := grpc.Dial("localhost:2020", grpc.WithInsecure())
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", m.ip, m.task.SyncStatus.Port), grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
