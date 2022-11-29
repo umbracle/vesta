@@ -136,6 +136,125 @@ Geth: {
 	}
 }
 
+Nethermind: {
+	#Node
+
+	input: {}
+
+	tasks: {
+		node: #Runtime & {
+			image: "nethermind/nethermind"
+			tag:   "1.14.6"
+
+			volumes: {
+				data: {
+					path: "/data"
+				}
+			}
+			
+			mounts: {
+				"jwt": {
+					dest:     "/var/lib/jwtsecret/jwt.hex"
+					type:     "string"
+					contents: _jwt_token
+				}
+			}
+
+			args: [
+				"--datadir",
+				"/data",
+
+				"--config",
+				if input.chain == "goerli" {
+					"goerli",
+				},
+
+				"--JsonRpc.Enabled", "true",
+				"--JsonRpc.Host", "0.0.0.0",
+				"--JsonRpc.Port", "8545",
+				"--JsonRpc.EngineHost", "0.0.0.0",
+				"--JsonRpc.EnginePort", "8551",
+				"--JsonRpc.JwtSecretFile", "/var/lib/jwtsecret/jwt.hex",
+
+				"--Metrics.ExposePort", "6060",
+				if input.metrics {
+					"--Metrics.Enabled",
+				}
+				if input.metrics {
+					"true",
+				}
+			]
+
+			if input.metrics {
+				telemetry: {
+					port: 6060
+					path: "metrics"
+				}
+			}
+		}
+	}
+}
+
+Besu: {
+	#Node
+
+	input: {}
+
+	tasks: {
+		node: #Runtime & {
+			image: "hyperledger/besu"
+			tag:   "latest"
+
+			volumes: {
+				data: {
+					path: "/data"
+				}
+			}
+
+			mounts: {
+				"jwt": {
+					dest:     "/var/lib/jwtsecret/jwt.hex"
+					type:     "string"
+					contents: _jwt_token
+				}
+			}
+
+			args: [
+				"--data-path",
+				"/data",
+
+				"--network",
+				if input.chain == "goerli" {
+					"goerli",
+				}
+
+				"--rpc-http-enabled",
+				"--rpc-http-host", "0.0.0.0",
+				"--rpc-http-port", "8545",
+				"--rpc-http-cors-origins", "*",
+
+				"--host-allowlist", "*",
+				"--engine-host-allowlist", "*",
+				"--engine-jwt-secret", "/var/lib/jwtsecret/jwt.hex",
+				"--engine-rpc-port", "8551",
+
+				if input.metrics {
+					"--metrics-enabled",
+				}
+				"--metrics-host", "0.0.0.0",
+				"--metrics-port", "6060",
+			]
+
+			if input.metrics {
+				telemetry: {
+					port: 6060
+					path: "metrics"
+				}
+			}
+		}
+	}
+}
+
 Teku: {
 	#Node
 
