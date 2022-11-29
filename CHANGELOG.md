@@ -1,5 +1,6 @@
 # 0.1.1 (Unreleased)
 
+- feat: Add cue scripts for `Nethermind` and `Besu` [[GH-32](https://github.com/umbracle/eth2-validator/issues/32)]
 - feat: Link dependent deployments by DNS [[GH-7](https://github.com/umbracle/eth2-validator/issues/7)]
 - feat: Aggreate and expose node metrics [[GH-29](https://github.com/umbracle/eth2-validator/issues/29)]
 - feat: Add restart counter for task and mark failed [[GH-11](https://github.com/umbracle/eth2-validator/issues/11)]
