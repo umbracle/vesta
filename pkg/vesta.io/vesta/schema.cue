@@ -267,6 +267,12 @@ Teku: {
 			image: "consensys/teku"
 			tag:   "22.8.0"
 
+			volumes: {
+				data: {
+					path: "/data"
+				}
+			}
+
 			mounts: {
 				"jwt": {
 					dest:     "/var/lib/jwtsecret/jwt.hex"
@@ -280,6 +286,9 @@ Teku: {
 				if input.chain == "goerli" {
 					"goerli"
 				},
+
+				"--data-base-path", "/data",
+
 				"--ee-endpoint",
 				"http://"+input.execution_node+":8551",
 				"--ee-jwt-secret-file",
@@ -292,6 +301,122 @@ Teku: {
 				if input.metrics {
 					"--metrics-enabled"
 				}
+			]
+
+			if input.metrics {
+				telemetry: {
+					port: 8008
+					path: "metrics"
+				}
+			}
+		}
+	}
+}
+
+Lighthouse: {
+	#Node
+
+	input: {
+		execution_node: string
+	}
+
+	tasks: {
+		node: #Runtime & {
+			image: "sigp/lighthouse"
+			tag:   "v3.3.0"
+
+			volumes: {
+				data: {
+					path: "/data"
+				}
+			}
+
+			mounts: {
+				"jwt": {
+					dest:     "/var/lib/jwtsecret/jwt.hex"
+					type:     "string"
+					contents: _jwt_token
+				}
+			}
+
+			args: [
+				"lighthouse",
+				"bn",
+
+				"--network",
+				if input.chain == "goerli" {
+					"goerli"
+				},
+
+				"--datadir", "/data",
+
+				"--http",
+				"--http-address", "0.0.0.0",
+				"--http-port", "5052",
+
+				"--execution-jwt", "/var/lib/jwtsecret/jwt.hex",
+				"--execution-endpoint", "http://"+input.execution_node+":8551",
+
+				if input.metrics {
+					"--metrics"
+				}
+    			"--metrics-address", "0.0.0.0",
+				"--metrics-port", "8008",
+			]
+
+			if input.metrics {
+				telemetry: {
+					port: 8008
+					path: "metrics"
+				}
+			}
+		}
+	}
+}
+
+Prysm: {
+	#Node
+
+	input: {
+		execution_node: string
+	}
+
+	tasks: {
+		node: #Runtime & {
+			image: "gcr.io/prysmaticlabs/prysm/beacon-chain"
+			tag: "v3.1.2"
+
+			volumes: {
+				data: {
+					path: "/data"
+				}
+			}
+
+			mounts: {
+				"jwt": {
+					dest:     "/var/lib/jwtsecret/jwt.hex"
+					type:     "string"
+					contents: _jwt_token
+				}
+			}
+
+			args: [
+				if input.chain == "goerli" {
+					"--goerli"
+				}
+
+				"--datadir", "/data",
+
+				"--execution-endpoint", "http://"+input.execution_node+":8551",
+      			"--jwt-secret", "/var/lib/jwtsecret/jwt.hex",
+
+      			"--grpc-gateway-host", "0.0.0.0",
+      			"--grpc-gateway-port", "5052",
+
+	        	"--accept-terms-of-use",
+
+      			"--monitoring-host", "0.0.0.0",
+      			"--monitoring-port", "8008",
 			]
 
 			if input.metrics {
