@@ -11,6 +11,28 @@ service VestaService {
     rpc Destroy(DestroyRequest) returns (DestroyResponse);
     rpc DeploymentList(ListDeploymentRequest) returns (ListDeploymentResponse);
     rpc DeploymentStatus(DeploymentStatusRequest) returns (DeploymentStatusResponse);
+    rpc CatalogList(CatalogListRequest) returns (CatalogListResponse);
+    rpc CatalogEntry(CatalogEntryRequest) returns (CatalogEntryResponse);
+}
+
+message CatalogListRequest {
+
+}
+
+message CatalogListResponse {
+    repeated string dep = 1;
+}
+
+message CatalogEntryRequest {
+    string action = 1;
+}
+
+message CatalogEntryResponse {
+    map<string,Field> fields = 1;
+}
+
+message Field {
+    string type = 1;
 }
 
 message DestroyRequest {

@@ -2,12 +2,9 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net"
-	"strconv"
 	"time"
 
-	"cuelang.org/go/cue"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-memdb"
 	"github.com/umbracle/vesta/internal/server/proto"
@@ -30,18 +27,18 @@ func DefaultConfig() *Config {
 type Server struct {
 	logger     hclog.Logger
 	grpcServer *grpc.Server
-	runner     *Catalog
+	catalog    *Catalog
 	state      *state.StateStore
 }
 
 func NewServer(logger hclog.Logger, config *Config) (*Server, error) {
 	srv := &Server{
-		logger: logger,
-		runner: NewCatalog(),
-		state:  state.NewStateStore(),
+		logger:  logger,
+		catalog: NewCatalog(),
+		state:   state.NewStateStore(),
 	}
 
-	srv.runner.load()
+	srv.catalog.load()
 	if err := srv.setupGRPCServer(config.GrpcAddr); err != nil {
 		return nil, err
 	}
@@ -85,48 +82,7 @@ func (s *Server) Stop() {
 	s.grpcServer.Stop()
 }
 
-func (s *Server) Create(allocId string, act *Action, input map[string]interface{}) (string, error) {
-	v := *s.runner.v
-
-	// get the reference for the selected node type
-	nodeCue := v.LookupPath(act.path)
-
-	// TODO: Typed encoding of input
-	if m, ok := input["metrics"]; ok {
-		str, ok := m.(string)
-		if ok {
-			mm, err := strconv.ParseBool(str)
-			if err != nil {
-				return "", fmt.Errorf("failed to parse bool '%s': %v", str, err)
-			}
-			input["metrics"] = mm
-		}
-	}
-
-	// apply the input
-	nodeCue = nodeCue.FillPath(cue.MakePath(cue.Str("input")), input)
-	if err := nodeCue.Err(); err != nil {
-		return "", fmt.Errorf("failed to apply input: %v", err)
-	}
-
-	// decode the tasks
-	tasksCue := nodeCue.LookupPath(cue.MakePath(cue.Str("tasks")))
-	if err := tasksCue.Err(); err != nil {
-		return "", fmt.Errorf("failed to decode tasks: %v", err)
-	}
-	rawTasks := map[string]*runtimeHandler{}
-	if err := tasksCue.Decode(&rawTasks); err != nil {
-		return "", fmt.Errorf("failed to decode tasks2: %v", err)
-	}
-	deployableTasks := map[string]*proto.Task{}
-	for name, x := range rawTasks {
-		deployableTasks[name] = x.ToProto(name)
-	}
-
-	dep := &proto.Deployment{
-		Tasks: deployableTasks,
-	}
-
+func (s *Server) Create(allocId string, dep *proto.Deployment) (string, error) {
 	if allocId != "" {
 		// update the deployment
 		for _, t := range dep.Tasks {

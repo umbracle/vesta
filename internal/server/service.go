@@ -16,17 +16,18 @@ type service struct {
 }
 
 func (s *service) Apply(ctx context.Context, req *proto.ApplyRequest) (*proto.ApplyResponse, error) {
-	act := s.srv.runner.getAction(req.Action)
-	if act == nil {
-		return nil, fmt.Errorf("action '%s' not found", req.Action)
-	}
 	var input map[string]interface{}
 	if err := json.Unmarshal(req.Input, &input); err != nil {
 		return nil, err
 	}
 
+	dep, err := s.srv.catalog.Apply(req.Action, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to plan dep: %v", err)
+	}
+
 	// create
-	id, err := s.srv.Create(req.AllocationId, act, input)
+	id, err := s.srv.Create(req.AllocationId, dep)
 	if err != nil {
 		return nil, err
 	}
@@ -66,4 +67,27 @@ func (s *service) Destroy(ctx context.Context, req *proto.DestroyRequest) (*prot
 		return nil, err
 	}
 	return &proto.DestroyResponse{}, nil
+}
+
+func (s *service) CatalogList(ctx context.Context, req *proto.CatalogListRequest) (*proto.CatalogListResponse, error) {
+	resp := &proto.CatalogListResponse{
+		Dep: []string{},
+	}
+	for name := range s.srv.catalog.actions {
+		resp.Dep = append(resp.Dep, name)
+	}
+	return resp, nil
+}
+
+func (s *service) CatalogEntry(ctx context.Context, req *proto.CatalogEntryRequest) (*proto.CatalogEntryResponse, error) {
+	act := s.srv.catalog.getAction(req.Action)
+	if act == nil {
+		return nil, fmt.Errorf("action %s does not exists", req.Action)
+	}
+	fields := act.GetFields()
+
+	resp := &proto.CatalogEntryResponse{
+		Fields: fields,
+	}
+	return resp, nil
 }

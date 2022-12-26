@@ -32,6 +32,16 @@ func Commands() map[string]cli.CommandFactory {
 				UI: ui,
 			}, nil
 		},
+		"catalog list": func() (cli.Command, error) {
+			return &CatalogList{
+				Meta: meta,
+			}, nil
+		},
+		"catalog info": func() (cli.Command, error) {
+			return &CatalogInfo{
+				Meta: meta,
+			}, nil
+		},
 		"deployment list": func() (cli.Command, error) {
 			return &DeploymentListCommand{
 				Meta: meta,

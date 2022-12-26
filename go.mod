@@ -17,6 +17,7 @@ require (
 	github.com/ryanuber/columnize v2.1.2+incompatible
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.2
+	github.com/zclconf/go-cty v1.12.1
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.1
