@@ -191,6 +191,9 @@ type runtimeHandler struct {
 		Port uint64
 		Path string
 	}
+	Sync *struct {
+		Port uint64
+	}
 }
 
 func (r *runtimeHandler) ToProto(name string) *proto.Task {
@@ -214,6 +217,12 @@ func (r *runtimeHandler) ToProto(name string) *proto.Task {
 		c.Telemetry = &proto.Task_Telemetry{
 			Port: r.Telemetry.Port,
 			Path: r.Telemetry.Path,
+		}
+	}
+
+	if r.Sync != nil {
+		c.SyncStatus = &proto.Task_SyncStatus{
+			Port: r.Sync.Port,
 		}
 	}
 

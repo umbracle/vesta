@@ -15,6 +15,7 @@ import (
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 	"github.com/hashicorp/go-hclog"
+	"github.com/umbracle/vesta/internal/client/args"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
@@ -248,9 +249,17 @@ func (d *Docker) createContainerOptions(task *proto.Task, allocDir string) (*cre
 	// append system wide labels
 	labels["vesta"] = "true"
 
+	env := map[string]string{
+		"ALLOCID": task.AllocId,
+	}
+	var resolvedArgs []string
+	for _, arg := range task.Args {
+		resolvedArgs = append(resolvedArgs, args.ReplaceEnv(arg, env))
+	}
+
 	config := &container.Config{
 		Image:  task.Image + ":" + task.Tag,
-		Cmd:    strslice.StrSlice(task.Args),
+		Cmd:    strslice.StrSlice(resolvedArgs),
 		Labels: labels,
 	}
 	for k, v := range task.Env {
@@ -275,13 +284,20 @@ func (d *Docker) createContainerOptions(task *proto.Task, allocDir string) (*cre
 		}
 	}
 
+	aliases := []string{}
+	if task.Name == "node" {
+		// For now, assume that only the ports under the task "node" are open
+		// the egress traffic outside the "deployment" description.
+		aliases = append(aliases, task.AllocId)
+	}
+
 	opts := &createContainerOptions{
 		config: config,
 		host:   hostConfig,
 		network: &network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
 				networkName: {
-					Aliases: []string{task.AllocId},
+					Aliases: aliases,
 				},
 			},
 		},
