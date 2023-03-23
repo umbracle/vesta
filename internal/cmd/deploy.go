@@ -21,6 +21,8 @@ type DeployCommand struct {
 	allocId string
 
 	params string
+
+	metrics bool
 }
 
 // Help implements the cli.Command interface
@@ -42,6 +44,7 @@ func (c *DeployCommand) Run(args []string) int {
 	flags.StringVar(&c.typ, "type", "", "")
 	flags.StringVar(&c.allocId, "alloc", "", "")
 	flags.StringVar(&c.params, "params", "", "")
+	flags.BoolVar(&c.metrics, "metrics", true, "")
 
 	if err := flags.Parse(args); err != nil {
 		c.UI.Error(err.Error())
@@ -63,6 +66,12 @@ func (c *DeployCommand) Run(args []string) int {
 		}
 	}
 
+	req := &proto.ApplyRequest{
+		Action:  c.typ,
+		Chain:   c.chain,
+		Metrics: c.metrics,
+	}
+
 	for _, raw := range args {
 		parts := strings.SplitN(raw, "=", 2)
 		if len(parts) != 2 {
@@ -71,9 +80,13 @@ func (c *DeployCommand) Run(args []string) int {
 		}
 		spec[parts[0]] = parts[1]
 	}
-	if c.chain != "" {
-		spec["chain"] = c.chain
+
+	raw, err := json.Marshal(spec)
+	if err != nil {
+		c.UI.Error(err.Error())
+		return 1
 	}
+	req.Input = raw
 
 	clt, err := c.Conn()
 	if err != nil {
@@ -81,16 +94,6 @@ func (c *DeployCommand) Run(args []string) int {
 		return 1
 	}
 
-	raw, err := json.Marshal(spec)
-	if err != nil {
-		c.UI.Error(err.Error())
-		return 1
-	}
-	req := &proto.ApplyRequest{
-		Action:       c.typ,
-		Input:        raw,
-		AllocationId: c.allocId,
-	}
 	resp, err := clt.Apply(context.Background(), req)
 	if err != nil {
 		c.UI.Error(err.Error())

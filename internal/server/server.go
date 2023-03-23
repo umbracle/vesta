@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strconv"
 	"time"
 
-	"cuelang.org/go/cue"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-memdb"
+	"github.com/mitchellh/mapstructure"
+	"github.com/umbracle/vesta/internal/catalog"
+	"github.com/umbracle/vesta/internal/framework"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/server/state"
 	"github.com/umbracle/vesta/internal/uuid"
@@ -85,47 +86,30 @@ func (s *Server) Stop() {
 	s.grpcServer.Stop()
 }
 
-func (s *Server) Create(allocId string, act *Action, input map[string]interface{}) (string, error) {
-	v := *s.runner.v
-
-	// get the reference for the selected node type
-	nodeCue := v.LookupPath(act.path)
-
-	// TODO: Typed encoding of input
-	if m, ok := input["metrics"]; ok {
-		str, ok := m.(string)
-		if ok {
-			mm, err := strconv.ParseBool(str)
-			if err != nil {
-				return "", fmt.Errorf("failed to parse bool '%s': %v", str, err)
-			}
-			input["metrics"] = mm
-		}
+func (s *Server) Create(req *proto.ApplyRequest, input map[string]interface{}) (string, error) {
+	cc, ok := catalog.Catalog[req.Action]
+	if !ok {
+		return "", fmt.Errorf("not found plugin: %s", req.Action)
 	}
 
-	// apply the input
-	nodeCue = nodeCue.FillPath(cue.MakePath(cue.Str("input")), input)
-	if err := nodeCue.Err(); err != nil {
-		return "", fmt.Errorf("failed to apply input: %v", err)
+	customConfig := cc.Config()
+	if err := mapstructure.WeakDecode(input, &customConfig); err != nil {
+		panic(err)
 	}
 
-	// decode the tasks
-	tasksCue := nodeCue.LookupPath(cue.MakePath(cue.Str("tasks")))
-	if err := tasksCue.Err(); err != nil {
-		return "", fmt.Errorf("failed to decode tasks: %v", err)
+	config := &framework.Config{
+		Metrics: req.Metrics,
+		Chain:   req.Chain,
+		Custom:  customConfig,
 	}
-	rawTasks := map[string]*runtimeHandler{}
-	if err := tasksCue.Decode(&rawTasks); err != nil {
-		return "", fmt.Errorf("failed to decode tasks2: %v", err)
-	}
-	deployableTasks := map[string]*proto.Task{}
-	for name, x := range rawTasks {
-		deployableTasks[name] = x.ToProto(name)
-	}
+
+	deployableTasks := cc.Generate(config)
 
 	dep := &proto.Deployment{
 		Tasks: deployableTasks,
 	}
+
+	allocId := req.AllocationId
 
 	if allocId != "" {
 		// update the deployment
@@ -152,6 +136,93 @@ func (s *Server) Create(allocId string, act *Action, input map[string]interface{
 	}
 
 	return allocId, nil
+
+	/*
+		dep := &proto.Deployment{
+			Tasks: deployableTasks,
+		}
+
+		alloc := &proto.Allocation{
+			Id:         allocId,
+			NodeId:     "local",
+			Deployment: dep,
+		}
+		for _, t := range dep.Tasks {
+			t.AllocId = allocId
+		}
+		if err := s.state.UpsertAllocation(alloc); err != nil {
+			return "", err
+		}
+	*/
+
+	/*
+		v := *s.runner.v
+
+		// get the reference for the selected node type
+		nodeCue := v.LookupPath(act.path)
+
+		// TODO: Typed encoding of input
+		if m, ok := input["metrics"]; ok {
+			str, ok := m.(string)
+			if ok {
+				mm, err := strconv.ParseBool(str)
+				if err != nil {
+					return "", fmt.Errorf("failed to parse bool '%s': %v", str, err)
+				}
+				input["metrics"] = mm
+			}
+		}
+
+		// apply the input
+		nodeCue = nodeCue.FillPath(cue.MakePath(cue.Str("input")), input)
+		if err := nodeCue.Err(); err != nil {
+			return "", fmt.Errorf("failed to apply input: %v", err)
+		}
+
+		// decode the tasks
+		tasksCue := nodeCue.LookupPath(cue.MakePath(cue.Str("tasks")))
+		if err := tasksCue.Err(); err != nil {
+			return "", fmt.Errorf("failed to decode tasks: %v", err)
+		}
+		rawTasks := map[string]*runtimeHandler{}
+		if err := tasksCue.Decode(&rawTasks); err != nil {
+			return "", fmt.Errorf("failed to decode tasks2: %v", err)
+		}
+		deployableTasks := map[string]*proto.Task{}
+		for name, x := range rawTasks {
+			deployableTasks[name] = x.ToProto(name)
+		}
+
+		dep := &proto.Deployment{
+			Tasks: deployableTasks,
+		}
+
+		if allocId != "" {
+			// update the deployment
+			for _, t := range dep.Tasks {
+				t.AllocId = allocId
+			}
+			if err := s.state.UpdateAllocationDeployment(allocId, dep); err != nil {
+				return "", err
+			}
+		} else {
+			allocId = uuid.Generate()
+
+			alloc := &proto.Allocation{
+				Id:         allocId,
+				NodeId:     "local",
+				Deployment: dep,
+			}
+			for _, t := range dep.Tasks {
+				t.AllocId = allocId
+			}
+			if err := s.state.UpsertAllocation(alloc); err != nil {
+				return "", err
+			}
+		}
+
+		return allocId, nil
+	*/
 }
 
 func (s *Server) Pull(nodeId string, ws memdb.WatchSet) ([]*proto.Allocation, error) {
