@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/umbracle/vesta/internal/client/allocrunner/docker"
 	"github.com/umbracle/vesta/internal/client/allocrunner/state"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/testutil"
@@ -20,8 +21,8 @@ import (
 func testAllocRunnerConfig(t *testing.T, alloc *proto.Allocation1) *Config {
 	logger := hclog.New(&hclog.LoggerOptions{Level: hclog.Debug})
 
-	//driver, err := docker.NewDockerDriver(logger)
-	//assert.NoError(t, err)
+	driver, err := docker.NewDockerDriver(logger)
+	assert.NoError(t, err)
 
 	tmpDir, err := ioutil.TempDir("/tmp", "task-runner-")
 	assert.NoError(t, err)
@@ -36,10 +37,10 @@ func testAllocRunnerConfig(t *testing.T, alloc *proto.Allocation1) *Config {
 	})
 
 	cfg := &Config{
-		Logger: logger,
-		//Driver:       driver,
-		//Alloc:        alloc,
-		//State:        state,
+		Logger:       logger,
+		Driver:       driver,
+		Alloc:        alloc,
+		State:        state,
 		StateUpdater: &mockUpdater{},
 	}
 
@@ -48,7 +49,6 @@ func testAllocRunnerConfig(t *testing.T, alloc *proto.Allocation1) *Config {
 
 func TestAllocRunner_Create(t *testing.T) {
 	alloc := &proto.Allocation1{
-		Id: "a",
 		Deployment: &proto.Deployment1{
 			Tasks: []*proto.Task1{
 				{
@@ -84,7 +84,6 @@ func TestAllocRunner_Create(t *testing.T) {
 
 func TestAllocRunner_Update(t *testing.T) {
 	alloc := &proto.Allocation1{
-		Id: "a",
 		Deployment: &proto.Deployment1{
 			Tasks: []*proto.Task1{
 				{
@@ -118,10 +117,10 @@ func TestAllocRunner_Update(t *testing.T) {
 	})
 
 	// update the args
-	alloc1 := alloc.Copy()
-	alloc1.Deployment.Tasks[0].Args = []string{"sleep", "35"}
+	dep1 := alloc.Deployment.Copy()
+	dep1.Tasks[0].Args = []string{"sleep", "35"}
 
-	// allocRunner.Update(alloc1)
+	allocRunner.Update(dep1)
 
 	/*
 		testutil.WaitForResult(func() (bool, error) {
@@ -165,3 +164,7 @@ func (m *mockUpdater) Last() *proto.Allocation1 {
 	m.lock.Unlock()
 	return alloc
 }
+
+// Task failed gets restarted
+// If allocation desired state is done all the alllocatiosn are removed
+// Alloc reconnect

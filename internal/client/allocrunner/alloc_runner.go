@@ -47,7 +47,7 @@ type AllocRunner struct {
 }
 
 func NewAllocRunner(c *Config) (*AllocRunner, error) {
-	logger := c.Logger.Named("alloc_runner").With("alloc", c.Alloc.Id)
+	logger := c.Logger.Named("alloc_runner").With("alloc", c.Alloc.Deployment.Name)
 
 	runner := &AllocRunner{
 		config:        c,
@@ -88,29 +88,24 @@ func (a *AllocRunner) Run() {
 		r := newAllocReconciler(a.alloc, tasks, tasksState, taskPending)
 		res := r.Compute()
 
-		a.logger.Info(res.GoString())
+		// update the deployment
+		if !res.Empty() {
+			a.logger.Info(res.GoString())
 
-		// remove tasks
-		for _, name := range res.removeTasks {
-			a.tasks[name].KillNoWait()
-		}
+			// remove tasks
+			for _, name := range res.removeTasks {
+				a.tasks[name].KillNoWait()
+			}
 
-		/*
 			// create a tasks
 			for name, task := range res.newTasks {
 				// write the task on the state
-				if err := a.config.State.PutTaskSpec(a.alloc.Id, task); err != nil {
-					panic(err)
-				}
+				runner := a.newTaskRunner(task)
+				go runner.Run()
 
-				fmt.Println(name)
-
-				//runner := a.newTaskRunner(task)
-				//go runner.Run()
-
-				//a.tasks[name] = runner
+				a.tasks[name] = runner
 			}
-		*/
+		}
 
 		states := map[string]*proto.TaskState{}
 		for taskName, task := range a.tasks {
@@ -147,7 +142,7 @@ func (a *AllocRunner) newTaskRunner(task *proto.Task1) *taskrunner.TaskRunner {
 
 	if a.volume != "" {
 		// create an alloc dir
-		taskAllocDir := filepath.Join(a.volume, a.alloc.Id, task.Name)
+		taskAllocDir := filepath.Join(a.volume, a.alloc.Deployment.Name, task.Name)
 		if err := os.MkdirAll(taskAllocDir, 0755); err != nil {
 			// TODO
 			panic(err)
@@ -167,13 +162,7 @@ func (a *AllocRunner) TaskStateUpdated() {
 
 func (a *AllocRunner) Restore() error {
 	// read from db the tasks?
-	/*
-		tasks, err := a.config.State.GetAllocationTasks(a.alloc.Id)
-		if err != nil {
-			return err
-		}
-	*/
-	for _, task := range a.alloc.Tasks {
+	for _, task := range a.alloc.Deployment.Tasks {
 		runner := a.newTaskRunner(task)
 		a.tasks[task.Name] = runner
 

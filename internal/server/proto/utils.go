@@ -59,3 +59,7 @@ func (a *Allocation) Copy() *Allocation {
 func (a *Allocation1) Copy() *Allocation1 {
 	return proto.Clone(a).(*Allocation1)
 }
+
+func (d *Deployment1) Copy() *Deployment1 {
+	return proto.Clone(d).(*Deployment1)
+}

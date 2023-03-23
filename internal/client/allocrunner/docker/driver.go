@@ -185,6 +185,7 @@ func (d *Docker) StartTask(task *driver.Task, allocDir string) (*proto.TaskHandl
 	go h.run()
 
 	handle := &proto.TaskHandle{
+		Id:          task.Id,
 		ContainerID: body.ID,
 		Network: &proto.TaskHandle_Network{
 			Ip: ip,

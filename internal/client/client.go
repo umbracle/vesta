@@ -41,6 +41,12 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 	go c.handle()
 	c.logger.Info("agent started")
 
+	r, err := allocrunner.NewRunner(&allocrunner.RConfig{})
+	if err != nil {
+		return nil, err
+	}
+	c.runner = r
+
 	return c, nil
 }
 

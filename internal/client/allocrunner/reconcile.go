@@ -15,6 +15,10 @@ type allocResults struct {
 	newTasks map[string]*proto.Task1
 }
 
+func (a *allocResults) Empty() bool {
+	return len(a.removeTasks) == 0 && len(a.newTasks) == 0
+}
+
 func (a *allocResults) GoString() string {
 	return fmt.Sprintf("alloc: remove (%d), create (%d)", len(a.removeTasks), len(a.newTasks))
 }
@@ -63,7 +67,7 @@ func (a *allocReconciler) Compute() *allocResults {
 	}
 
 	depTasks := map[string]*proto.Task1{}
-	for _, task := range a.alloc.Tasks {
+	for _, task := range a.alloc.Deployment.Tasks {
 		depTasks[task.Name] = task
 	}
 

@@ -11,10 +11,10 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/umbracle/vesta/internal/client/allocrunner/docker"
 	"github.com/umbracle/vesta/internal/client/allocrunner/state"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/testutil"
-	"github.com/umbracle/vesta/internal/uuid"
 )
 
 func testWaitForTaskToDie(t *testing.T, tr *TaskRunner) {
@@ -35,18 +35,19 @@ func testWaitForTaskToStart(t *testing.T, tr *TaskRunner) {
 	})
 }
 
-func setupTaskRunner(t *testing.T, task *proto.Task) *Config {
-	task.Id = uuid.Generate()
-
+func setupTaskRunner(t *testing.T, task *proto.Task1) *Config {
+	task.Name = "test-task"
 	logger := hclog.New(&hclog.LoggerOptions{Level: hclog.Debug})
 
-	//driver, err := docker.NewDockerDriver(logger)
-	//assert.NoError(t, err)
+	driver, err := docker.NewDockerDriver(logger)
+	assert.NoError(t, err)
 
 	alloc := &proto.Allocation1{
-		Id: uuid.Generate(),
 		Deployment: &proto.Deployment1{
-			Tasks: []*proto.Task1{},
+			Name: "test-alloc",
+			Tasks: []*proto.Task1{
+				task,
+			},
 		},
 	}
 
@@ -63,11 +64,11 @@ func setupTaskRunner(t *testing.T, task *proto.Task) *Config {
 	})
 
 	cfg := &Config{
-		Logger: logger,
-		//Task:             task,
-		AllocID: alloc.Id,
-		//Driver:           driver,
-		//State:            state,
+		Logger:           logger,
+		Task:             task,
+		Allocation:       alloc,
+		Driver:           driver,
+		State:            state,
 		TaskStateUpdated: func() {},
 	}
 
@@ -75,7 +76,7 @@ func setupTaskRunner(t *testing.T, task *proto.Task) *Config {
 }
 
 func TestTaskRunner_Stop_ExitCode(t *testing.T) {
-	tt := &proto.Task{
+	tt := &proto.Task1{
 		Image: "busybox",
 		Tag:   "1.29.3",
 		Args:  []string{"sleep", "3"},
@@ -95,7 +96,7 @@ func TestTaskRunner_Stop_ExitCode(t *testing.T) {
 
 func TestTaskRunner_Restore_AlreadyRunning(t *testing.T) {
 	// Restoring a running task should not re run the task
-	tt := &proto.Task{
+	tt := &proto.Task1{
 		Image: "busybox",
 		Tag:   "1.29.3",
 		Args:  []string{"sleep", "3"},
@@ -137,7 +138,7 @@ func TestTaskRunner_Restore_AlreadyRunning(t *testing.T) {
 func TestTaskRunner_Restore_RequiresRestart(t *testing.T) {
 	// Restore a running task that was dropped should restart
 	// the task.
-	tt := &proto.Task{
+	tt := &proto.Task1{
 		Image: "busybox",
 		Tag:   "1.29.3",
 		Args:  []string{"sleep", "6"},
@@ -151,7 +152,7 @@ func TestTaskRunner_Restore_RequiresRestart(t *testing.T) {
 
 	// stop runner and stop the instance
 	oldRunner.Close()
-	//require.NoError(t, oldRunner.driver.DestroyTask(cfg.Task.Id, true))
+	require.NoError(t, oldRunner.driver.DestroyTask(oldRunner.handle.Id, true))
 
 	// restart (and restore) the runner
 	newRunner := NewTaskRunner(cfg)

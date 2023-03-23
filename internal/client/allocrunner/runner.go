@@ -8,7 +8,6 @@ import (
 	"github.com/umbracle/vesta/internal/client/allocrunner/docker"
 	"github.com/umbracle/vesta/internal/client/allocrunner/state"
 	"github.com/umbracle/vesta/internal/server/proto"
-	"github.com/umbracle/vesta/internal/uuid"
 )
 
 type RConfig struct {
@@ -106,12 +105,14 @@ func (r *Runner) UpsertDeployment(deployment *proto.Deployment1) {
 			handle.Update(deployment)
 		}
 
-		// TODO: Save the allocation again
+		// TODO: Save the allocation again (handle race)
+		if err := r.state.PutAllocation(handle.alloc); err != nil {
+			panic(err)
+		}
 
 	} else {
 		// create
 		alloc := &proto.Allocation1{
-			Id:            uuid.Generate(),
 			Deployment:    deployment,
 			DesiredStatus: proto.Allocation1_Run,
 		}
@@ -136,7 +137,7 @@ func (r *Runner) UpsertDeployment(deployment *proto.Deployment1) {
 			panic(err)
 		}
 
-		r.allocs[alloc.Id] = handle
+		r.allocs[alloc.Deployment.Name] = handle
 		go handle.Run()
 	}
 }

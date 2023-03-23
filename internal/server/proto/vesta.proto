@@ -97,6 +97,7 @@ message Task1 {
     map<string, Volume> volumes = 11;
     
     string allocId = 13;
+    bool batch = 15;
     
     message Volume {
         string path = 1;
@@ -104,13 +105,9 @@ message Task1 {
 }
 
 message Allocation1 {
-    string id = 1;
-
     Deployment1 deployment = 2;
 
     map<string, TaskState> taskStates = 3;
-
-    repeated Task1 tasks = 4;
 
     Status status = 6;
 
@@ -221,6 +218,8 @@ message TaskState {
 message TaskHandle {
     string containerID = 1;
     Network network = 2;
+
+    string id = 3;
 
     message Network {
         string ip = 1;

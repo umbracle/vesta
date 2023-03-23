@@ -9,11 +9,17 @@ import (
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
+func TestAllocResultsEmpty(t *testing.T) {
+	t.Skip("TODO")
+}
+
 func TestReconcile(t *testing.T) {
 	alloc := &proto.Allocation1{
-		Tasks: []*proto.Task1{
-			&proto.Task1{Name: "t0"},
-			&proto.Task1{Name: "t1"},
+		Deployment: &proto.Deployment1{
+			Tasks: []*proto.Task1{
+				{Name: "t0"},
+				{Name: "t1"},
+			},
 		},
 	}
 

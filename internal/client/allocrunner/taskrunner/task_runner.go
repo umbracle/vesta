@@ -33,33 +33,21 @@ type TaskRunner struct {
 	handle           *proto.TaskHandle
 	restartCount     uint64
 	metricsHook      *metricsHook
-	name             string
-	id               string
 }
 
 type Config struct {
-	AllocID    string
-	Logger     hclog.Logger
-	Driver     driver.Driver
-	Allocation *proto.Allocation1
-	AllocDir   string
-
-	// Task is the runtime specification of the task
-	Task *proto.Task1
-
-	// Name is the name this task on the Allocation
-	Name string
-
-	// ID is the id of this task
-	ID string
-
+	Logger           hclog.Logger
+	Driver           driver.Driver
+	Allocation       *proto.Allocation1
+	AllocDir         string
+	Task             *proto.Task1
 	State            state.State
 	TaskStateUpdated func()
 	MetricsUpdater   MetricsUpdater
 }
 
 func NewTaskRunner(config *Config) *TaskRunner {
-	logger := config.Logger.Named("task_runner").With("task-id", config.Name).With("task-name", config.Name)
+	logger := config.Logger.Named("task_runner").With("task-name", config.Task.Name)
 
 	tr := &TaskRunner{
 		logger:           logger,
@@ -73,8 +61,6 @@ func NewTaskRunner(config *Config) *TaskRunner {
 		state:            config.State,
 		status:           proto.NewTaskState(),
 		taskStateUpdated: config.TaskStateUpdated,
-		name:             config.Name,
-		id:               config.ID,
 	}
 
 	/*
@@ -125,7 +111,7 @@ MAIN:
 		{
 			result = nil
 
-			resultCh, err := t.driver.WaitTask(context.Background(), t.name)
+			resultCh, err := t.driver.WaitTask(context.Background(), t.handle.Id)
 			if err != nil {
 				t.logger.Error("failed to wait for task", "err", err)
 			} else {
@@ -165,8 +151,8 @@ MAIN:
 	}
 }
 
-func (tr *TaskRunner) handleKill(resultCh <-chan *proto.ExitResult) *proto.ExitResult {
-	tr.killed = true
+func (t *TaskRunner) handleKill(resultCh <-chan *proto.ExitResult) *proto.ExitResult {
+	t.killed = true
 
 	// Check if it is still running
 	select {
@@ -175,19 +161,19 @@ func (tr *TaskRunner) handleKill(resultCh <-chan *proto.ExitResult) *proto.ExitR
 	default:
 	}
 
-	if err := tr.driver.StopTask(tr.name, 0); err != nil {
-		tr.killErr = err
+	if err := t.driver.StopTask(t.handle.Id, 0); err != nil {
+		t.killErr = err
 	}
 
 	select {
 	case result := <-resultCh:
 		return result
-	case <-tr.shutdownCh:
+	case <-t.shutdownCh:
 		return nil
 	}
 }
 
-func (tr *TaskRunner) emitExitResultEvent(result *proto.ExitResult) {
+func (t *TaskRunner) emitExitResultEvent(result *proto.ExitResult) {
 	if result == nil {
 		return
 	}
@@ -195,7 +181,7 @@ func (tr *TaskRunner) emitExitResultEvent(result *proto.ExitResult) {
 		SetExitCode(result.ExitCode).
 		SetSignal(result.Signal)
 
-	tr.EmitEvent(event)
+	t.EmitEvent(event)
 }
 
 func (t *TaskRunner) runDriver() error {
@@ -207,7 +193,7 @@ func (t *TaskRunner) runDriver() error {
 	invocationid := uuid.Generate()[:8]
 
 	tt := &driver.Task{
-		Id:    fmt.Sprintf("%s/%s/%s", t.alloc.Id, t.task.Name, invocationid),
+		Id:    fmt.Sprintf("%s/%s/%s", t.alloc.Deployment.Name, t.task.Name, invocationid),
 		Task1: t.task,
 	}
 
@@ -216,18 +202,18 @@ func (t *TaskRunner) runDriver() error {
 		return err
 	}
 	t.handle = handle
-	if err := t.state.PutTaskLocalState(t.alloc.Id, t.name, handle); err != nil {
+	if err := t.state.PutTaskLocalState(t.alloc.Deployment.Name, t.task.Name, handle); err != nil {
 		panic(err)
 	}
 	t.UpdateStatus(proto.TaskState_Running, proto.NewTaskEvent(proto.TaskStarted))
 	return nil
 }
 
-func (tr *TaskRunner) clearDriverHandle() {
-	if tr.handle != nil {
-		tr.driver.DestroyTask(tr.name, true)
+func (t *TaskRunner) clearDriverHandle() {
+	if t.handle != nil {
+		t.driver.DestroyTask(t.handle.Id, true)
 	}
-	tr.handle = nil
+	t.handle = nil
 }
 
 func (t *TaskRunner) TaskState() *proto.TaskState {
@@ -238,6 +224,11 @@ func (t *TaskRunner) TaskState() *proto.TaskState {
 
 func (t *TaskRunner) shouldRestart() (bool, time.Duration) {
 	if t.killed {
+		return false, 0
+	}
+
+	if t.task.Batch {
+		// batch tasks are not restarted
 		return false, 0
 	}
 
@@ -253,13 +244,13 @@ func (t *TaskRunner) shouldRestart() (bool, time.Duration) {
 }
 
 func (t *TaskRunner) Restore() error {
-	state, handle, err := t.state.GetTaskState(t.alloc.Id, t.name)
+	state, handle, err := t.state.GetTaskState(t.alloc.Deployment.Name, t.task.Name)
 	if err != nil {
 		return err
 	}
 	t.status = state
 
-	if err := t.driver.RecoverTask(t.name, handle); err != nil {
+	if err := t.driver.RecoverTask(handle.Id, handle); err != nil {
 		t.UpdateStatus(proto.TaskState_Pending, nil)
 		return nil
 	}
@@ -283,7 +274,7 @@ func (t *TaskRunner) UpdateStatus(status proto.TaskState_State, ev *proto.TaskSt
 		t.appendEventLocked(ev)
 	}
 
-	if err := t.state.PutTaskState(t.alloc.Id, t.name, t.status); err != nil {
+	if err := t.state.PutTaskState(t.alloc.Deployment.Name, t.task.Name, t.status); err != nil {
 		t.logger.Warn("failed to persist task state during update status", "err", err)
 	}
 	t.taskStateUpdated()
@@ -295,7 +286,7 @@ func (t *TaskRunner) EmitEvent(ev *proto.TaskState_Event) {
 
 	t.appendEventLocked(ev)
 
-	if err := t.state.PutTaskState(t.alloc.Id, t.name, t.status); err != nil {
+	if err := t.state.PutTaskState(t.alloc.Deployment.Name, t.task.Name, t.status); err != nil {
 		t.logger.Warn("failed to persist task state during emit event", "err", err)
 	}
 
@@ -325,8 +316,8 @@ func (t *TaskRunner) Kill(ctx context.Context, ev *proto.TaskState_Event) error 
 	return t.killErr
 }
 
-func (tr *TaskRunner) WaitCh() <-chan struct{} {
-	return tr.waitCh
+func (t *TaskRunner) WaitCh() <-chan struct{} {
+	return t.waitCh
 }
 
 func (t *TaskRunner) Close() {
