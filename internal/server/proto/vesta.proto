@@ -103,6 +103,8 @@ message Task {
 
     string allocId = 13;
     
+    bool batch = 14;
+    
     message Volume {
         string path = 1;
     }

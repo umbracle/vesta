@@ -7,7 +7,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/umbracle/vesta/internal/client/allocrunner/driver"
-	"github.com/umbracle/vesta/internal/client/state"
+	"github.com/umbracle/vesta/internal/client/allocrunner/state"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
@@ -34,6 +34,7 @@ type TaskRunner struct {
 }
 
 type Config struct {
+	AllocID          string
 	Logger           hclog.Logger
 	Driver           driver.Driver
 	Allocation       *proto.Allocation
