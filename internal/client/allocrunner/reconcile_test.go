@@ -10,23 +10,14 @@ import (
 )
 
 func TestReconcile(t *testing.T) {
-	t0 := &proto.Task{
-		Id: "id0",
-	}
-	t1 := &proto.Task{
-		Id: "id1",
-	}
-
-	alloc := &proto.Allocation{
-		Deployment: &proto.Deployment{
-			Tasks: map[string]*proto.Task{
-				"t0": t0,
-				"t1": t1,
-			},
+	alloc := &proto.Allocation1{
+		Tasks: []*proto.Task1{
+			&proto.Task1{Name: "t0"},
+			&proto.Task1{Name: "t1"},
 		},
 	}
 
-	tasks := map[string]*proto.Task{}
+	tasks := map[string]*proto.Task1{}
 
 	taskState := map[string]*proto.TaskState{}
 
@@ -39,15 +30,15 @@ func TestReconcile(t *testing.T) {
 }
 
 func TestTaskUpdated(t *testing.T) {
-	t1 := mock.Task()
-	t2 := mock.Task()
+	t1 := mock.Task1()
+	t2 := mock.Task1()
 
 	require.False(t, tasksUpdated(t1, t2))
 
 	t2.Args = []string{"c"}
 	require.True(t, tasksUpdated(t1, t2))
 
-	t2 = mock.Task()
+	t2 = mock.Task1()
 	t2.Env = map[string]string{"c": "d"}
 	require.True(t, tasksUpdated(t1, t2))
 }

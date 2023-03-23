@@ -14,3 +14,16 @@ func Task() *proto.Task {
 		},
 	}
 }
+
+func Task1() *proto.Task1 {
+	return &proto.Task1{
+		Image: "vesta",
+		Tag:   "latest",
+		Args: []string{
+			"a",
+		},
+		Env: map[string]string{
+			"b": "c",
+		},
+	}
+}

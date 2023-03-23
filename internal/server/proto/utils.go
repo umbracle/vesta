@@ -55,3 +55,7 @@ const (
 func (a *Allocation) Copy() *Allocation {
 	return proto.Clone(a).(*Allocation)
 }
+
+func (a *Allocation1) Copy() *Allocation1 {
+	return proto.Clone(a).(*Allocation1)
+}

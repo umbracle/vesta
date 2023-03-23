@@ -12,7 +12,7 @@ type allocResults struct {
 	removeTasks []string
 
 	// newTasks is the list of tasks to create
-	newTasks map[string]*proto.Task
+	newTasks map[string]*proto.Task1
 }
 
 func (a *allocResults) GoString() string {
@@ -21,10 +21,10 @@ func (a *allocResults) GoString() string {
 
 type allocReconciler struct {
 	// alloc is the allocation being processed
-	alloc *proto.Allocation
+	alloc *proto.Allocation1
 
 	// tasks is the list of running tasks
-	tasks map[string]*proto.Task
+	tasks map[string]*proto.Task1
 
 	// pendingDelete signals whether the task is being deleted
 	pendingDelete map[string]struct{}
@@ -33,7 +33,7 @@ type allocReconciler struct {
 	tasksState map[string]*proto.TaskState
 }
 
-func newAllocReconciler(alloc *proto.Allocation, tasks map[string]*proto.Task,
+func newAllocReconciler(alloc *proto.Allocation1, tasks map[string]*proto.Task1,
 	tasksState map[string]*proto.TaskState, pendingDelete map[string]struct{}) *allocReconciler {
 	return &allocReconciler{
 		alloc:         alloc,
@@ -46,25 +46,25 @@ func newAllocReconciler(alloc *proto.Allocation, tasks map[string]*proto.Task,
 func (a *allocReconciler) Compute() *allocResults {
 	result := &allocResults{
 		removeTasks: []string{},
-		newTasks:    map[string]*proto.Task{},
+		newTasks:    map[string]*proto.Task1{},
 	}
 
 	// check if the whole deployment has to be destroyed
-	if a.alloc.DesiredStatus == proto.Allocation_Stop {
-		for name, task := range a.tasks {
+	if a.alloc.DesiredStatus == proto.Allocation1_Stop {
+		for name := range a.tasks {
 			state := a.tasksState[name]
 
 			_, isPendingDelete := a.pendingDelete[name]
 			if state.State != proto.TaskState_Dead && !isPendingDelete {
-				result.removeTasks = append(result.removeTasks, task.Name)
+				result.removeTasks = append(result.removeTasks, name)
 			}
 		}
 		return result
 	}
 
-	depTasks := map[string]*proto.Task{}
-	for name, task := range a.alloc.Deployment.Tasks {
-		depTasks[name] = task
+	depTasks := map[string]*proto.Task1{}
+	for _, task := range a.alloc.Tasks {
+		depTasks[task.Name] = task
 	}
 
 	for name, task := range a.tasks {
@@ -112,7 +112,7 @@ func (a *allocReconciler) Compute() *allocResults {
 	return result
 }
 
-func tasksUpdated(a, b *proto.Task) bool {
+func tasksUpdated(a, b *proto.Task1) bool {
 	if !reflect.DeepEqual(a.Args, b.Args) {
 		return true
 	}

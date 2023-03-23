@@ -2,6 +2,7 @@ package taskrunner
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/umbracle/vesta/internal/client/allocrunner/driver"
 	"github.com/umbracle/vesta/internal/client/allocrunner/state"
 	"github.com/umbracle/vesta/internal/server/proto"
+	"github.com/umbracle/vesta/internal/uuid"
 )
 
 var defaultMaxEvents = 10
@@ -17,8 +19,8 @@ type TaskRunner struct {
 	logger           hclog.Logger
 	driver           driver.Driver
 	waitCh           chan struct{}
-	alloc            *proto.Allocation
-	task             *proto.Task
+	alloc            *proto.Allocation1
+	task             *proto.Task1
 	allocDir         string
 	shutdownCh       chan struct{}
 	killCh           chan struct{}
@@ -31,22 +33,33 @@ type TaskRunner struct {
 	handle           *proto.TaskHandle
 	restartCount     uint64
 	metricsHook      *metricsHook
+	name             string
+	id               string
 }
 
 type Config struct {
-	AllocID          string
-	Logger           hclog.Logger
-	Driver           driver.Driver
-	Allocation       *proto.Allocation
-	AllocDir         string
-	Task             *proto.Task
+	AllocID    string
+	Logger     hclog.Logger
+	Driver     driver.Driver
+	Allocation *proto.Allocation1
+	AllocDir   string
+
+	// Task is the runtime specification of the task
+	Task *proto.Task1
+
+	// Name is the name this task on the Allocation
+	Name string
+
+	// ID is the id of this task
+	ID string
+
 	State            state.State
 	TaskStateUpdated func()
 	MetricsUpdater   MetricsUpdater
 }
 
 func NewTaskRunner(config *Config) *TaskRunner {
-	logger := config.Logger.Named("task_runner").With("task-id", config.Task.Id).With("task-name", config.Task.Name)
+	logger := config.Logger.Named("task_runner").With("task-id", config.Name).With("task-name", config.Name)
 
 	tr := &TaskRunner{
 		logger:           logger,
@@ -60,11 +73,16 @@ func NewTaskRunner(config *Config) *TaskRunner {
 		state:            config.State,
 		status:           proto.NewTaskState(),
 		taskStateUpdated: config.TaskStateUpdated,
+		name:             config.Name,
+		id:               config.ID,
 	}
 
-	if config.Task.Telemetry != nil {
-		tr.metricsHook = newMetricsHook(logger, config.Task, config.MetricsUpdater)
-	}
+	/*
+		if config.Task.Telemetry != nil {
+			tr.metricsHook = newMetricsHook(logger, config.Task, config.MetricsUpdater)
+		}
+	*/
+
 	return tr
 }
 
@@ -77,7 +95,7 @@ func (t *TaskRunner) IsShuttingDown() bool {
 	}
 }
 
-func (t *TaskRunner) Task() *proto.Task {
+func (t *TaskRunner) Task() *proto.Task1 {
 	return t.task
 }
 
@@ -107,7 +125,7 @@ MAIN:
 		{
 			result = nil
 
-			resultCh, err := t.driver.WaitTask(context.Background(), t.task.Id)
+			resultCh, err := t.driver.WaitTask(context.Background(), t.name)
 			if err != nil {
 				t.logger.Error("failed to wait for task", "err", err)
 			} else {
@@ -157,7 +175,7 @@ func (tr *TaskRunner) handleKill(resultCh <-chan *proto.ExitResult) *proto.ExitR
 	default:
 	}
 
-	if err := tr.driver.StopTask(tr.task.Id, 0); err != nil {
+	if err := tr.driver.StopTask(tr.name, 0); err != nil {
 		tr.killErr = err
 	}
 
@@ -186,12 +204,19 @@ func (t *TaskRunner) runDriver() error {
 		return nil
 	}
 
-	handle, err := t.driver.StartTask(t.task, t.allocDir)
+	invocationid := uuid.Generate()[:8]
+
+	tt := &driver.Task{
+		Id:    fmt.Sprintf("%s/%s/%s", t.alloc.Id, t.task.Name, invocationid),
+		Task1: t.task,
+	}
+
+	handle, err := t.driver.StartTask(tt, t.allocDir)
 	if err != nil {
 		return err
 	}
 	t.handle = handle
-	if err := t.state.PutTaskLocalState(t.alloc.Id, t.task.Id, handle); err != nil {
+	if err := t.state.PutTaskLocalState(t.alloc.Id, t.name, handle); err != nil {
 		panic(err)
 	}
 	t.UpdateStatus(proto.TaskState_Running, proto.NewTaskEvent(proto.TaskStarted))
@@ -200,7 +225,7 @@ func (t *TaskRunner) runDriver() error {
 
 func (tr *TaskRunner) clearDriverHandle() {
 	if tr.handle != nil {
-		tr.driver.DestroyTask(tr.task.Id, true)
+		tr.driver.DestroyTask(tr.name, true)
 	}
 	tr.handle = nil
 }
@@ -228,13 +253,13 @@ func (t *TaskRunner) shouldRestart() (bool, time.Duration) {
 }
 
 func (t *TaskRunner) Restore() error {
-	state, handle, err := t.state.GetTaskState(t.alloc.Id, t.task.Id)
+	state, handle, err := t.state.GetTaskState(t.alloc.Id, t.name)
 	if err != nil {
 		return err
 	}
 	t.status = state
 
-	if err := t.driver.RecoverTask(t.task.Id, handle); err != nil {
+	if err := t.driver.RecoverTask(t.name, handle); err != nil {
 		t.UpdateStatus(proto.TaskState_Pending, nil)
 		return nil
 	}
@@ -258,7 +283,7 @@ func (t *TaskRunner) UpdateStatus(status proto.TaskState_State, ev *proto.TaskSt
 		t.appendEventLocked(ev)
 	}
 
-	if err := t.state.PutTaskState(t.alloc.Id, t.task.Id, t.status); err != nil {
+	if err := t.state.PutTaskState(t.alloc.Id, t.name, t.status); err != nil {
 		t.logger.Warn("failed to persist task state during update status", "err", err)
 	}
 	t.taskStateUpdated()
@@ -270,7 +295,7 @@ func (t *TaskRunner) EmitEvent(ev *proto.TaskState_Event) {
 
 	t.appendEventLocked(ev)
 
-	if err := t.state.PutTaskState(t.alloc.Id, t.task.Id, t.status); err != nil {
+	if err := t.state.PutTaskState(t.alloc.Id, t.name, t.status); err != nil {
 		t.logger.Warn("failed to persist task state during emit event", "err", err)
 	}
 

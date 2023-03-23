@@ -79,6 +79,56 @@ message Deployment {
     map<string,Task> tasks = 2;
 }
 
+message Deployment1 {
+    string name = 1;
+    repeated Task1 tasks = 2;
+    int64 sequence = 3;
+}
+
+message Task1 {
+    string image = 1;
+    string tag = 2;
+    repeated string args = 3;
+    map<string,string> env = 4;
+    map<string,string> labels = 5;
+    repeated string securityOpt = 7;
+    string name = 8;
+    map<string, string> data = 9;
+    map<string, Volume> volumes = 11;
+    
+    string allocId = 13;
+    
+    message Volume {
+        string path = 1;
+    }
+}
+
+message Allocation1 {
+    string id = 1;
+
+    Deployment1 deployment = 2;
+
+    map<string, TaskState> taskStates = 3;
+
+    repeated Task1 tasks = 4;
+
+    Status status = 6;
+
+    DesiredStatus desiredStatus = 7;
+
+    enum Status {
+        Pending = 0;
+        Running = 1;
+        Complete = 2;
+        Failed = 3;
+    }
+
+    enum DesiredStatus {
+        Run = 0;
+        Stop = 1;
+    }
+}
+
 // Task represents an single container process
 message Task {
     string image = 1;

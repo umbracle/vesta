@@ -18,12 +18,12 @@ type MetricsUpdater interface {
 }
 
 type StateUpdater interface {
-	AllocStateUpdated(alloc *proto.Allocation)
+	AllocStateUpdated(alloc *proto.Allocation1)
 }
 
 type Config struct {
 	Logger       hclog.Logger
-	Alloc        *proto.Allocation
+	Alloc        *proto.Allocation1
 	State        state.State
 	StateUpdater StateUpdater
 	Driver       driver.Driver
@@ -37,7 +37,7 @@ type AllocRunner struct {
 	logger       hclog.Logger
 	tasks        map[string]*taskrunner.TaskRunner
 	waitCh       chan struct{}
-	alloc        *proto.Allocation
+	alloc        *proto.Allocation1
 	driver       driver.Driver
 	taskUpdated  chan struct{}
 	stateUpdater StateUpdater
@@ -74,7 +74,7 @@ func (a *AllocRunner) Run() {
 	// start the reconcile loop
 	for {
 
-		tasks := map[string]*proto.Task{}
+		tasks := map[string]*proto.Task1{}
 		tasksState := map[string]*proto.TaskState{}
 		taskPending := map[string]struct{}{}
 		for name, t := range a.tasks {
@@ -95,18 +95,22 @@ func (a *AllocRunner) Run() {
 			a.tasks[name].KillNoWait()
 		}
 
-		// create a tasks
-		for name, task := range res.newTasks {
-			// write the task on the state
-			if err := a.config.State.PutTaskSpec(a.alloc.Id, task); err != nil {
-				panic(err)
+		/*
+			// create a tasks
+			for name, task := range res.newTasks {
+				// write the task on the state
+				if err := a.config.State.PutTaskSpec(a.alloc.Id, task); err != nil {
+					panic(err)
+				}
+
+				fmt.Println(name)
+
+				//runner := a.newTaskRunner(task)
+				//go runner.Run()
+
+				//a.tasks[name] = runner
 			}
-
-			runner := a.newTaskRunner(task)
-			go runner.Run()
-
-			a.tasks[name] = runner
-		}
+		*/
 
 		states := map[string]*proto.TaskState{}
 		for taskName, task := range a.tasks {
@@ -130,7 +134,7 @@ func (a *AllocRunner) Run() {
 	}
 }
 
-func (a *AllocRunner) newTaskRunner(task *proto.Task) *taskrunner.TaskRunner {
+func (a *AllocRunner) newTaskRunner(task *proto.Task1) *taskrunner.TaskRunner {
 	config := &taskrunner.Config{
 		Logger:           a.logger,
 		Task:             task,
@@ -163,11 +167,13 @@ func (a *AllocRunner) TaskStateUpdated() {
 
 func (a *AllocRunner) Restore() error {
 	// read from db the tasks?
-	tasks, err := a.config.State.GetAllocationTasks(a.alloc.Id)
-	if err != nil {
-		return err
-	}
-	for _, task := range tasks {
+	/*
+		tasks, err := a.config.State.GetAllocationTasks(a.alloc.Id)
+		if err != nil {
+			return err
+		}
+	*/
+	for _, task := range a.alloc.Tasks {
 		runner := a.newTaskRunner(task)
 		a.tasks[task.Name] = runner
 
@@ -182,12 +188,9 @@ func (a *AllocRunner) Restore() error {
 	return nil
 }
 
-func (a *AllocRunner) Update(alloc *proto.Allocation) {
-	if alloc.Sequence <= a.alloc.Sequence {
-		return
-	}
+func (a *AllocRunner) Update(deployment *proto.Deployment1) {
 	a.logger.Info("alloc updated")
-	a.alloc = alloc
+	a.alloc.Deployment = deployment
 	a.TaskStateUpdated()
 }
 
@@ -197,7 +200,7 @@ func (a *AllocRunner) WaitCh() <-chan struct{} {
 
 // getClientStatus takes in the task states for a given allocation and computes
 // the client status and description
-func getClientStatus(taskStates map[string]*proto.TaskState) proto.Allocation_Status {
+func getClientStatus(taskStates map[string]*proto.TaskState) proto.Allocation1_Status {
 	var pending, running, dead, failed bool
 	for _, state := range taskStates {
 		switch state.State {
@@ -216,13 +219,13 @@ func getClientStatus(taskStates map[string]*proto.TaskState) proto.Allocation_St
 
 	// Determine the alloc status
 	if failed {
-		return proto.Allocation_Failed
+		return proto.Allocation1_Failed
 	} else if running {
-		return proto.Allocation_Running
+		return proto.Allocation1_Running
 	} else if pending {
-		return proto.Allocation_Pending
+		return proto.Allocation1_Pending
 	} else if dead {
-		return proto.Allocation_Complete
+		return proto.Allocation1_Complete
 	}
 
 	panic("X")

@@ -8,6 +8,7 @@ import (
 	"github.com/umbracle/vesta/internal/client/allocrunner/docker"
 	"github.com/umbracle/vesta/internal/client/allocrunner/state"
 	"github.com/umbracle/vesta/internal/server/proto"
+	"github.com/umbracle/vesta/internal/uuid"
 )
 
 type RConfig struct {
@@ -32,8 +33,13 @@ func NewRunner(config *RConfig) (*Runner, error) {
 		return nil, err
 	}
 
+	logger := hclog.New(&hclog.LoggerOptions{Level: hclog.Info})
+
 	r := &Runner{
+		logger: logger,
+		config: config,
 		driver: driver,
+		allocs: map[string]*AllocRunner{},
 	}
 
 	if err := r.initState(); err != nil {
@@ -54,8 +60,6 @@ func (r *Runner) initState() error {
 		return err
 	}
 	for _, alloc := range allocs {
-		id := alloc.Id
-
 		config := &Config{
 			Alloc:         alloc,
 			Logger:        r.logger,
@@ -72,7 +76,7 @@ func (r *Runner) initState() error {
 		if err != nil {
 			panic(err)
 		}
-		r.allocs[id] = handle
+		r.allocs[alloc.Deployment.Name] = handle
 
 		if err := handle.Restore(); err != nil {
 			return err
@@ -90,19 +94,32 @@ func (r *Runner) UpdateMetrics(string, map[string]*dto.MetricFamily) {
 	// TODO: Move hooks out
 }
 
-func (r *Runner) AllocStateUpdated(a *proto.Allocation) {
+func (r *Runner) AllocStateUpdated(a *proto.Allocation1) {
 	fmt.Println(a)
 }
 
-func (r *Runner) UpsertDeployment(alloc *proto.Allocation) {
-	handle, ok := r.allocs[alloc.Id]
+func (r *Runner) UpsertDeployment(deployment *proto.Deployment1) {
+	handle, ok := r.allocs[deployment.Name]
 	if ok {
-		if alloc.Sequence > handle.alloc.Sequence {
+		if deployment.Sequence > handle.alloc.Deployment.Sequence {
 			// update
-			handle.Update(alloc)
+			handle.Update(deployment)
 		}
+
+		// TODO: Save the allocation again
+
 	} else {
 		// create
+		alloc := &proto.Allocation1{
+			Id:            uuid.Generate(),
+			Deployment:    deployment,
+			DesiredStatus: proto.Allocation1_Run,
+		}
+
+		if err := r.state.PutAllocation(alloc); err != nil {
+			panic(err)
+		}
+
 		config := &Config{
 			Alloc:         alloc,
 			Logger:        r.logger,
@@ -121,10 +138,5 @@ func (r *Runner) UpsertDeployment(alloc *proto.Allocation) {
 
 		r.allocs[alloc.Id] = handle
 		go handle.Run()
-	}
-
-	// update allocation
-	if err := r.state.PutAllocation(alloc); err != nil {
-		panic(err)
 	}
 }

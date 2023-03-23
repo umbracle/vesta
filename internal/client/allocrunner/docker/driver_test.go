@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/umbracle/vesta/internal/client/allocrunner/driver"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/uuid"
 )
@@ -17,9 +18,11 @@ import (
 func TestDriver_CreateContainerOptions_Labels(t *testing.T) {
 	d, _ := NewDockerDriver(nil)
 
-	tt := &proto.Task{
-		Labels: map[string]string{
-			"some": "label",
+	tt := &driver.Task{
+		Task1: &proto.Task1{
+			Labels: map[string]string{
+				"some": "label",
+			},
 		},
 	}
 	opts, err := d.createContainerOptions(tt, "")
@@ -32,9 +35,11 @@ func TestDriver_CreateContainerOptions_Labels(t *testing.T) {
 func TestDriver_CreateContainerOptions_Env(t *testing.T) {
 	d, _ := NewDockerDriver(nil)
 
-	tt := &proto.Task{
-		Env: map[string]string{
-			"some": "label",
+	tt := &driver.Task{
+		Task1: &proto.Task1{
+			Env: map[string]string{
+				"some": "label",
+			},
 		},
 	}
 	opts, err := d.createContainerOptions(tt, "")
@@ -46,9 +51,11 @@ func TestDriver_CreateContainerOptions_Env(t *testing.T) {
 func TestDriver_CreateContainerOptions_Image(t *testing.T) {
 	d, _ := NewDockerDriver(nil)
 
-	tt := &proto.Task{
-		Image: "a",
-		Tag:   "b",
+	tt := &driver.Task{
+		Task1: &proto.Task1{
+			Image: "a",
+			Tag:   "b",
+		},
 	}
 	opts, err := d.createContainerOptions(tt, "")
 	assert.NoError(t, err)
@@ -59,9 +66,11 @@ func TestDriver_CreateContainerOptions_Image(t *testing.T) {
 func TestDriver_CreateContainerOptions_DataMount(t *testing.T) {
 	d, _ := NewDockerDriver(nil)
 
-	tt := &proto.Task{
-		Data: map[string]string{
-			"/var/file3.txt": "c",
+	tt := &driver.Task{
+		Task1: &proto.Task1{
+			Data: map[string]string{
+				"/var/file3.txt": "c",
+			},
 		},
 	}
 	opts, err := d.createContainerOptions(tt, "")
@@ -73,11 +82,12 @@ func TestDriver_CreateContainerOptions_DataMount(t *testing.T) {
 func TestDriver_Start_Wait(t *testing.T) {
 	d, _ := NewDockerDriver(nil)
 
-	tt := &proto.Task{
-		Id:    uuid.Generate(),
-		Image: "busybox",
-		Tag:   "1.29.3",
-		Args:  []string{"nc", "-l", "-p", "3000", "127.0.0.1"},
+	tt := &driver.Task{
+		Task1: &proto.Task1{
+			Image: "busybox",
+			Tag:   "1.29.3",
+			Args:  []string{"nc", "-l", "-p", "3000", "127.0.0.1"},
+		},
 	}
 	_, err := d.StartTask(tt, "")
 	assert.NoError(t, err)
@@ -95,11 +105,14 @@ func TestDriver_Start_Wait(t *testing.T) {
 func TestDriver_Start_WaitFinished(t *testing.T) {
 	d, _ := NewDockerDriver(nil)
 
-	tt := &proto.Task{
-		Id:    uuid.Generate(),
-		Image: "busybox",
-		Tag:   "1.29.3",
-		Args:  []string{"echo", "hello"},
+	tt := &driver.Task{
+		Id: uuid.Generate(),
+		Task1: &proto.Task1{
+
+			Image: "busybox",
+			Tag:   "1.29.3",
+			Args:  []string{"echo", "hello"},
+		},
 	}
 	_, err := d.StartTask(tt, "")
 	assert.NoError(t, err)
@@ -118,11 +131,14 @@ func TestDriver_Start_WaitFinished(t *testing.T) {
 func TestDriver_Start_Kill_Wait(t *testing.T) {
 	d, _ := NewDockerDriver(nil)
 
-	tt := &proto.Task{
-		Id:    uuid.Generate(),
-		Image: "busybox",
-		Tag:   "1.29.3",
-		Args:  []string{"echo", "hello"},
+	tt := &driver.Task{
+		Id: uuid.Generate(),
+		Task1: &proto.Task1{
+
+			Image: "busybox",
+			Tag:   "1.29.3",
+			Args:  []string{"echo", "hello"},
+		},
 	}
 	_, err := d.StartTask(tt, "")
 	assert.NoError(t, err)
@@ -145,11 +161,13 @@ func TestDriver_Start_Kill_Wait(t *testing.T) {
 func TestDriver_Start_Kill_Timeout(t *testing.T) {
 	d, _ := NewDockerDriver(nil)
 
-	tt := &proto.Task{
-		Id:    uuid.Generate(),
-		Image: "busybox",
-		Tag:   "1.29.3",
-		Args:  []string{"sleep", "10"},
+	tt := &driver.Task{
+		Id: uuid.Generate(),
+		Task1: &proto.Task1{
+			Image: "busybox",
+			Tag:   "1.29.3",
+			Args:  []string{"sleep", "10"},
+		},
 	}
 	_, err := d.StartTask(tt, "")
 	assert.NoError(t, err)
@@ -172,13 +190,15 @@ func TestDriver_Start_Kill_Timeout(t *testing.T) {
 func TestDriver_Start_WithVolume(t *testing.T) {
 	d, _ := NewDockerDriver(nil)
 
-	tt := &proto.Task{
-		Id:    uuid.Generate(),
-		Image: "busybox",
-		Tag:   "1.29.3",
-		Args:  []string{"touch", "/data/file"},
-		Volumes: map[string]*proto.Task_Volume{
-			"data": {Path: "/data"},
+	tt := &driver.Task{
+		Id: uuid.Generate(),
+		Task1: &proto.Task1{
+			Image: "busybox",
+			Tag:   "1.29.3",
+			Args:  []string{"touch", "/data/file"},
+			Volumes: map[string]*proto.Task1_Volume{
+				"data": {Path: "/data"},
+			},
 		},
 	}
 

@@ -15,6 +15,7 @@ import (
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 	"github.com/hashicorp/go-hclog"
+	"github.com/umbracle/vesta/internal/client/allocrunner/driver"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
@@ -143,7 +144,7 @@ func (d *Docker) RecoverTask(taskID string, task *proto.TaskHandle) error {
 	return nil
 }
 
-func (d *Docker) StartTask(task *proto.Task, allocDir string) (*proto.TaskHandle, error) {
+func (d *Docker) StartTask(task *driver.Task, allocDir string) (*proto.TaskHandle, error) {
 	d.logger.Info("Create task", "image", task.Image, "tag", task.Tag)
 
 	if err := d.createImage(task.Image + ":" + task.Tag); err != nil {
@@ -198,7 +199,7 @@ type createContainerOptions struct {
 	network *network.NetworkingConfig
 }
 
-func (d *Docker) createContainerOptions(task *proto.Task, allocDir string) (*createContainerOptions, error) {
+func (d *Docker) createContainerOptions(task *driver.Task, allocDir string) (*createContainerOptions, error) {
 	// build any mount path
 	mountMap := map[string]string{}
 	for _, mount := range []string{"/var"} {

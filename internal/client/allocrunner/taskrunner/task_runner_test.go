@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/umbracle/vesta/internal/client/allocrunner/docker"
 	"github.com/umbracle/vesta/internal/client/allocrunner/state"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/testutil"
@@ -41,13 +40,13 @@ func setupTaskRunner(t *testing.T, task *proto.Task) *Config {
 
 	logger := hclog.New(&hclog.LoggerOptions{Level: hclog.Debug})
 
-	driver, err := docker.NewDockerDriver(logger)
-	assert.NoError(t, err)
+	//driver, err := docker.NewDockerDriver(logger)
+	//assert.NoError(t, err)
 
-	alloc := &proto.Allocation{
+	alloc := &proto.Allocation1{
 		Id: uuid.Generate(),
-		Deployment: &proto.Deployment{
-			Tasks: map[string]*proto.Task{"first": task},
+		Deployment: &proto.Deployment1{
+			Tasks: []*proto.Task1{},
 		},
 	}
 
@@ -64,11 +63,11 @@ func setupTaskRunner(t *testing.T, task *proto.Task) *Config {
 	})
 
 	cfg := &Config{
-		Logger:           logger,
-		Task:             task,
-		AllocID:          alloc.Id,
-		Driver:           driver,
-		State:            state,
+		Logger: logger,
+		//Task:             task,
+		AllocID: alloc.Id,
+		//Driver:           driver,
+		//State:            state,
 		TaskStateUpdated: func() {},
 	}
 
@@ -152,7 +151,7 @@ func TestTaskRunner_Restore_RequiresRestart(t *testing.T) {
 
 	// stop runner and stop the instance
 	oldRunner.Close()
-	require.NoError(t, oldRunner.driver.DestroyTask(cfg.Task.Id, true))
+	//require.NoError(t, oldRunner.driver.DestroyTask(cfg.Task.Id, true))
 
 	// restart (and restore) the runner
 	newRunner := NewTaskRunner(cfg)

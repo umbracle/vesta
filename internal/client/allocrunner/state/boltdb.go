@@ -1,13 +1,14 @@
 package state
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/boltdb/bolt"
 	gproto "github.com/golang/protobuf/proto"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
+
+var _ State = &BoltdbStore{}
 
 var (
 	allocsBucket = []byte("allocs")
@@ -56,7 +57,7 @@ func NewBoltdbStore(path string) (*BoltdbStore, error) {
 	return s, nil
 }
 
-func (s *BoltdbStore) PutAllocation(a *proto.Allocation) error {
+func (s *BoltdbStore) PutAllocation(a *proto.Allocation1) error {
 	err := s.db.Update(func(tx *bolt.Tx) error {
 		allocsBkt := tx.Bucket(allocsBucket)
 
@@ -75,8 +76,8 @@ func (s *BoltdbStore) PutAllocation(a *proto.Allocation) error {
 	return nil
 }
 
-func (s *BoltdbStore) GetAllocations() ([]*proto.Allocation, error) {
-	allocs := []*proto.Allocation{}
+func (s *BoltdbStore) GetAllocations() ([]*proto.Allocation1, error) {
+	allocs := []*proto.Allocation1{}
 	s.db.View(func(tx *bolt.Tx) error {
 		allocsBkt := tx.Bucket(allocsBucket)
 
@@ -84,7 +85,7 @@ func (s *BoltdbStore) GetAllocations() ([]*proto.Allocation, error) {
 		for k, _ := c.First(); k != nil; k, _ = c.Next() {
 			allocBkt := allocsBkt.Bucket(k)
 
-			alloc := proto.Allocation{}
+			alloc := proto.Allocation1{}
 			if err := dbGet(allocBkt, allocKey, &alloc); err != nil {
 				return err
 			}
@@ -95,8 +96,9 @@ func (s *BoltdbStore) GetAllocations() ([]*proto.Allocation, error) {
 	return allocs, nil
 }
 
-func (s *BoltdbStore) GetAllocationTasks(allocID string) ([]*proto.Task, error) {
-	tasks := []*proto.Task{}
+/*
+func (s *BoltdbStore) GetAllocationTasks(allocID string) ([]*proto.Task1, error) {
+	tasks := []*proto.Task1{}
 
 	err := s.db.View(func(tx *bolt.Tx) error {
 		allocsBkt := tx.Bucket(allocsBucket)
@@ -112,7 +114,7 @@ func (s *BoltdbStore) GetAllocationTasks(allocID string) ([]*proto.Task, error) 
 		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 
 			taskBkt := allocBkt.Bucket(k)
-			task := proto.Task{}
+			task := proto.Task1{}
 			if err := dbGet(taskBkt, taskSpecKey, &task); err != nil {
 				return fmt.Errorf("failed to get task spec %s %s", allocID, string(k))
 			}
@@ -127,6 +129,7 @@ func (s *BoltdbStore) GetAllocationTasks(allocID string) ([]*proto.Task, error) 
 
 	return tasks, nil
 }
+*/
 
 func (s *BoltdbStore) GetTaskState(allocID, taskName string) (*proto.TaskState, *proto.TaskHandle, error) {
 	state := proto.TaskState{}
@@ -159,7 +162,8 @@ func (s *BoltdbStore) GetTaskState(allocID, taskName string) (*proto.TaskState, 
 	return &state, &handle, nil
 }
 
-func (s *BoltdbStore) PutTaskSpec(allocID string, task *proto.Task) error {
+/*
+func (s *BoltdbStore) PutTaskSpec(allocID string, task *proto.Task1) error {
 	err := s.db.Update(func(tx *bolt.Tx) error {
 		allocsBkt := tx.Bucket(allocsBucket)
 
@@ -182,6 +186,7 @@ func (s *BoltdbStore) PutTaskSpec(allocID string, task *proto.Task) error {
 	}
 	return nil
 }
+*/
 
 func (s *BoltdbStore) PutTaskLocalState(allocID string, taskName string, handle *proto.TaskHandle) error {
 	err := s.db.Update(func(tx *bolt.Tx) error {
