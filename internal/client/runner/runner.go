@@ -10,7 +10,8 @@ import (
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
-type RConfig struct {
+type Config struct {
+	Logger hclog.Logger
 	Volume *HostVolume
 }
 
@@ -19,7 +20,7 @@ type HostVolume struct {
 }
 
 type Runner struct {
-	config *RConfig
+	config *Config
 	logger hclog.Logger
 	state  state.State
 	driver *docker.Docker
@@ -27,16 +28,14 @@ type Runner struct {
 	hooks  []hooks.TaskHookFactory
 }
 
-func NewRunner(config *RConfig) (*Runner, error) {
-	driver, err := docker.NewDockerDriver(hclog.NewNullLogger())
+func NewRunner(config *Config) (*Runner, error) {
+	driver, err := docker.NewDockerDriver(config.Logger)
 	if err != nil {
 		return nil, err
 	}
 
-	logger := hclog.New(&hclog.LoggerOptions{Level: hclog.Info})
-
 	r := &Runner{
-		logger: logger,
+		logger: config.Logger,
 		config: config,
 		driver: driver,
 		allocs: map[string]*allocrunner.AllocRunner{},

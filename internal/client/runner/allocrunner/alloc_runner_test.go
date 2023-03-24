@@ -19,6 +19,7 @@ import (
 )
 
 func testAllocRunnerConfig(t *testing.T, alloc *proto.Allocation1) *Config {
+	alloc.Deployment.Name = "mock-dep"
 	logger := hclog.New(&hclog.LoggerOptions{Level: hclog.Debug})
 
 	driver, err := docker.NewDockerDriver(logger)
@@ -128,7 +129,7 @@ func TestAllocRunner_Update(t *testing.T) {
 			if last == nil {
 				return false, fmt.Errorf("no updates")
 			}
-			if last.Status != proto.Allocation_Running {
+			if last.Status != proto.Allocation1_Running {
 				return false, fmt.Errorf("alloc not running")
 			}
 
@@ -143,8 +144,11 @@ func TestAllocRunner_Update(t *testing.T) {
 
 	time.Sleep(10 * time.Second)
 
-	fmt.Println("- post -")
-	fmt.Println(allocRunner.tasks)
+	last := updater.Last()
+	fmt.Println(last.TaskStates[""])
+
+	//fmt.Println("- post -")
+	//fmt.Println(allocRunner.tasks)
 }
 
 type mockUpdater struct {

@@ -96,7 +96,6 @@ message Task1 {
     map<string, string> data = 9;
     map<string, Volume> volumes = 11;
     
-    string allocId = 13;
     bool batch = 15;
     
     message Volume {

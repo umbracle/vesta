@@ -9,7 +9,7 @@ import (
 )
 
 func TestRunner(t *testing.T) {
-	r, err := NewRunner(&RConfig{})
+	r, err := NewRunner(&Config{})
 	require.NoError(t, err)
 
 	dep := &proto.Deployment1{

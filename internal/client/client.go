@@ -41,7 +41,10 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 	go c.handle()
 	c.logger.Info("agent started")
 
-	r, err := runner.NewRunner(&runner.RConfig{})
+	rConfig := &runner.Config{
+		Logger: logger,
+	}
+	r, err := runner.NewRunner(rConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +77,6 @@ func (c *Client) handle() {
 					Labels:      tt.Labels,
 					SecurityOpt: tt.SecurityOpt,
 					Data:        tt.Data,
-					AllocId:     tt.AllocId,
 					Batch:       tt.Batch,
 				}
 				dep2.Tasks = append(dep2.Tasks, ttt)

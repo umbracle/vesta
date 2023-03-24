@@ -287,7 +287,7 @@ func (d *Docker) createContainerOptions(task *driver.Task, allocDir string) (*cr
 		network: &network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
 				networkName: {
-					Aliases: []string{task.AllocId},
+					Aliases: []string{},
 				},
 			},
 		},
