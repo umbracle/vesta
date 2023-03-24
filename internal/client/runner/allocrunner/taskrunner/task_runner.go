@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/umbracle/vesta/internal/client/allocrunner/driver"
-	"github.com/umbracle/vesta/internal/client/allocrunner/state"
+	"github.com/umbracle/vesta/internal/client/runner/driver"
+	"github.com/umbracle/vesta/internal/client/runner/state"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/uuid"
 )

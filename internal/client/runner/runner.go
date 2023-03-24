@@ -1,12 +1,11 @@
-package allocrunner
+package runner
 
 import (
-	"fmt"
-
 	"github.com/hashicorp/go-hclog"
 	dto "github.com/prometheus/client_model/go"
-	"github.com/umbracle/vesta/internal/client/allocrunner/docker"
-	"github.com/umbracle/vesta/internal/client/allocrunner/state"
+	"github.com/umbracle/vesta/internal/client/runner/allocrunner"
+	"github.com/umbracle/vesta/internal/client/runner/docker"
+	"github.com/umbracle/vesta/internal/client/runner/state"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
@@ -23,7 +22,7 @@ type Runner struct {
 	logger hclog.Logger
 	state  state.State
 	driver *docker.Docker
-	allocs map[string]*AllocRunner
+	allocs map[string]*allocrunner.AllocRunner
 }
 
 func NewRunner(config *RConfig) (*Runner, error) {
@@ -38,7 +37,7 @@ func NewRunner(config *RConfig) (*Runner, error) {
 		logger: logger,
 		config: config,
 		driver: driver,
-		allocs: map[string]*AllocRunner{},
+		allocs: map[string]*allocrunner.AllocRunner{},
 	}
 
 	if err := r.initState(); err != nil {
@@ -59,7 +58,7 @@ func (r *Runner) initState() error {
 		return err
 	}
 	for _, alloc := range allocs {
-		config := &Config{
+		config := &allocrunner.Config{
 			Alloc:         alloc,
 			Logger:        r.logger,
 			State:         r.state,
@@ -71,7 +70,7 @@ func (r *Runner) initState() error {
 			config.Volume = r.config.Volume.Path
 		}
 
-		handle, err := NewAllocRunner(config)
+		handle, err := allocrunner.NewAllocRunner(config)
 		if err != nil {
 			panic(err)
 		}
@@ -94,19 +93,19 @@ func (r *Runner) UpdateMetrics(string, map[string]*dto.MetricFamily) {
 }
 
 func (r *Runner) AllocStateUpdated(a *proto.Allocation1) {
-	fmt.Println(a)
+	// TODO
 }
 
 func (r *Runner) UpsertDeployment(deployment *proto.Deployment1) {
 	handle, ok := r.allocs[deployment.Name]
 	if ok {
-		if deployment.Sequence > handle.alloc.Deployment.Sequence {
+		if deployment.Sequence > handle.Alloc().Deployment.Sequence {
 			// update
 			handle.Update(deployment)
 		}
 
 		// TODO: Save the allocation again (handle race)
-		if err := r.state.PutAllocation(handle.alloc); err != nil {
+		if err := r.state.PutAllocation(handle.Alloc()); err != nil {
 			panic(err)
 		}
 
@@ -121,7 +120,7 @@ func (r *Runner) UpsertDeployment(deployment *proto.Deployment1) {
 			panic(err)
 		}
 
-		config := &Config{
+		config := &allocrunner.Config{
 			Alloc:         alloc,
 			Logger:        r.logger,
 			State:         r.state,
@@ -133,7 +132,7 @@ func (r *Runner) UpsertDeployment(deployment *proto.Deployment1) {
 			config.Volume = r.config.Volume.Path
 		}
 		var err error
-		if handle, err = NewAllocRunner(config); err != nil {
+		if handle, err = allocrunner.NewAllocRunner(config); err != nil {
 			panic(err)
 		}
 

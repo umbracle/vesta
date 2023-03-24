@@ -11,8 +11,8 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/umbracle/vesta/internal/client/allocrunner/docker"
-	"github.com/umbracle/vesta/internal/client/allocrunner/state"
+	"github.com/umbracle/vesta/internal/client/runner/docker"
+	"github.com/umbracle/vesta/internal/client/runner/state"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/testutil"
 )

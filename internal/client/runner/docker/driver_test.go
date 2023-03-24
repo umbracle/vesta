@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/umbracle/vesta/internal/client/allocrunner/driver"
+	"github.com/umbracle/vesta/internal/client/runner/driver"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/uuid"
 )

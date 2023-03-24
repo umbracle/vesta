@@ -6,7 +6,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-memdb"
-	"github.com/umbracle/vesta/internal/client/allocrunner"
+	"github.com/umbracle/vesta/internal/client/runner"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
@@ -25,7 +25,7 @@ type Client struct {
 	config    *Config
 	closeCh   chan struct{}
 	collector *collector
-	runner    *allocrunner.Runner
+	runner    *runner.Runner
 }
 
 func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
@@ -41,7 +41,7 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 	go c.handle()
 	c.logger.Info("agent started")
 
-	r, err := allocrunner.NewRunner(&allocrunner.RConfig{})
+	r, err := runner.NewRunner(&runner.RConfig{})
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,29 @@ func (c *Client) handle() {
 			panic(err)
 		}
 		for _, alloc := range allocations {
-			c.runner.UpsertDeployment(alloc)
+
+			dep2 := &proto.Deployment1{
+				Name:     alloc.Id,
+				Tasks:    []*proto.Task1{},
+				Sequence: alloc.Sequence,
+			}
+			for name, tt := range alloc.Deployment.Tasks {
+				ttt := &proto.Task1{
+					Name:        name,
+					Image:       tt.Image,
+					Tag:         tt.Tag,
+					Args:        tt.Args,
+					Env:         tt.Env,
+					Labels:      tt.Labels,
+					SecurityOpt: tt.SecurityOpt,
+					Data:        tt.Data,
+					AllocId:     tt.AllocId,
+					Batch:       tt.Batch,
+				}
+				dep2.Tasks = append(dep2.Tasks, ttt)
+			}
+
+			c.runner.UpsertDeployment(dep2)
 		}
 
 		select {

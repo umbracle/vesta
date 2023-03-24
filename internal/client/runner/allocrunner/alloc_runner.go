@@ -7,9 +7,9 @@ import (
 	dto "github.com/prometheus/client_model/go"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/umbracle/vesta/internal/client/allocrunner/driver"
-	"github.com/umbracle/vesta/internal/client/allocrunner/state"
-	"github.com/umbracle/vesta/internal/client/allocrunner/taskrunner"
+	"github.com/umbracle/vesta/internal/client/runner/allocrunner/taskrunner"
+	"github.com/umbracle/vesta/internal/client/runner/driver"
+	"github.com/umbracle/vesta/internal/client/runner/state"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
@@ -62,6 +62,10 @@ func NewAllocRunner(c *Config) (*AllocRunner, error) {
 		updateMetrics: c.UpdateMetrics,
 	}
 	return runner, nil
+}
+
+func (a *AllocRunner) Alloc() *proto.Allocation1 {
+	return a.alloc
 }
 
 func (a *AllocRunner) Run() {

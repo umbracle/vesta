@@ -1,4 +1,4 @@
-package allocrunner
+package runner
 
 import (
 	"testing"

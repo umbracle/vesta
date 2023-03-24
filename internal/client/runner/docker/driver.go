@@ -15,7 +15,7 @@ import (
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 	"github.com/hashicorp/go-hclog"
-	"github.com/umbracle/vesta/internal/client/allocrunner/driver"
+	"github.com/umbracle/vesta/internal/client/runner/driver"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
@@ -148,19 +148,23 @@ func (d *Docker) StartTask(task *driver.Task, allocDir string) (*proto.TaskHandl
 	d.logger.Info("Create task", "image", task.Image, "tag", task.Tag)
 
 	if err := d.createImage(task.Image + ":" + task.Tag); err != nil {
+		fmt.Println("A1")
 		return nil, err
 	}
 
 	opts, err := d.createContainerOptions(task, allocDir)
 	if err != nil {
+		fmt.Println("A2")
 		return nil, err
 	}
 	body, err := d.client.ContainerCreate(context.Background(), opts.config, opts.host, opts.network, nil, "")
 	if err != nil {
+		fmt.Println("A2")
 		return nil, err
 	}
 
 	if err := d.client.ContainerStart(context.Background(), body.ID, types.ContainerStartOptions{}); err != nil {
+		fmt.Println("A3")
 		return nil, err
 	}
 
