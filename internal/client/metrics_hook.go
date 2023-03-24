@@ -1,4 +1,4 @@
-package taskrunner
+package client
 
 import (
 	"fmt"

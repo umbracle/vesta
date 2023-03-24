@@ -4,18 +4,13 @@ import (
 	"os"
 	"path/filepath"
 
-	dto "github.com/prometheus/client_model/go"
-
 	"github.com/hashicorp/go-hclog"
 	"github.com/umbracle/vesta/internal/client/runner/allocrunner/taskrunner"
 	"github.com/umbracle/vesta/internal/client/runner/driver"
+	"github.com/umbracle/vesta/internal/client/runner/hooks"
 	"github.com/umbracle/vesta/internal/client/runner/state"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
-
-type MetricsUpdater interface {
-	UpdateMetrics(string, map[string]*dto.MetricFamily)
-}
 
 type StateUpdater interface {
 	AllocStateUpdated(alloc *proto.Allocation1)
@@ -28,8 +23,7 @@ type Config struct {
 	StateUpdater StateUpdater
 	Driver       driver.Driver
 	Volume       string
-
-	UpdateMetrics MetricsUpdater
+	Hooks        []hooks.TaskHookFactory
 }
 
 type AllocRunner struct {
@@ -42,24 +36,21 @@ type AllocRunner struct {
 	taskUpdated  chan struct{}
 	stateUpdater StateUpdater
 	volume       string
-
-	updateMetrics MetricsUpdater
 }
 
 func NewAllocRunner(c *Config) (*AllocRunner, error) {
 	logger := c.Logger.Named("alloc_runner").With("alloc", c.Alloc.Deployment.Name)
 
 	runner := &AllocRunner{
-		config:        c,
-		logger:        logger,
-		tasks:         map[string]*taskrunner.TaskRunner{},
-		waitCh:        make(chan struct{}),
-		alloc:         c.Alloc,
-		driver:        c.Driver,
-		taskUpdated:   make(chan struct{}),
-		stateUpdater:  c.StateUpdater,
-		volume:        c.Volume,
-		updateMetrics: c.UpdateMetrics,
+		config:       c,
+		logger:       logger,
+		tasks:        map[string]*taskrunner.TaskRunner{},
+		waitCh:       make(chan struct{}),
+		alloc:        c.Alloc,
+		driver:       c.Driver,
+		taskUpdated:  make(chan struct{}),
+		stateUpdater: c.StateUpdater,
+		volume:       c.Volume,
 	}
 	return runner, nil
 }
@@ -141,7 +132,7 @@ func (a *AllocRunner) newTaskRunner(task *proto.Task1) *taskrunner.TaskRunner {
 		Driver:           a.config.Driver,
 		State:            a.config.State,
 		TaskStateUpdated: a.TaskStateUpdated,
-		MetricsUpdater:   a.updateMetrics,
+		Hooks:            a.config.Hooks,
 	}
 
 	if a.volume != "" {

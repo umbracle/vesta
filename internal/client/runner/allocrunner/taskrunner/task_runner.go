@@ -8,6 +8,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/umbracle/vesta/internal/client/runner/driver"
+	"github.com/umbracle/vesta/internal/client/runner/hooks"
 	"github.com/umbracle/vesta/internal/client/runner/state"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/uuid"
@@ -32,7 +33,7 @@ type TaskRunner struct {
 	status           *proto.TaskState
 	handle           *proto.TaskHandle
 	restartCount     uint64
-	metricsHook      *metricsHook
+	runnerHooks      []hooks.TaskHook
 }
 
 type Config struct {
@@ -43,7 +44,7 @@ type Config struct {
 	Task             *proto.Task1
 	State            state.State
 	TaskStateUpdated func()
-	MetricsUpdater   MetricsUpdater
+	Hooks            []hooks.TaskHookFactory
 }
 
 func NewTaskRunner(config *Config) *TaskRunner {
@@ -63,11 +64,9 @@ func NewTaskRunner(config *Config) *TaskRunner {
 		taskStateUpdated: config.TaskStateUpdated,
 	}
 
-	/*
-		if config.Task.Telemetry != nil {
-			tr.metricsHook = newMetricsHook(logger, config.Task, config.MetricsUpdater)
-		}
-	*/
+	for _, hookF := range config.Hooks {
+		tr.runnerHooks = append(tr.runnerHooks, hookF(logger, config.Task))
+	}
 
 	return tr
 }
@@ -100,12 +99,13 @@ MAIN:
 		}
 
 		if err := t.runDriver(); err != nil {
+			t.logger.Error("driver failed", "error", err)
 			goto RESTART
 		}
 
-		// Run the prestart metrics action
-		if t.metricsHook != nil {
-			t.metricsHook.PostStart(t.handle)
+		if err := t.postStart(); err != nil {
+			t.logger.Error("poststart failed", "error", err)
+			goto RESTART
 		}
 
 		{
@@ -144,11 +144,6 @@ MAIN:
 
 	// task is dead
 	t.UpdateStatus(proto.TaskState_Dead, nil)
-
-	// Run the poststart metrics action
-	if t.metricsHook != nil {
-		t.metricsHook.Stop()
-	}
 }
 
 func (t *TaskRunner) handleKill(resultCh <-chan *proto.ExitResult) *proto.ExitResult {
@@ -323,4 +318,45 @@ func (t *TaskRunner) WaitCh() <-chan struct{} {
 func (t *TaskRunner) Close() {
 	close(t.shutdownCh)
 	<-t.WaitCh()
+}
+
+func (t *TaskRunner) postStart() error {
+	if t.logger.IsTrace() {
+		start := time.Now()
+		t.logger.Trace("running poststart hooks", "start", start)
+		defer func() {
+			end := time.Now()
+			t.logger.Trace("finished poststart hooks", "end", end, "duration", end.Sub(start))
+		}()
+	}
+
+	for _, hook := range t.runnerHooks {
+		pre, ok := hook.(hooks.TaskPoststartHook)
+		if !ok {
+			continue
+		}
+
+		name := pre.Name()
+
+		// Build the request
+		req := hooks.TaskPoststartHookRequest{}
+
+		var start time.Time
+		if t.logger.IsTrace() {
+			start = time.Now()
+			t.logger.Trace("running poststart hook", "name", name, "start", start)
+		}
+
+		// Run the poststart hook
+		if err := pre.Poststart(t.killCh, &req); err != nil {
+			return nil
+		}
+
+		if t.logger.IsTrace() {
+			end := time.Now()
+			t.logger.Trace("finished poststart hook", "name", name, "end", end, "duration", end.Sub(start))
+		}
+	}
+
+	return nil
 }

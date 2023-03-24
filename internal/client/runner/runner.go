@@ -5,6 +5,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/umbracle/vesta/internal/client/runner/allocrunner"
 	"github.com/umbracle/vesta/internal/client/runner/docker"
+	"github.com/umbracle/vesta/internal/client/runner/hooks"
 	"github.com/umbracle/vesta/internal/client/runner/state"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
@@ -23,6 +24,7 @@ type Runner struct {
 	state  state.State
 	driver *docker.Docker
 	allocs map[string]*allocrunner.AllocRunner
+	hooks  []hooks.TaskHookFactory
 }
 
 func NewRunner(config *RConfig) (*Runner, error) {
@@ -59,12 +61,11 @@ func (r *Runner) initState() error {
 	}
 	for _, alloc := range allocs {
 		config := &allocrunner.Config{
-			Alloc:         alloc,
-			Logger:        r.logger,
-			State:         r.state,
-			StateUpdater:  r,
-			Driver:        r.driver,
-			UpdateMetrics: r,
+			Alloc:        alloc,
+			Logger:       r.logger,
+			State:        r.state,
+			StateUpdater: r,
+			Driver:       r.driver,
 		}
 		if r.config.Volume != nil {
 			config.Volume = r.config.Volume.Path
@@ -121,12 +122,11 @@ func (r *Runner) UpsertDeployment(deployment *proto.Deployment1) {
 		}
 
 		config := &allocrunner.Config{
-			Alloc:         alloc,
-			Logger:        r.logger,
-			State:         r.state,
-			StateUpdater:  r,
-			Driver:        r.driver,
-			UpdateMetrics: r,
+			Alloc:        alloc,
+			Logger:       r.logger,
+			State:        r.state,
+			StateUpdater: r,
+			Driver:       r.driver,
 		}
 		if r.config.Volume != nil {
 			config.Volume = r.config.Volume.Path
