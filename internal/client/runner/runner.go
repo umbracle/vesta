@@ -1,8 +1,9 @@
 package runner
 
 import (
+	"sync"
+
 	"github.com/hashicorp/go-hclog"
-	dto "github.com/prometheus/client_model/go"
 	"github.com/umbracle/vesta/internal/client/runner/allocrunner"
 	"github.com/umbracle/vesta/internal/client/runner/docker"
 	"github.com/umbracle/vesta/internal/client/runner/hooks"
@@ -11,8 +12,10 @@ import (
 )
 
 type Config struct {
-	Logger hclog.Logger
-	Volume *HostVolume
+	Logger            hclog.Logger
+	Volume            *HostVolume
+	AllocStateUpdated allocrunner.StateUpdater
+	State             state.State
 }
 
 type HostVolume struct {
@@ -29,13 +32,18 @@ type Runner struct {
 }
 
 func NewRunner(config *Config) (*Runner, error) {
-	driver, err := docker.NewDockerDriver(config.Logger)
+	logger := config.Logger
+	if logger == nil {
+		logger = hclog.NewNullLogger()
+	}
+
+	driver, err := docker.NewDockerDriver(logger)
 	if err != nil {
 		return nil, err
 	}
 
 	r := &Runner{
-		logger: config.Logger,
+		logger: logger,
 		config: config,
 		driver: driver,
 		allocs: map[string]*allocrunner.AllocRunner{},
@@ -48,13 +56,17 @@ func NewRunner(config *Config) (*Runner, error) {
 }
 
 func (r *Runner) initState() error {
-	state, err := state.NewBoltdbStore("client.db")
-	if err != nil {
-		return err
+	if r.config.State != nil {
+		r.state = r.config.State
+	} else {
+		state, err := state.NewBoltdbStore("client.db")
+		if err != nil {
+			return err
+		}
+		r.state = state
 	}
-	r.state = state
 
-	allocs, err := state.GetAllocations()
+	allocs, err := r.state.GetAllocations()
 	if err != nil {
 		return err
 	}
@@ -63,7 +75,7 @@ func (r *Runner) initState() error {
 			Alloc:        alloc,
 			Logger:       r.logger,
 			State:        r.state,
-			StateUpdater: r,
+			StateUpdater: r.config.AllocStateUpdated,
 			Driver:       r.driver,
 		}
 		if r.config.Volume != nil {
@@ -86,14 +98,6 @@ func (r *Runner) initState() error {
 	}
 
 	return nil
-}
-
-func (r *Runner) UpdateMetrics(string, map[string]*dto.MetricFamily) {
-	// TODO: Move hooks out
-}
-
-func (r *Runner) AllocStateUpdated(a *proto.Allocation1) {
-	// TODO
 }
 
 func (r *Runner) UpsertDeployment(deployment *proto.Deployment1) {
@@ -124,7 +128,7 @@ func (r *Runner) UpsertDeployment(deployment *proto.Deployment1) {
 			Alloc:        alloc,
 			Logger:       r.logger,
 			State:        r.state,
-			StateUpdater: r,
+			StateUpdater: r.config.AllocStateUpdated,
 			Driver:       r.driver,
 		}
 		if r.config.Volume != nil {
@@ -138,4 +142,22 @@ func (r *Runner) UpsertDeployment(deployment *proto.Deployment1) {
 		r.allocs[alloc.Deployment.Name] = handle
 		go handle.Run()
 	}
+}
+
+func (r *Runner) Shutdown() error {
+	wg := sync.WaitGroup{}
+	for _, tr := range r.allocs {
+		wg.Add(1)
+		go func(tr *allocrunner.AllocRunner) {
+			tr.Shutdown()
+			<-tr.ShutdownCh()
+			wg.Done()
+		}(tr)
+	}
+	wg.Wait()
+
+	if err := r.state.Close(); err != nil {
+		return err
+	}
+	return nil
 }

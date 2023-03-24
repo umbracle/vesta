@@ -71,6 +71,9 @@ func (a *allocReconciler) Compute() *allocResults {
 		depTasks[task.Name] = task
 	}
 
+	fmt.Println("-- tasks in deployment --")
+	fmt.Println(a.alloc.Deployment.Tasks)
+
 	for name, task := range a.tasks {
 		state := a.tasksState[name]
 
@@ -82,7 +85,10 @@ func (a *allocReconciler) Compute() *allocResults {
 		depTask, ok := depTasks[name]
 		if !ok {
 			// task not expected, remove it
-			result.removeTasks = append(result.removeTasks, name)
+			if _, ok := a.pendingDelete[name]; !ok {
+				// TEST, Start with [a,b], new set is [a], b gets removed, b does not get removed again because is in pending
+				result.removeTasks = append(result.removeTasks, name)
+			}
 		} else {
 			if tasksUpdated(task, depTask) {
 				if _, ok := a.pendingDelete[name]; !ok {
@@ -98,6 +104,9 @@ func (a *allocReconciler) Compute() *allocResults {
 	// add tasks
 	for name, task := range depTasks {
 		_, ok := a.tasks[name]
+
+		fmt.Println("-- check task ", name, ok)
+
 		if ok {
 			// if the task already exists, we only re-create it if
 			// the task is fully dead and it did not fail

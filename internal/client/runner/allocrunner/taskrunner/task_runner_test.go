@@ -17,6 +17,10 @@ import (
 	"github.com/umbracle/vesta/internal/testutil"
 )
 
+func destroyRunner(tr *TaskRunner) {
+	tr.Kill(context.Background(), proto.NewTaskEvent(""))
+}
+
 func testWaitForTaskToDie(t *testing.T, tr *TaskRunner) {
 	testutil.WaitForResult(func() (bool, error) {
 		ts := tr.TaskState()
@@ -110,13 +114,14 @@ func TestTaskRunner_Restore_AlreadyRunning(t *testing.T) {
 	testWaitForTaskToStart(t, oldRunner)
 
 	// stop the task runner
-	oldRunner.Close()
+	oldRunner.Shutdown()
 
 	// start another task runner with the same state
 	newRunner := NewTaskRunner(cfg)
 
 	// restore the task
 	require.NoError(t, newRunner.Restore())
+	defer destroyRunner(newRunner)
 
 	go newRunner.Run()
 
@@ -151,12 +156,14 @@ func TestTaskRunner_Restore_RequiresRestart(t *testing.T) {
 	testWaitForTaskToStart(t, oldRunner)
 
 	// stop runner and stop the instance
-	oldRunner.Close()
+	oldRunner.Shutdown()
 	require.NoError(t, oldRunner.driver.DestroyTask(oldRunner.handle.Id, true))
 
 	// restart (and restore) the runner
 	newRunner := NewTaskRunner(cfg)
 	require.NoError(t, newRunner.Restore())
+	defer destroyRunner(newRunner)
+
 	go newRunner.Run()
 
 	// wait for the task to start again

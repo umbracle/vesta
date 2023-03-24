@@ -8,4 +8,5 @@ type State interface {
 	PutTaskState(allocID string, taskName string, state *proto.TaskState) error
 	GetAllocations() ([]*proto.Allocation1, error)
 	PutAllocation(a *proto.Allocation1) error
+	Close() error
 }

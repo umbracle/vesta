@@ -54,7 +54,7 @@ func NewTaskRunner(config *Config) *TaskRunner {
 		logger:           logger,
 		driver:           config.Driver,
 		alloc:            config.Allocation,
-		task:             config.Task,
+		task:             config.Task.Copy(),
 		allocDir:         config.AllocDir,
 		waitCh:           make(chan struct{}),
 		shutdownCh:       make(chan struct{}),
@@ -315,7 +315,7 @@ func (t *TaskRunner) WaitCh() <-chan struct{} {
 	return t.waitCh
 }
 
-func (t *TaskRunner) Close() {
+func (t *TaskRunner) Shutdown() {
 	close(t.shutdownCh)
 	<-t.WaitCh()
 }

@@ -105,12 +105,12 @@ func (s *BoltdbStore) GetTaskState(allocID, taskName string) (*proto.TaskState, 
 
 		allocBkt := allocsBkt.Bucket([]byte(allocID))
 		if allocBkt == nil {
-			return fmt.Errorf("not found")
+			return fmt.Errorf("alloc '%s' not found", allocID)
 		}
 
 		taskBkt := allocBkt.Bucket(taskKey(taskName))
 		if taskBkt == nil {
-			return fmt.Errorf("task not found")
+			return fmt.Errorf("task '%s' not found", taskName)
 		}
 		if err := dbGet(taskBkt, taskStateKey, &state); err != nil {
 			return fmt.Errorf("failed to get task state %s %s", allocID, taskName)
@@ -133,7 +133,7 @@ func (s *BoltdbStore) PutTaskLocalState(allocID string, taskName string, handle 
 
 		allocBkt := allocsBkt.Bucket([]byte(allocID))
 		if allocBkt == nil {
-			return fmt.Errorf("not found")
+			return fmt.Errorf("alloc '%s' not found", allocID)
 		}
 
 		taskBkt, err := allocBkt.CreateBucketIfNotExists(taskKey(taskName))
@@ -157,7 +157,7 @@ func (s *BoltdbStore) PutTaskState(allocID string, taskName string, state *proto
 
 		allocBkt := allocsBkt.Bucket([]byte(allocID))
 		if allocBkt == nil {
-			return fmt.Errorf("not found")
+			return fmt.Errorf("alloc '%s' not found", allocID)
 		}
 
 		taskBkt, err := allocBkt.CreateBucketIfNotExists(taskKey(taskName))
@@ -173,6 +173,10 @@ func (s *BoltdbStore) PutTaskState(allocID string, taskName string, state *proto
 		return fmt.Errorf("failed to put task state: %v", err)
 	}
 	return nil
+}
+
+func (s *BoltdbStore) Close() error {
+	return s.db.Close()
 }
 
 func dbPut(bkt *bolt.Bucket, key []byte, obj gproto.Message) error {

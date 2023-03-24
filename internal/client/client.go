@@ -42,7 +42,8 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 	c.logger.Info("agent started")
 
 	rConfig := &runner.Config{
-		Logger: logger,
+		Logger:            logger,
+		AllocStateUpdated: c,
 	}
 	r, err := runner.NewRunner(rConfig)
 	if err != nil {
@@ -93,10 +94,12 @@ func (c *Client) handle() {
 	}
 }
 
-func (c *Client) AllocStateUpdated(a *proto.Allocation) {
-	if err := c.config.ControlPlane.UpdateAlloc(a); err != nil {
-		c.logger.Error("failed to update alloc", "id", a.Id, "err", err)
-	}
+func (c *Client) AllocStateUpdated(a *proto.Allocation1) {
+	/*
+		if err := c.config.ControlPlane.UpdateAlloc(a); err != nil {
+			c.logger.Error("failed to update alloc", "id", a.Id, "err", err)
+		}
+	*/
 }
 
 func (c *Client) Stop() {

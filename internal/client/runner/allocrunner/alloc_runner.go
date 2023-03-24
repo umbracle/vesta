@@ -1,8 +1,10 @@
 package allocrunner
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/umbracle/vesta/internal/client/runner/allocrunner/taskrunner"
@@ -36,6 +38,7 @@ type AllocRunner struct {
 	taskUpdated  chan struct{}
 	stateUpdater StateUpdater
 	volume       string
+	shutdownCh   chan struct{}
 }
 
 func NewAllocRunner(c *Config) (*AllocRunner, error) {
@@ -51,8 +54,17 @@ func NewAllocRunner(c *Config) (*AllocRunner, error) {
 		taskUpdated:  make(chan struct{}),
 		stateUpdater: c.StateUpdater,
 		volume:       c.Volume,
+		shutdownCh:   make(chan struct{}),
 	}
 	return runner, nil
+}
+
+func (a *AllocRunner) Deployment() *proto.Deployment1 {
+	return a.alloc.Deployment.Copy()
+}
+
+func (a *AllocRunner) ShutdownCh() chan struct{} {
+	return a.shutdownCh
 }
 
 func (a *AllocRunner) Alloc() *proto.Allocation1 {
@@ -60,6 +72,7 @@ func (a *AllocRunner) Alloc() *proto.Allocation1 {
 }
 
 func (a *AllocRunner) Run() {
+	defer close(a.waitCh)
 
 	// start any task that was restored
 	for _, task := range a.tasks {
@@ -76,9 +89,16 @@ func (a *AllocRunner) Run() {
 			tasks[name] = t.Task()
 			tasksState[name] = t.TaskState()
 			if t.IsShuttingDown() {
+				// TODO? Move shutting down to the task state?? That way
+				// we do not need this and we can show the info on the server side.
 				taskPending[name] = struct{}{}
 			}
 		}
+
+		fmt.Println("-- data --")
+		fmt.Println(tasks)
+		fmt.Println(taskPending)
+		fmt.Println(tasksState)
 
 		r := newAllocReconciler(a.alloc, tasks, tasksState, taskPending)
 		res := r.Compute()
@@ -108,11 +128,7 @@ func (a *AllocRunner) Run() {
 		}
 
 		// Notify about the update on the allocation
-		calloc := a.alloc.Copy()
-		calloc.TaskStates = states
-
-		// TODO: Measure also pending tasks to be created
-		calloc.Status = getClientStatus(states)
+		calloc := a.clientAlloc(states)
 
 		// Update the server
 		a.stateUpdater.AllocStateUpdated(calloc)
@@ -122,6 +138,17 @@ func (a *AllocRunner) Run() {
 		case <-a.taskUpdated:
 		}
 	}
+}
+
+func (a *AllocRunner) clientAlloc(states map[string]*proto.TaskState) *proto.Allocation1 {
+	// Notify about the update on the allocation
+	calloc := a.alloc.Copy()
+	calloc.TaskStates = states
+
+	// TODO: Measure also pending tasks to be created
+	calloc.Status = getClientStatus(states)
+
+	return calloc
 }
 
 func (a *AllocRunner) newTaskRunner(task *proto.Task1) *taskrunner.TaskRunner {
@@ -172,14 +199,47 @@ func (a *AllocRunner) Restore() error {
 	return nil
 }
 
+func (a *AllocRunner) Destroy() {
+	a.logger.Info("alloc destroyed")
+
+	a.alloc.DesiredStatus = proto.Allocation1_Stop
+	a.TaskStateUpdated()
+}
+
 func (a *AllocRunner) Update(deployment *proto.Deployment1) {
 	a.logger.Info("alloc updated")
-	a.alloc.Deployment = deployment
+
+	fmt.Println("-- deployment --")
+	fmt.Println(deployment)
+
+	a.alloc.Deployment = deployment.Copy()
 	a.TaskStateUpdated()
 }
 
 func (a *AllocRunner) WaitCh() <-chan struct{} {
 	return a.waitCh
+}
+
+func (a *AllocRunner) Shutdown() {
+	go func() {
+		a.logger.Trace("shutting down")
+
+		// Shutdown tasks gracefully if they were run
+		wg := sync.WaitGroup{}
+		for _, tr := range a.tasks {
+			wg.Add(1)
+			go func(tr *taskrunner.TaskRunner) {
+				tr.Shutdown()
+				wg.Done()
+			}(tr)
+		}
+		wg.Wait()
+
+		// Wait for Run to exit
+		<-a.waitCh
+
+		close(a.shutdownCh)
+	}()
 }
 
 // getClientStatus takes in the task states for a given allocation and computes
@@ -204,10 +264,10 @@ func getClientStatus(taskStates map[string]*proto.TaskState) proto.Allocation1_S
 	// Determine the alloc status
 	if failed {
 		return proto.Allocation1_Failed
-	} else if running {
-		return proto.Allocation1_Running
 	} else if pending {
 		return proto.Allocation1_Pending
+	} else if running {
+		return proto.Allocation1_Running
 	} else if dead {
 		return proto.Allocation1_Complete
 	}
