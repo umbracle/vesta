@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
@@ -179,4 +180,28 @@ func TestTaskRunner_Restore_RequiresRestart(t *testing.T) {
 func TestTaskRunner_Restart(t *testing.T) {
 	// Task should restart if failed
 	t.Skip("TODO")
+}
+
+func TestTaskRunner_Shutdown(t *testing.T) {
+	// A task can be shutdown and it notifies with the
+	// wait channel
+	tt := &proto.Task1{
+		Image: "busybox",
+		Tag:   "1.29.3",
+		Args:  []string{"sleep", "6"},
+	}
+	cfg := setupTaskRunner(t, tt)
+
+	runner := NewTaskRunner(cfg)
+	go runner.Run()
+
+	testWaitForTaskToStart(t, runner)
+
+	runner.Shutdown()
+
+	select {
+	case <-runner.WaitCh():
+	case <-time.After(5 * time.Second):
+		t.Fatal("it did not notify shutdown")
+	}
 }

@@ -57,6 +57,18 @@ func NewBoltdbStore(path string) (*BoltdbStore, error) {
 	return s, nil
 }
 
+func (s *BoltdbStore) DeleteAllocationBucket(allocID string) error {
+	err := s.db.Update(func(tx *bolt.Tx) error {
+		allocsBkt := tx.Bucket(allocsBucket)
+
+		return allocsBkt.DeleteBucket([]byte(allocID))
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *BoltdbStore) PutAllocation(a *proto.Allocation1) error {
 	err := s.db.Update(func(tx *bolt.Tx) error {
 		allocsBkt := tx.Bucket(allocsBucket)
@@ -113,10 +125,10 @@ func (s *BoltdbStore) GetTaskState(allocID, taskName string) (*proto.TaskState, 
 			return fmt.Errorf("task '%s' not found", taskName)
 		}
 		if err := dbGet(taskBkt, taskStateKey, &state); err != nil {
-			return fmt.Errorf("failed to get task state %s %s", allocID, taskName)
+			return fmt.Errorf("failed to get task state '%s' '%s'", allocID, taskName)
 		}
 		if err := dbGet(taskBkt, taskHandleKey, &handle); err != nil {
-			return fmt.Errorf("failed to get handle %s %s", allocID, taskName)
+			return fmt.Errorf("failed to get handle '%s' '%s'", allocID, taskName)
 		}
 		return nil
 	})
@@ -165,7 +177,7 @@ func (s *BoltdbStore) PutTaskState(allocID string, taskName string, state *proto
 			return err
 		}
 		if err := dbPut(taskBkt, taskStateKey, state); err != nil {
-			return fmt.Errorf("failed to get task state %s %s", allocID, taskName)
+			return fmt.Errorf("failed to get task state '%s' '%s'", allocID, taskName)
 		}
 		return nil
 	})

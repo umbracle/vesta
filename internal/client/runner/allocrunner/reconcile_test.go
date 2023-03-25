@@ -1,38 +1,44 @@
 package allocrunner
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/vesta/internal/mock"
-	"github.com/umbracle/vesta/internal/server/proto"
 )
 
 func TestAllocResultsEmpty(t *testing.T) {
-	t.Skip("TODO")
-}
-
-func TestReconcile(t *testing.T) {
-	alloc := &proto.Allocation1{
-		Deployment: &proto.Deployment1{
-			Tasks: []*proto.Task1{
-				{Name: "t0"},
-				{Name: "t1"},
+	cases := []struct {
+		res   *allocResults
+		empty bool
+	}{
+		{
+			&allocResults{},
+			true,
+		},
+		{
+			&allocResults{
+				removeTasks: []string{"a", "b"},
 			},
+			false,
 		},
 	}
 
-	tasks := map[string]*proto.Task1{}
+	for _, c := range cases {
+		require.Equal(t, c.empty, c.res.Empty())
+	}
+}
 
-	taskState := map[string]*proto.TaskState{}
+type expectedResults struct {
+	newTasks int
+	delTasks int
+}
 
-	pendingDelete := map[string]struct{}{}
+func checkReconcile(t *testing.T, res *allocResults, expected expectedResults) {
+	t.Helper()
 
-	r := newAllocReconciler(alloc, tasks, taskState, pendingDelete)
-
-	res := r.Compute()
-	fmt.Println(res)
+	require.Len(t, res.newTasks, expected.newTasks)
+	require.Len(t, res.removeTasks, expected.delTasks)
 }
 
 func TestTaskUpdated(t *testing.T) {
@@ -41,10 +47,23 @@ func TestTaskUpdated(t *testing.T) {
 
 	require.False(t, tasksUpdated(t1, t2))
 
+	t2 = mock.Task1()
+	t2.Image = "bad-image"
+	require.True(t, tasksUpdated(t1, t2))
+
+	t2 = mock.Task1()
+	t2.Tag = "bad-tag"
+	require.True(t, tasksUpdated(t1, t2))
+
+	t2 = mock.Task1()
 	t2.Args = []string{"c"}
 	require.True(t, tasksUpdated(t1, t2))
 
 	t2 = mock.Task1()
 	t2.Env = map[string]string{"c": "d"}
+	require.True(t, tasksUpdated(t1, t2))
+
+	t2 = mock.Task1()
+	t2.Labels = map[string]string{"c": "d"}
 	require.True(t, tasksUpdated(t1, t2))
 }

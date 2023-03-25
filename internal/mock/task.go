@@ -27,3 +27,24 @@ func Task1() *proto.Task1 {
 		},
 	}
 }
+
+func ServiceAlloc() *proto.Allocation1 {
+	return &proto.Allocation1{
+		Deployment: &proto.Deployment1{
+			Tasks: []*proto.Task1{
+				{
+					Name:  "a",
+					Image: "busybox",
+					Tag:   "1.29.3",
+					Args:  []string{"sleep", "30"},
+				},
+				{
+					Name:  "b",
+					Image: "busybox",
+					Tag:   "1.29.3",
+					Args:  []string{"sleep", "30"},
+				},
+			},
+		},
+	}
+}

@@ -19,6 +19,7 @@ var defaultMaxEvents = 10
 type TaskRunner struct {
 	logger           hclog.Logger
 	driver           driver.Driver
+	id               string
 	waitCh           chan struct{}
 	alloc            *proto.Allocation1
 	task             *proto.Task1
@@ -63,6 +64,11 @@ func NewTaskRunner(config *Config) *TaskRunner {
 		status:           proto.NewTaskState(),
 		taskStateUpdated: config.TaskStateUpdated,
 	}
+
+	// generate a unique id for this execution
+	id := fmt.Sprintf("%s/%s/%s", tr.alloc.Deployment.Name, tr.task.Name, uuid.Generate()[:8])
+	tr.id = id
+	tr.status.Id = id
 
 	for _, hookF := range config.Hooks {
 		tr.runnerHooks = append(tr.runnerHooks, hookF(logger, config.Task))
@@ -188,7 +194,7 @@ func (t *TaskRunner) runDriver() error {
 	invocationid := uuid.Generate()[:8]
 
 	tt := &driver.Task{
-		Id:    fmt.Sprintf("%s/%s/%s", t.alloc.Deployment.Name, t.task.Name, invocationid),
+		Id:    fmt.Sprintf("%s/%s", t.id, invocationid),
 		Task1: t.task,
 	}
 
@@ -295,12 +301,14 @@ func (t *TaskRunner) appendEventLocked(ev *proto.TaskState_Event) {
 	t.status.Events = append(t.status.Events, ev)
 }
 
-func (t *TaskRunner) KillNoWait() {
+func (t *TaskRunner) KillNoWait(ev *proto.TaskState_Event) {
 	close(t.killCh)
+
+	t.status.Killing = true
 }
 
 func (t *TaskRunner) Kill(ctx context.Context, ev *proto.TaskState_Event) error {
-	close(t.killCh)
+	t.KillNoWait(ev)
 
 	select {
 	case <-t.WaitCh():
@@ -318,6 +326,7 @@ func (t *TaskRunner) WaitCh() <-chan struct{} {
 func (t *TaskRunner) Shutdown() {
 	close(t.shutdownCh)
 	<-t.WaitCh()
+	t.taskStateUpdated()
 }
 
 func (t *TaskRunner) postStart() error {

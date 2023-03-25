@@ -201,6 +201,10 @@ message TaskState {
     
     repeated Event events = 5;
 
+    string id = 6;
+
+    bool killing = 7;
+    
     enum State {
         Pending = 0;
         Running = 1;

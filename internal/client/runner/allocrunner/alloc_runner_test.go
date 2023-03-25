@@ -1,9 +1,9 @@
 package allocrunner
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"sync"
@@ -15,14 +15,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/vesta/internal/client/runner/docker"
 	"github.com/umbracle/vesta/internal/client/runner/state"
+	"github.com/umbracle/vesta/internal/mock"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/testutil"
-	"github.com/umbracle/vesta/internal/uuid"
 )
 
 func destroy(ar *AllocRunner) {
-	ar.Shutdown()
-	<-ar.ShutdownCh()
+	ar.Destroy()
+	<-ar.DestroyCh()
 }
 
 func testAllocRunnerConfig(t *testing.T, alloc *proto.Allocation1) *Config {
@@ -55,63 +55,9 @@ func testAllocRunnerConfig(t *testing.T, alloc *proto.Allocation1) *Config {
 	return cfg
 }
 
-func TestAllocRunner_SimpleRun(t *testing.T) {
-	alloc := &proto.Allocation1{
-		Deployment: &proto.Deployment1{
-			Tasks: []*proto.Task1{
-				{
-					Image: "busybox",
-					Tag:   "1.29.3",
-					Args:  []string{"sleep", "10"},
-				},
-			},
-		},
-	}
-	cfg := testAllocRunnerConfig(t, alloc)
-
-	allocRunner, err := NewAllocRunner(cfg)
-	require.NoError(t, err)
-
-	defer destroy(allocRunner)
-	go allocRunner.Run()
-
-	updater := cfg.StateUpdater.(*mockUpdater)
-	testutil.WaitForResult(func() (bool, error) {
-		last := updater.Last()
-		if last == nil {
-			return false, fmt.Errorf("no updates")
-		}
-		if last.Status != proto.Allocation1_Running {
-			return false, fmt.Errorf("alloc not running")
-		}
-
-		return true, nil
-	}, func(err error) {
-		t.Fatalf("err: %v", err)
-	})
-}
-
-func TestAllocRunner_MultipleRun(t *testing.T) {
-	// An allocation can run more than one tasks
-	alloc := &proto.Allocation1{
-		Deployment: &proto.Deployment1{
-			Tasks: []*proto.Task1{
-				{
-					Name:  "a",
-					Image: "busybox",
-					Tag:   "1.29.3",
-					Args:  []string{"sleep", "30"},
-				},
-				{
-					Name:  "b",
-					Image: "busybox",
-					Tag:   "1.29.3",
-					Args:  []string{"sleep", "30"},
-				},
-			},
-		},
-	}
-
+func TestAllocRunner_Create(t *testing.T) {
+	// Deploy an allocation with multiple tasks
+	alloc := mock.ServiceAlloc()
 	cfg := testAllocRunnerConfig(t, alloc)
 
 	allocRunner, err := NewAllocRunner(cfg)
@@ -124,48 +70,37 @@ func TestAllocRunner_MultipleRun(t *testing.T) {
 	testutil.WaitForResult(func() (bool, error) {
 		last := updater.Last()
 		if last == nil {
-			return false, fmt.Errorf("no updates")
+			return false, errors.New("last update nil")
 		}
+
 		if last.Status != proto.Allocation1_Running {
-			return false, fmt.Errorf("alloc not running")
+			return false, fmt.Errorf("got client status %v; want running", last.Status)
+		}
+
+		running := map[string]struct{}{}
+		for taskName, s := range last.TaskStates {
+			for _, e := range s.Events {
+				if e.Type == proto.TaskStarted {
+					running[taskName] = struct{}{}
+				}
+			}
+		}
+		if len(running) != 2 {
+			return false, fmt.Errorf("two task expected running")
 		}
 
 		return true, nil
 	}, func(err error) {
-		t.Fatalf("err: %v", err)
-	})
-
-	// drop the tasks
-	go allocRunner.Destroy()
-
-	// wait until the allocation is complete
-	testutil.WaitForResult(func() (bool, error) {
-		last := updater.Last()
-		if last == nil {
-			return false, fmt.Errorf("no updates")
-		}
-		if last.Status != proto.Allocation1_Complete {
-			return false, fmt.Errorf("alloc not complete")
-		}
-
-		return true, nil
-	}, func(err error) {
-		t.Fatalf("err: %v", err)
+		require.NoError(t, err)
 	})
 }
 
-func TestAllocRunner_Update(t *testing.T) {
-	alloc := &proto.Allocation1{
-		Deployment: &proto.Deployment1{
-			Tasks: []*proto.Task1{
-				{
-					Image: "busybox",
-					Tag:   "1.29.3",
-					Args:  []string{"sleep", "30"},
-				},
-			},
-		},
-	}
+func TestAllocRunner_Destroy(t *testing.T) {
+	// After an allocation gets deployed, we send a terminal execution
+	// and all the task should be destroyed.
+	alloc := mock.ServiceAlloc()
+	task := alloc.Deployment.Tasks[0]
+
 	cfg := testAllocRunnerConfig(t, alloc)
 
 	allocRunner, err := NewAllocRunner(cfg)
@@ -173,90 +108,112 @@ func TestAllocRunner_Update(t *testing.T) {
 
 	go allocRunner.Run()
 
-	updater := cfg.StateUpdater.(*mockUpdater)
+	// wait for the alloc to be running
 	testutil.WaitForResult(func() (bool, error) {
-		last := updater.Last()
-		if last == nil {
-			return false, fmt.Errorf("no updates")
-		}
-		if last.Status != proto.Allocation1_Running {
-			return false, fmt.Errorf("alloc not running")
-		}
+		state := allocRunner.AllocStatus()
 
-		return true, nil
+		return state == proto.Allocation1_Running,
+			fmt.Errorf("got client status %v; want running", state)
 	}, func(err error) {
-		t.Fatalf("err: %v", err)
+		require.NoError(t, err)
 	})
 
-	// update the args
-	dep1 := alloc.Deployment.Copy()
-	dep1.Tasks[0].Args = []string{"sleep", "35"}
+	// assert state was stored
+	ts, th, err := cfg.State.GetTaskState(alloc.Deployment.Name, task.Name)
+	require.NoError(t, err)
+	require.NotNil(t, th)
+	require.NotNil(t, ts)
 
-	allocRunner.Update(dep1)
+	// destroy the task
+	allocRunner.Destroy()
 
-	/*
-		testutil.WaitForResult(func() (bool, error) {
-			last := updater.Last()
-			if last == nil {
-				return false, fmt.Errorf("no updates")
-			}
-			if last.Status != proto.Allocation1_Running {
-				return false, fmt.Errorf("alloc not running")
-			}
+	// wait for the destroy
+	select {
+	case <-allocRunner.DestroyCh():
+	case <-time.After(10 * time.Second):
+		t.Fatal("failed to destroy")
+	}
 
-			events := last.TaskStates["a"]
-			fmt.Println(events)
+	// alloc status shoulld be dead
+	state := allocRunner.AllocStatus()
+	require.Equal(t, state, proto.Allocation1_Complete)
 
-			return true, nil
-		}, func(err error) {
-			t.Fatalf("err: %v", err)
-		})
-	*/
-
-	time.Sleep(10 * time.Second)
-
-	last := updater.Last()
-	fmt.Println(last.TaskStates[""])
-
-	//fmt.Println("- post -")
-	//fmt.Println(allocRunner.tasks)
-}
-
-func TestAllocRunner_TerminalState(t *testing.T) {
-	// After an allocation gets deployed, we send a terminal execution
-	// and all the task should be destroyed.
-	t.Skip("TODO") // kind of done.
+	// state is cleaned
+	_, _, err = cfg.State.GetTaskState(alloc.Deployment.Name, task.Name)
+	require.Error(t, err)
 }
 
 func TestAllocRunner_Restore(t *testing.T) {
 	// The allocation runner has to restore the running tasks if
 	// it gets reconnected.
-	t.Skip("TODO")
-}
+	alloc := mock.ServiceAlloc()
+	cfg := testAllocRunnerConfig(t, alloc)
 
-func TestAllocRunner_PartialCreate(t *testing.T) {
-	// with multiple deployments create a new one
+	oldAllocRunner, err := NewAllocRunner(cfg)
+	require.NoError(t, err)
 
-	alloc := &proto.Allocation1{
-		Deployment: &proto.Deployment1{
-			Name: "mock-dep",
-			Tasks: []*proto.Task1{
-				{
-					Name:  "a",
-					Image: "busybox",
-					Tag:   "1.29.3",
-					Args:  []string{"sleep", "30"},
-				},
-				{
-					Name:  "b",
-					Image: "busybox",
-					Tag:   "1.29.3",
-					Args:  []string{"sleep", "30"},
-				},
-			},
-		},
+	go oldAllocRunner.Run()
+
+	// wait for the alloc to be running
+	testutil.WaitForResult(func() (bool, error) {
+		state := oldAllocRunner.AllocStatus()
+
+		return state == proto.Allocation1_Running,
+			fmt.Errorf("got client status %v; want running", state)
+	}, func(err error) {
+		require.NoError(t, err)
+	})
+
+	// shutdown the alloc runner
+	oldAllocRunner.Shutdown()
+
+	select {
+	case <-oldAllocRunner.ShutdownCh():
+	case <-time.After(10 * time.Second):
+		t.Fatal("alloc runner did not shutdown")
 	}
 
+	// restart the tasks in another allocRunner
+	newAllocRunner, err := NewAllocRunner(cfg)
+	require.NoError(t, err)
+
+	// restore the task
+	require.NoError(t, newAllocRunner.Restore())
+
+	go newAllocRunner.Run()
+
+	// it should not create any new tasks
+	updater := cfg.StateUpdater.(*mockUpdater)
+	testutil.WaitForResult(func() (bool, error) {
+		last := updater.Last()
+		if last == nil {
+			return false, fmt.Errorf("no updates")
+		}
+		if last.Status != proto.Allocation1_Running {
+			return false, fmt.Errorf("alloc not complete")
+		}
+
+		running := 0
+		for _, task := range last.TaskStates {
+			for _, ev := range task.Events {
+				if ev.Type == proto.TaskStarted {
+					running++
+				}
+			}
+		}
+		if running != 2 {
+			return false, fmt.Errorf("expected only two started events")
+		}
+
+		return true, nil
+	}, func(err error) {
+		require.NoError(t, err)
+	})
+}
+
+func TestAllocRunner_Update_CreateTask(t *testing.T) {
+	// from a running allocation, create an extra task
+	alloc := mock.ServiceAlloc()
 	cfg := testAllocRunnerConfig(t, alloc)
 
 	allocRunner, err := NewAllocRunner(cfg)
@@ -264,7 +221,71 @@ func TestAllocRunner_PartialCreate(t *testing.T) {
 
 	go allocRunner.Run()
 
-	// wait for the allocation to be running
+	// wait for the alloc to be running
+	testutil.WaitForResult(func() (bool, error) {
+		state := allocRunner.AllocStatus()
+
+		return state == proto.Allocation1_Running,
+			fmt.Errorf("got client status %v; want running", state)
+	}, func(err error) {
+		require.NoError(t, err)
+	})
+
+	// create an extra task
+	dep := alloc.Deployment.Copy()
+	newTask := dep.Tasks[0].Copy()
+	newTask.Name = "c"
+	dep.Tasks = append(dep.Tasks, newTask)
+
+	allocRunner.Update(dep)
+
+	// wait until the allocation is complete
+	updater := cfg.StateUpdater.(*mockUpdater)
+	testutil.WaitForResult(func() (bool, error) {
+		last := updater.Last()
+		if last == nil {
+			return false, fmt.Errorf("no updates")
+		}
+		if last.Status != proto.Allocation1_Running {
+			return false, fmt.Errorf("alloc not complete")
+		}
+
+		// there has to be 3 running tasks with Started events
+		running := map[string]struct{}{}
+		for taskName, s := range last.TaskStates {
+			if s.State != proto.TaskState_Running {
+				return false, fmt.Errorf("task '%s' not running", taskName)
+			}
+
+			for _, e := range s.Events {
+				if e.Type == proto.TaskStarted {
+					running[taskName] = struct{}{}
+				}
+			}
+		}
+		if len(running) != 3 {
+			return false, fmt.Errorf("two task expected running")
+		}
+
+		return true, nil
+	}, func(err error) {
+		t.Fatalf("err: %v", err)
+	})
+}
+
+func TestAllocRunner_Update_UpdateTask(t *testing.T) {
+	// update one of the tasks in the deployment
+	alloc := mock.ServiceAlloc()
+	cfg := testAllocRunnerConfig(t, alloc)
+
+	allocRunner, err := NewAllocRunner(cfg)
+	require.NoError(t, err)
+
+	go allocRunner.Run()
+
+	var taskAId string
+
+	// wait for the alloc to be running
 	updater := cfg.StateUpdater.(*mockUpdater)
 	testutil.WaitForResult(func() (bool, error) {
 		last := updater.Last()
@@ -275,74 +296,22 @@ func TestAllocRunner_PartialCreate(t *testing.T) {
 			return false, fmt.Errorf("alloc not running")
 		}
 
+		// record the id for the "a" task which will get updated
+		taskAId = last.TaskStates["a"].Id
+
 		return true, nil
 	}, func(err error) {
-		t.Fatalf("err: %v", err)
+		require.NoError(t, err)
 	})
 
 	// drop the tasks
-	dep1 := alloc.Deployment
-	dep1.Tasks = append(dep1.Tasks, &proto.Task1{
-		Name:  "c",
-		Image: "busybox",
-		Tag:   "1.29.3",
-		Args:  []string{"sleep", "30"},
-	})
+	dep := alloc.Deployment.Copy()
+	dep.Tasks[0].Args = []string{"sleep", "40"}
 
-	allocRunner.Update(dep1)
+	allocRunner.Update(dep)
 
-	/*
-		// wait until the allocation is complete
-		testutil.WaitForResult(func() (bool, error) {
-			last := updater.Last()
-			if last == nil {
-				return false, fmt.Errorf("no updates")
-			}
-			if last.Status != proto.Allocation1_Complete {
-				return false, fmt.Errorf("alloc not complete")
-			}
-
-			return true, nil
-		}, func(err error) {
-			t.Fatalf("err: %v", err)
-		})
-	*/
-
-	time.Sleep(10 * time.Second)
-}
-
-func TestAllocRunner_PartialUpdate(t *testing.T) {
-	// with multiple deployments one is updated
-
-	alloc := &proto.Allocation1{
-		Deployment: &proto.Deployment1{
-			Name: "mock-dep",
-			Tasks: []*proto.Task1{
-				{
-					Name:  "a",
-					Image: "busybox",
-					Tag:   "1.29.3",
-					Args:  []string{"sleep", "30"},
-				},
-				{
-					Name:  "b",
-					Image: "busybox",
-					Tag:   "1.29.3",
-					Args:  []string{"sleep", "30"},
-				},
-			},
-		},
-	}
-
-	cfg := testAllocRunnerConfig(t, alloc)
-
-	allocRunner, err := NewAllocRunner(cfg)
-	require.NoError(t, err)
-
-	go allocRunner.Run()
-
-	// wait for the allocation to be running
-	updater := cfg.StateUpdater.(*mockUpdater)
+	// wait until the allocation is running and there
+	// is a new task "a"
 	testutil.WaitForResult(func() (bool, error) {
 		last := updater.Last()
 		if last == nil {
@@ -352,59 +321,26 @@ func TestAllocRunner_PartialUpdate(t *testing.T) {
 			return false, fmt.Errorf("alloc not running")
 		}
 
+		updatedTask, ok := last.TaskStates["a"]
+		if !ok {
+			return false, fmt.Errorf("updated task 'a' not found")
+		}
+		if updatedTask.Id == taskAId {
+			return false, fmt.Errorf("updated task 'a' not replaced")
+		}
+		if updatedTask.State != proto.TaskState_Running {
+			return false, fmt.Errorf("updated task 'a' not running")
+		}
+
 		return true, nil
 	}, func(err error) {
 		t.Fatalf("err: %v", err)
 	})
-
-	// drop the tasks
-	dep1 := alloc.Deployment
-	dep1.Tasks[0].Args = []string{"sleep", "40"}
-
-	allocRunner.Update(dep1)
-
-	/*
-		// wait until the allocation is complete
-		testutil.WaitForResult(func() (bool, error) {
-			last := updater.Last()
-			if last == nil {
-				return false, fmt.Errorf("no updates")
-			}
-			if last.Status != proto.Allocation1_Complete {
-				return false, fmt.Errorf("alloc not complete")
-			}
-
-			return true, nil
-		}, func(err error) {
-			t.Fatalf("err: %v", err)
-		})
-	*/
-
-	time.Sleep(10 * time.Second)
 }
 
-func TestAllocRunner_PartialDestroy(t *testing.T) {
+func TestAllocRunner_Update_DestroyTask(t *testing.T) {
 	// with multiple deployments one is deleted
-	alloc := &proto.Allocation1{
-		Deployment: &proto.Deployment1{
-			Name: "mock-dep",
-			Tasks: []*proto.Task1{
-				{
-					Name:  "a",
-					Image: "busybox",
-					Tag:   "1.29.3",
-					Args:  []string{"sleep", "30"},
-				},
-				{
-					Name:  "b",
-					Image: "busybox",
-					Tag:   "1.29.3",
-					Args:  []string{"sleep", "30"},
-				},
-			},
-		},
-	}
-
+	alloc := mock.ServiceAlloc()
 	cfg := testAllocRunnerConfig(t, alloc)
 
 	allocRunner, err := NewAllocRunner(cfg)
@@ -412,7 +348,23 @@ func TestAllocRunner_PartialDestroy(t *testing.T) {
 
 	go allocRunner.Run()
 
-	// wait for the allocation to be running
+	// wait for the alloc to be running
+	testutil.WaitForResult(func() (bool, error) {
+		state := allocRunner.AllocStatus()
+
+		return state == proto.Allocation1_Running,
+			fmt.Errorf("got client status %v; want running", state)
+	}, func(err error) {
+		require.NoError(t, err)
+	})
+
+	// drop the tasks
+	dep := alloc.Deployment.Copy()
+	dep.Tasks = []*proto.Task1{dep.Tasks[0]}
+
+	allocRunner.Update(dep)
+
+	// wait until the allocation is complete
 	updater := cfg.StateUpdater.(*mockUpdater)
 	testutil.WaitForResult(func() (bool, error) {
 		last := updater.Last()
@@ -423,38 +375,22 @@ func TestAllocRunner_PartialDestroy(t *testing.T) {
 			return false, fmt.Errorf("alloc not running")
 		}
 
+		// only task 'a' is running
+		if len(last.TaskStates) != 1 {
+			return false, fmt.Errorf("only one task expected but found %d", len(last.TaskStates))
+		}
+		state, ok := last.TaskStates["a"]
+		if !ok {
+			return false, fmt.Errorf("task 'a' not found")
+		}
+		if state.State != proto.TaskState_Running {
+			return false, fmt.Errorf("task 'a' not running %s", state.State)
+		}
+
 		return true, nil
 	}, func(err error) {
 		t.Fatalf("err: %v", err)
 	})
-
-	// drop the tasks
-	dep1 := &proto.Deployment1{
-		Name: "mock-dep",
-		Tasks: []*proto.Task1{
-			alloc.Deployment.Tasks[0],
-		},
-	}
-	allocRunner.Update(dep1)
-
-	/*
-		// wait until the allocation is complete
-		testutil.WaitForResult(func() (bool, error) {
-			last := updater.Last()
-			if last == nil {
-				return false, fmt.Errorf("no updates")
-			}
-			if last.Status != proto.Allocation1_Complete {
-				return false, fmt.Errorf("alloc not complete")
-			}
-
-			return true, nil
-		}, func(err error) {
-			t.Fatalf("err: %v", err)
-		})
-	*/
-
-	time.Sleep(5 * time.Second)
 }
 
 type mockUpdater struct {
@@ -497,128 +433,5 @@ func TestClientStatus(t *testing.T) {
 
 	for _, c := range cases {
 		require.Equal(t, c.status, getClientStatus(c.states))
-	}
-}
-
-func TestAllocRunner_Fuzz(t *testing.T) {
-	deps := genFuzzActions(2)
-
-	fmt.Println("######")
-
-	// initial deployment
-	cfg := testAllocRunnerConfig(t, &proto.Allocation1{
-		Deployment: deps[0],
-	})
-
-	allocRunner, err := NewAllocRunner(cfg)
-	require.NoError(t, err)
-
-	go allocRunner.Run()
-	time.Sleep(1 * time.Second)
-
-	defer func() {
-		fmt.Println("=>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> WAITING FOR SHUTDOWN")
-		// destroy
-		allocRunner.Shutdown()
-		<-allocRunner.ShutdownCh()
-	}()
-
-	timer := time.NewTimer(2 * time.Second)
-
-	// initial alloc
-	for index, dep := range deps[1:] {
-		fmt.Println("ITEM => ", index, dep)
-
-		timer.Reset(2 * time.Second)
-		go func() {
-			<-timer.C
-			panic("cxx")
-		}()
-
-		allocRunner.Update(dep)
-
-		time.Sleep(1 * time.Second)
-
-	}
-}
-
-func randomInt(min, max int) int {
-	return min + rand.Intn(max-min)
-}
-
-func randomType(typs ...string) string {
-	return typs[rand.Intn(len(typs))]
-}
-
-func genFuzzActions(num int) []*proto.Deployment1 {
-	dep := &proto.Deployment1{
-		Name: "mock-dep",
-		Tasks: []*proto.Task1{
-			longRunningTask(),
-		},
-	}
-
-	deps := []*proto.Deployment1{
-		dep,
-	}
-
-	// rand.Seed(time.Now().UTC().UnixNano())
-
-	for i := 0; i < num; i++ {
-		newDep := dep.Copy()
-
-	RETRY:
-		typ := randomType("add", "del", "update")
-		if typ == "add" {
-			// add new item to the deployment
-			tt := longRunningTask()
-			newDep.Tasks = append(newDep.Tasks, tt)
-
-			fmt.Println("ADD => ", tt)
-
-		} else if typ == "del" {
-			// remove item from the deployment
-			if len(newDep.Tasks) == 1 {
-				goto RETRY
-			}
-
-			indx := rand.Intn(len(newDep.Tasks))
-			newDep.Tasks = append(newDep.Tasks[:indx], newDep.Tasks[indx+1:]...)
-
-			fmt.Println("DEL => ", indx)
-
-		} else if typ == "update" {
-			// pick a random item and update
-			if len(newDep.Tasks) == 0 {
-				goto RETRY
-			}
-
-			indx := rand.Intn(len(newDep.Tasks))
-
-			newTask := newDep.Tasks[indx].Copy()
-			newTask.Args = []string{
-				"sleep", fmt.Sprintf("%d3000", i),
-			}
-
-			fmt.Println("UPDATE => ", newTask)
-
-			newDep.Tasks[indx] = newTask
-		}
-
-		fmt.Println(newDep)
-
-		deps = append(deps, newDep)
-		dep = newDep
-	}
-
-	return deps
-}
-
-func longRunningTask() *proto.Task1 {
-	return &proto.Task1{
-		Name:  uuid.Generate(),
-		Image: "busybox",
-		Tag:   "1.29.3",
-		Args:  []string{"sleep", "3000"},
 	}
 }

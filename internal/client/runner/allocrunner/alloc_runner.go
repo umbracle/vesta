@@ -1,7 +1,6 @@
 package allocrunner
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -29,32 +28,41 @@ type Config struct {
 }
 
 type AllocRunner struct {
-	config       *Config
-	logger       hclog.Logger
-	tasks        map[string]*taskrunner.TaskRunner
-	waitCh       chan struct{}
-	alloc        *proto.Allocation1
-	driver       driver.Driver
-	taskUpdated  chan struct{}
-	stateUpdater StateUpdater
-	volume       string
-	shutdownCh   chan struct{}
+	config          *Config
+	logger          hclog.Logger
+	tasks           map[string]*taskrunner.TaskRunner
+	waitCh          chan struct{}
+	alloc           *proto.Allocation1
+	driver          driver.Driver
+	taskUpdated     chan struct{}
+	stateUpdater    StateUpdater
+	state           state.State
+	allocUpdatedCh  chan *proto.Allocation1
+	volume          string
+	shutdownStarted chan struct{}
+	shutdownCh      chan struct{}
+	destroyCh       chan struct{}
+	wg              sync.WaitGroup
 }
 
 func NewAllocRunner(c *Config) (*AllocRunner, error) {
 	logger := c.Logger.Named("alloc_runner").With("alloc", c.Alloc.Deployment.Name)
 
 	runner := &AllocRunner{
-		config:       c,
-		logger:       logger,
-		tasks:        map[string]*taskrunner.TaskRunner{},
-		waitCh:       make(chan struct{}),
-		alloc:        c.Alloc,
-		driver:       c.Driver,
-		taskUpdated:  make(chan struct{}),
-		stateUpdater: c.StateUpdater,
-		volume:       c.Volume,
-		shutdownCh:   make(chan struct{}),
+		config:          c,
+		logger:          logger,
+		tasks:           map[string]*taskrunner.TaskRunner{},
+		waitCh:          make(chan struct{}),
+		alloc:           c.Alloc,
+		driver:          c.Driver,
+		taskUpdated:     make(chan struct{}),
+		stateUpdater:    c.StateUpdater,
+		state:           c.State,
+		volume:          c.Volume,
+		shutdownStarted: make(chan struct{}),
+		shutdownCh:      make(chan struct{}),
+		destroyCh:       make(chan struct{}),
+		allocUpdatedCh:  make(chan *proto.Allocation1, 1),
 	}
 	return runner, nil
 }
@@ -71,52 +79,43 @@ func (a *AllocRunner) Alloc() *proto.Allocation1 {
 	return a.alloc
 }
 
-func (a *AllocRunner) Run() {
-	defer close(a.waitCh)
-
-	// start any task that was restored
-	for _, task := range a.tasks {
-		go task.Run()
-	}
+func (a *AllocRunner) handleTaskStateUpdates() {
 
 	// start the reconcile loop
 	for {
-
 		tasks := map[string]*proto.Task1{}
 		tasksState := map[string]*proto.TaskState{}
-		taskPending := map[string]struct{}{}
 		for name, t := range a.tasks {
 			tasks[name] = t.Task()
 			tasksState[name] = t.TaskState()
-			if t.IsShuttingDown() {
-				// TODO? Move shutting down to the task state?? That way
-				// we do not need this and we can show the info on the server side.
-				taskPending[name] = struct{}{}
-			}
 		}
 
-		fmt.Println("-- data --")
-		fmt.Println(tasks)
-		fmt.Println(taskPending)
-		fmt.Println(tasksState)
+		res := &allocResults{}
+		if !a.isShuttingDown() {
+			// if the alloc runner is shutting down, the tasks have been removed
+			// and the reconciler would try to allocate them again.
+			r := newAllocReconciler(a.alloc, tasks, tasksState)
+			res = r.Compute()
+		}
 
-		r := newAllocReconciler(a.alloc, tasks, tasksState, taskPending)
-		res := r.Compute()
-
-		// update the deployment
 		if !res.Empty() {
 			a.logger.Info(res.GoString())
 
 			// remove tasks
 			for _, name := range res.removeTasks {
-				a.tasks[name].KillNoWait()
+				a.tasks[name].KillNoWait(proto.NewTaskEvent(""))
 			}
 
 			// create a tasks
 			for name, task := range res.newTasks {
 				// write the task on the state
 				runner := a.newTaskRunner(task)
-				go runner.Run()
+
+				a.wg.Add(1)
+				go func(runner *taskrunner.TaskRunner) {
+					runner.Run()
+					a.wg.Done()
+				}(runner)
 
 				a.tasks[name] = runner
 			}
@@ -124,7 +123,13 @@ func (a *AllocRunner) Run() {
 
 		states := map[string]*proto.TaskState{}
 		for taskName, task := range a.tasks {
-			states[taskName] = task.TaskState()
+			state := task.TaskState()
+			if state.State == proto.TaskState_Dead && !a.isShuttingDown() {
+				// garbage collect the task if it has finished and not shutting down
+				delete(a.tasks, taskName)
+			} else {
+				states[taskName] = task.TaskState()
+			}
 		}
 
 		// Notify about the update on the allocation
@@ -138,6 +143,41 @@ func (a *AllocRunner) Run() {
 		case <-a.taskUpdated:
 		}
 	}
+}
+
+func (a *AllocRunner) Run() {
+	go a.handleTaskStateUpdates()
+
+	go a.handleAllocUpdates()
+
+	// wait for the shutdown to start and wait for the tasks to finish
+	<-a.shutdownStarted
+
+	a.wg.Wait()
+	close(a.waitCh)
+}
+
+func (a *AllocRunner) handleAllocUpdates() {
+	for {
+		select {
+		case update := <-a.allocUpdatedCh:
+			a.alloc = update
+
+			// update the tasks
+			a.TaskStateUpdated()
+
+		case <-a.waitCh:
+			return
+		}
+	}
+}
+
+func (a *AllocRunner) AllocStatus() proto.Allocation1_Status {
+	states := map[string]*proto.TaskState{}
+	for name, task := range a.tasks {
+		states[name] = task.TaskState()
+	}
+	return getClientStatus(states)
 }
 
 func (a *AllocRunner) clientAlloc(states map[string]*proto.TaskState) *proto.Allocation1 {
@@ -191,29 +231,69 @@ func (a *AllocRunner) Restore() error {
 		if err := runner.Restore(); err != nil {
 			return err
 		}
-		if runner.TaskState().State == proto.TaskState_Dead {
-			// do not load dead tasks
-			delete(a.tasks, task.Name)
-		}
 	}
 	return nil
 }
 
+func (a *AllocRunner) isShuttingDown() bool {
+	select {
+	case <-a.shutdownStarted:
+		return true
+	default:
+		return false
+	}
+}
+
+func (a *AllocRunner) DestroyCh() chan struct{} {
+	return a.destroyCh
+}
+
 func (a *AllocRunner) Destroy() {
 	a.logger.Info("alloc destroyed")
+	close(a.shutdownStarted)
 
-	a.alloc.DesiredStatus = proto.Allocation1_Stop
-	a.TaskStateUpdated()
+	go func() {
+		// Kill the tasks and update the allocation status
+		for _, task := range a.tasks {
+			task.KillNoWait(proto.NewTaskEvent(""))
+		}
+
+		// wait for all the tasks to finish
+		<-a.waitCh
+
+		// delete the allocation folder
+		if err := a.state.DeleteAllocationBucket(a.alloc.Deployment.Name); err != nil {
+			a.logger.Error("failed to delete allocation", "err", err)
+		}
+
+		close(a.destroyCh)
+	}()
 }
 
 func (a *AllocRunner) Update(deployment *proto.Deployment1) {
 	a.logger.Info("alloc updated")
 
-	fmt.Println("-- deployment --")
-	fmt.Println(deployment)
+	alloc := a.alloc.Copy()
+	alloc.Deployment = deployment
 
-	a.alloc.Deployment = deployment.Copy()
-	a.TaskStateUpdated()
+	select {
+	// Drain queued update from the channel if possible, and check the modify
+	// index
+	case oldUpdate := <-a.allocUpdatedCh:
+		// If the old update is newer than the replacement, then skip the new one
+		// and return
+		if oldUpdate.Deployment.Sequence > alloc.Deployment.Sequence {
+			a.allocUpdatedCh <- oldUpdate
+			return
+		}
+
+	case <-a.waitCh:
+		return
+	default:
+	}
+
+	// Queue the new update
+	a.allocUpdatedCh <- alloc
 }
 
 func (a *AllocRunner) WaitCh() <-chan struct{} {
@@ -221,6 +301,8 @@ func (a *AllocRunner) WaitCh() <-chan struct{} {
 }
 
 func (a *AllocRunner) Shutdown() {
+	close(a.shutdownStarted)
+
 	go func() {
 		a.logger.Trace("shutting down")
 
@@ -237,7 +319,6 @@ func (a *AllocRunner) Shutdown() {
 
 		// Wait for Run to exit
 		<-a.waitCh
-
 		close(a.shutdownCh)
 	}()
 }
