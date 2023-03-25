@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/vesta/internal/client/runner/docker"
+	"github.com/umbracle/vesta/internal/client/runner/proto"
 	"github.com/umbracle/vesta/internal/client/runner/state"
-	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/testutil"
 )
 
@@ -40,17 +40,17 @@ func testWaitForTaskToStart(t *testing.T, tr *TaskRunner) {
 	})
 }
 
-func setupTaskRunner(t *testing.T, task *proto.Task1) *Config {
+func setupTaskRunner(t *testing.T, task *proto.Task) *Config {
 	task.Name = "test-task"
 	logger := hclog.New(&hclog.LoggerOptions{Level: hclog.Debug})
 
 	driver, err := docker.NewDockerDriver(logger)
 	assert.NoError(t, err)
 
-	alloc := &proto.Allocation1{
-		Deployment: &proto.Deployment1{
+	alloc := &proto.Allocation{
+		Deployment: &proto.Deployment{
 			Name: "test-alloc",
-			Tasks: []*proto.Task1{
+			Tasks: []*proto.Task{
 				task,
 			},
 		},
@@ -81,7 +81,7 @@ func setupTaskRunner(t *testing.T, task *proto.Task1) *Config {
 }
 
 func TestTaskRunner_Stop_ExitCode(t *testing.T) {
-	tt := &proto.Task1{
+	tt := &proto.Task{
 		Image: "busybox",
 		Tag:   "1.29.3",
 		Args:  []string{"sleep", "3"},
@@ -101,7 +101,7 @@ func TestTaskRunner_Stop_ExitCode(t *testing.T) {
 
 func TestTaskRunner_Restore_AlreadyRunning(t *testing.T) {
 	// Restoring a running task should not re run the task
-	tt := &proto.Task1{
+	tt := &proto.Task{
 		Image: "busybox",
 		Tag:   "1.29.3",
 		Args:  []string{"sleep", "3"},
@@ -144,7 +144,7 @@ func TestTaskRunner_Restore_AlreadyRunning(t *testing.T) {
 func TestTaskRunner_Restore_RequiresRestart(t *testing.T) {
 	// Restore a running task that was dropped should restart
 	// the task.
-	tt := &proto.Task1{
+	tt := &proto.Task{
 		Image: "busybox",
 		Tag:   "1.29.3",
 		Args:  []string{"sleep", "6"},
@@ -185,7 +185,7 @@ func TestTaskRunner_Restart(t *testing.T) {
 func TestTaskRunner_Shutdown(t *testing.T) {
 	// A task can be shutdown and it notifies with the
 	// wait channel
-	tt := &proto.Task1{
+	tt := &proto.Task{
 		Image: "busybox",
 		Tag:   "1.29.3",
 		Args:  []string{"sleep", "6"},

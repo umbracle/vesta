@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/umbracle/vesta/internal/server/proto"
+	"github.com/umbracle/vesta/internal/client/runner/proto"
 )
 
 type allocResults struct {
@@ -12,7 +12,7 @@ type allocResults struct {
 	removeTasks []string
 
 	// newTasks is the list of tasks to create
-	newTasks map[string]*proto.Task1
+	newTasks map[string]*proto.Task
 }
 
 func (a *allocResults) Empty() bool {
@@ -25,16 +25,16 @@ func (a *allocResults) GoString() string {
 
 type allocReconciler struct {
 	// alloc is the allocation being processed
-	alloc *proto.Allocation1
+	alloc *proto.Allocation
 
 	// tasks is the list of running tasks
-	tasks map[string]*proto.Task1
+	tasks map[string]*proto.Task
 
 	// state is the state of the running tasks
 	tasksState map[string]*proto.TaskState
 }
 
-func newAllocReconciler(alloc *proto.Allocation1, tasks map[string]*proto.Task1,
+func newAllocReconciler(alloc *proto.Allocation, tasks map[string]*proto.Task,
 	tasksState map[string]*proto.TaskState) *allocReconciler {
 	return &allocReconciler{
 		alloc:      alloc,
@@ -46,10 +46,10 @@ func newAllocReconciler(alloc *proto.Allocation1, tasks map[string]*proto.Task1,
 func (a *allocReconciler) Compute() *allocResults {
 	result := &allocResults{
 		removeTasks: []string{},
-		newTasks:    map[string]*proto.Task1{},
+		newTasks:    map[string]*proto.Task{},
 	}
 
-	depTasks := map[string]*proto.Task1{}
+	depTasks := map[string]*proto.Task{}
 	for _, task := range a.alloc.Deployment.Tasks {
 		depTasks[task.Name] = task
 	}
@@ -108,7 +108,7 @@ func (a *allocReconciler) Compute() *allocResults {
 	return result
 }
 
-func tasksUpdated(a, b *proto.Task1) bool {
+func tasksUpdated(a, b *proto.Task) bool {
 	if !reflect.DeepEqual(a.Image, b.Image) {
 		return true
 	}

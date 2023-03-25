@@ -14,9 +14,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/vesta/internal/client/runner/docker"
+	"github.com/umbracle/vesta/internal/client/runner/mock"
+	"github.com/umbracle/vesta/internal/client/runner/proto"
 	"github.com/umbracle/vesta/internal/client/runner/state"
-	"github.com/umbracle/vesta/internal/mock"
-	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/testutil"
 )
 
@@ -25,7 +25,7 @@ func destroy(ar *AllocRunner) {
 	<-ar.DestroyCh()
 }
 
-func testAllocRunnerConfig(t *testing.T, alloc *proto.Allocation1) *Config {
+func testAllocRunnerConfig(t *testing.T, alloc *proto.Allocation) *Config {
 	alloc.Deployment.Name = "mock-dep"
 	logger := hclog.New(&hclog.LoggerOptions{Level: hclog.Debug})
 
@@ -73,7 +73,7 @@ func TestAllocRunner_Create(t *testing.T) {
 			return false, errors.New("last update nil")
 		}
 
-		if last.Status != proto.Allocation1_Running {
+		if last.Status != proto.Allocation_Running {
 			return false, fmt.Errorf("got client status %v; want running", last.Status)
 		}
 
@@ -112,7 +112,7 @@ func TestAllocRunner_Destroy(t *testing.T) {
 	testutil.WaitForResult(func() (bool, error) {
 		state := allocRunner.AllocStatus()
 
-		return state == proto.Allocation1_Running,
+		return state == proto.Allocation_Running,
 			fmt.Errorf("got client status %v; want running", state)
 	}, func(err error) {
 		require.NoError(t, err)
@@ -136,7 +136,7 @@ func TestAllocRunner_Destroy(t *testing.T) {
 
 	// alloc status shoulld be dead
 	state := allocRunner.AllocStatus()
-	require.Equal(t, state, proto.Allocation1_Complete)
+	require.Equal(t, state, proto.Allocation_Complete)
 
 	// state is cleaned
 	_, _, err = cfg.State.GetTaskState(alloc.Deployment.Name, task.Name)
@@ -158,7 +158,7 @@ func TestAllocRunner_Restore(t *testing.T) {
 	testutil.WaitForResult(func() (bool, error) {
 		state := oldAllocRunner.AllocStatus()
 
-		return state == proto.Allocation1_Running,
+		return state == proto.Allocation_Running,
 			fmt.Errorf("got client status %v; want running", state)
 	}, func(err error) {
 		require.NoError(t, err)
@@ -189,7 +189,7 @@ func TestAllocRunner_Restore(t *testing.T) {
 		if last == nil {
 			return false, fmt.Errorf("no updates")
 		}
-		if last.Status != proto.Allocation1_Running {
+		if last.Status != proto.Allocation_Running {
 			return false, fmt.Errorf("alloc not complete")
 		}
 
@@ -225,7 +225,7 @@ func TestAllocRunner_Update_CreateTask(t *testing.T) {
 	testutil.WaitForResult(func() (bool, error) {
 		state := allocRunner.AllocStatus()
 
-		return state == proto.Allocation1_Running,
+		return state == proto.Allocation_Running,
 			fmt.Errorf("got client status %v; want running", state)
 	}, func(err error) {
 		require.NoError(t, err)
@@ -246,7 +246,7 @@ func TestAllocRunner_Update_CreateTask(t *testing.T) {
 		if last == nil {
 			return false, fmt.Errorf("no updates")
 		}
-		if last.Status != proto.Allocation1_Running {
+		if last.Status != proto.Allocation_Running {
 			return false, fmt.Errorf("alloc not complete")
 		}
 
@@ -292,7 +292,7 @@ func TestAllocRunner_Update_UpdateTask(t *testing.T) {
 		if last == nil {
 			return false, fmt.Errorf("no updates")
 		}
-		if last.Status != proto.Allocation1_Running {
+		if last.Status != proto.Allocation_Running {
 			return false, fmt.Errorf("alloc not running")
 		}
 
@@ -317,7 +317,7 @@ func TestAllocRunner_Update_UpdateTask(t *testing.T) {
 		if last == nil {
 			return false, fmt.Errorf("no updates")
 		}
-		if last.Status != proto.Allocation1_Running {
+		if last.Status != proto.Allocation_Running {
 			return false, fmt.Errorf("alloc not running")
 		}
 
@@ -352,7 +352,7 @@ func TestAllocRunner_Update_DestroyTask(t *testing.T) {
 	testutil.WaitForResult(func() (bool, error) {
 		state := allocRunner.AllocStatus()
 
-		return state == proto.Allocation1_Running,
+		return state == proto.Allocation_Running,
 			fmt.Errorf("got client status %v; want running", state)
 	}, func(err error) {
 		require.NoError(t, err)
@@ -360,7 +360,7 @@ func TestAllocRunner_Update_DestroyTask(t *testing.T) {
 
 	// drop the tasks
 	dep := alloc.Deployment.Copy()
-	dep.Tasks = []*proto.Task1{dep.Tasks[0]}
+	dep.Tasks = []*proto.Task{dep.Tasks[0]}
 
 	allocRunner.Update(dep)
 
@@ -371,7 +371,7 @@ func TestAllocRunner_Update_DestroyTask(t *testing.T) {
 		if last == nil {
 			return false, fmt.Errorf("no updates")
 		}
-		if last.Status != proto.Allocation1_Running {
+		if last.Status != proto.Allocation_Running {
 			return false, fmt.Errorf("alloc not running")
 		}
 
@@ -394,17 +394,17 @@ func TestAllocRunner_Update_DestroyTask(t *testing.T) {
 }
 
 type mockUpdater struct {
-	alloc *proto.Allocation1
+	alloc *proto.Allocation
 	lock  sync.Mutex
 }
 
-func (m *mockUpdater) AllocStateUpdated(alloc *proto.Allocation1) {
+func (m *mockUpdater) AllocStateUpdated(alloc *proto.Allocation) {
 	m.lock.Lock()
 	m.alloc = alloc
 	m.lock.Unlock()
 }
 
-func (m *mockUpdater) Last() *proto.Allocation1 {
+func (m *mockUpdater) Last() *proto.Allocation {
 	m.lock.Lock()
 	alloc := m.alloc
 	m.lock.Unlock()
@@ -414,20 +414,20 @@ func (m *mockUpdater) Last() *proto.Allocation1 {
 func TestClientStatus(t *testing.T) {
 	cases := []struct {
 		states map[string]*proto.TaskState
-		status proto.Allocation1_Status
+		status proto.Allocation_Status
 	}{
 		{
 			map[string]*proto.TaskState{
 				"a": {State: proto.TaskState_Running},
 			},
-			proto.Allocation1_Running,
+			proto.Allocation_Running,
 		},
 		{
 			map[string]*proto.TaskState{
 				"a": {State: proto.TaskState_Pending},
 				"b": {State: proto.TaskState_Running},
 			},
-			proto.Allocation1_Pending,
+			proto.Allocation_Pending,
 		},
 	}
 

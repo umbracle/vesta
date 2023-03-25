@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/umbracle/vesta/internal/server/proto"
+	"github.com/umbracle/vesta/internal/client/runner/proto"
 )
 
 type Driver interface {
@@ -18,5 +18,5 @@ type Driver interface {
 type Task struct {
 	Id string
 
-	*proto.Task1
+	*proto.Task
 }

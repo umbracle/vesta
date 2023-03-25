@@ -5,7 +5,7 @@ import (
 
 	"github.com/boltdb/bolt"
 	gproto "github.com/golang/protobuf/proto"
-	"github.com/umbracle/vesta/internal/server/proto"
+	"github.com/umbracle/vesta/internal/client/runner/proto"
 )
 
 var _ State = &BoltdbStore{}
@@ -69,7 +69,7 @@ func (s *BoltdbStore) DeleteAllocationBucket(allocID string) error {
 	return nil
 }
 
-func (s *BoltdbStore) PutAllocation(a *proto.Allocation1) error {
+func (s *BoltdbStore) PutAllocation(a *proto.Allocation) error {
 	err := s.db.Update(func(tx *bolt.Tx) error {
 		allocsBkt := tx.Bucket(allocsBucket)
 
@@ -88,8 +88,8 @@ func (s *BoltdbStore) PutAllocation(a *proto.Allocation1) error {
 	return nil
 }
 
-func (s *BoltdbStore) GetAllocations() ([]*proto.Allocation1, error) {
-	allocs := []*proto.Allocation1{}
+func (s *BoltdbStore) GetAllocations() ([]*proto.Allocation, error) {
+	allocs := []*proto.Allocation{}
 	s.db.View(func(tx *bolt.Tx) error {
 		allocsBkt := tx.Bucket(allocsBucket)
 
@@ -97,7 +97,7 @@ func (s *BoltdbStore) GetAllocations() ([]*proto.Allocation1, error) {
 		for k, _ := c.First(); k != nil; k, _ = c.Next() {
 			allocBkt := allocsBkt.Bucket(k)
 
-			alloc := proto.Allocation1{}
+			alloc := proto.Allocation{}
 			if err := dbGet(allocBkt, allocKey, &alloc); err != nil {
 				return err
 			}

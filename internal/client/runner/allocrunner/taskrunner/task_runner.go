@@ -9,8 +9,8 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/umbracle/vesta/internal/client/runner/driver"
 	"github.com/umbracle/vesta/internal/client/runner/hooks"
+	"github.com/umbracle/vesta/internal/client/runner/proto"
 	"github.com/umbracle/vesta/internal/client/runner/state"
-	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/uuid"
 )
 
@@ -21,8 +21,8 @@ type TaskRunner struct {
 	driver           driver.Driver
 	id               string
 	waitCh           chan struct{}
-	alloc            *proto.Allocation1
-	task             *proto.Task1
+	alloc            *proto.Allocation
+	task             *proto.Task
 	allocDir         string
 	shutdownCh       chan struct{}
 	killCh           chan struct{}
@@ -40,9 +40,9 @@ type TaskRunner struct {
 type Config struct {
 	Logger           hclog.Logger
 	Driver           driver.Driver
-	Allocation       *proto.Allocation1
+	Allocation       *proto.Allocation
 	AllocDir         string
-	Task             *proto.Task1
+	Task             *proto.Task
 	State            state.State
 	TaskStateUpdated func()
 	Hooks            []hooks.TaskHookFactory
@@ -86,7 +86,7 @@ func (t *TaskRunner) IsShuttingDown() bool {
 	}
 }
 
-func (t *TaskRunner) Task() *proto.Task1 {
+func (t *TaskRunner) Task() *proto.Task {
 	return t.task
 }
 
@@ -194,8 +194,8 @@ func (t *TaskRunner) runDriver() error {
 	invocationid := uuid.Generate()[:8]
 
 	tt := &driver.Task{
-		Id:    fmt.Sprintf("%s/%s", t.id, invocationid),
-		Task1: t.task,
+		Id:   fmt.Sprintf("%s/%s", t.id, invocationid),
+		Task: t.task,
 	}
 
 	handle, err := t.driver.StartTask(tt, t.allocDir)

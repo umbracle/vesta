@@ -123,28 +123,28 @@ func (s *Server) Create(allocId string, act *Action, input map[string]interface{
 		deployableTasks[name] = x.ToProto(name)
 	}
 
-	dep := &proto.Deployment{
-		Tasks: deployableTasks,
-	}
-
 	if allocId != "" {
 		// update the deployment
-		for _, t := range dep.Tasks {
-			t.AllocId = allocId
+		// get the current allocation and update it
+		alloc, err := s.state.GetAllocation(allocId)
+		if err != nil {
+			return "", err
 		}
-		if err := s.state.UpdateAllocationDeployment(allocId, dep); err != nil {
+
+		alloc = alloc.Copy()
+		alloc.Sequence++
+		alloc.Tasks = deployableTasks
+
+		if err := s.state.UpsertAllocation(alloc); err != nil {
 			return "", err
 		}
 	} else {
 		allocId = uuid.Generate()
 
 		alloc := &proto.Allocation{
-			Id:         allocId,
-			NodeId:     "local",
-			Deployment: dep,
-		}
-		for _, t := range dep.Tasks {
-			t.AllocId = allocId
+			Id:     allocId,
+			NodeId: "local",
+			Tasks:  deployableTasks,
 		}
 		if err := s.state.UpsertAllocation(alloc); err != nil {
 			return "", err
@@ -200,9 +200,7 @@ func (r *runtimeHandler) ToProto(name string) *proto.Task {
 	}
 
 	c := &proto.Task{
-		Id:      uuid.Generate(),
 		Image:   r.Image,
-		Name:    name,
 		Tag:     r.Tag,
 		Args:    r.Args,
 		Env:     r.Env,

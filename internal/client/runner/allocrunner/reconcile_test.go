@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/umbracle/vesta/internal/mock"
+	"github.com/umbracle/vesta/internal/client/runner/mock"
 )
 
 func TestAllocResultsEmpty(t *testing.T) {

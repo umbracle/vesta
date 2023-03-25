@@ -9,17 +9,17 @@ import (
 	"github.com/umbracle/vesta/internal/client/runner/allocrunner/taskrunner"
 	"github.com/umbracle/vesta/internal/client/runner/driver"
 	"github.com/umbracle/vesta/internal/client/runner/hooks"
+	"github.com/umbracle/vesta/internal/client/runner/proto"
 	"github.com/umbracle/vesta/internal/client/runner/state"
-	"github.com/umbracle/vesta/internal/server/proto"
 )
 
 type StateUpdater interface {
-	AllocStateUpdated(alloc *proto.Allocation1)
+	AllocStateUpdated(alloc *proto.Allocation)
 }
 
 type Config struct {
 	Logger       hclog.Logger
-	Alloc        *proto.Allocation1
+	Alloc        *proto.Allocation
 	State        state.State
 	StateUpdater StateUpdater
 	Driver       driver.Driver
@@ -32,12 +32,12 @@ type AllocRunner struct {
 	logger          hclog.Logger
 	tasks           map[string]*taskrunner.TaskRunner
 	waitCh          chan struct{}
-	alloc           *proto.Allocation1
+	alloc           *proto.Allocation
 	driver          driver.Driver
 	taskUpdated     chan struct{}
 	stateUpdater    StateUpdater
 	state           state.State
-	allocUpdatedCh  chan *proto.Allocation1
+	allocUpdatedCh  chan *proto.Allocation
 	volume          string
 	shutdownStarted chan struct{}
 	shutdownCh      chan struct{}
@@ -62,12 +62,12 @@ func NewAllocRunner(c *Config) (*AllocRunner, error) {
 		shutdownStarted: make(chan struct{}),
 		shutdownCh:      make(chan struct{}),
 		destroyCh:       make(chan struct{}),
-		allocUpdatedCh:  make(chan *proto.Allocation1, 1),
+		allocUpdatedCh:  make(chan *proto.Allocation, 1),
 	}
 	return runner, nil
 }
 
-func (a *AllocRunner) Deployment() *proto.Deployment1 {
+func (a *AllocRunner) Deployment() *proto.Deployment {
 	return a.alloc.Deployment.Copy()
 }
 
@@ -75,7 +75,7 @@ func (a *AllocRunner) ShutdownCh() chan struct{} {
 	return a.shutdownCh
 }
 
-func (a *AllocRunner) Alloc() *proto.Allocation1 {
+func (a *AllocRunner) Alloc() *proto.Allocation {
 	return a.alloc
 }
 
@@ -83,7 +83,7 @@ func (a *AllocRunner) handleTaskStateUpdates() {
 
 	// start the reconcile loop
 	for {
-		tasks := map[string]*proto.Task1{}
+		tasks := map[string]*proto.Task{}
 		tasksState := map[string]*proto.TaskState{}
 		for name, t := range a.tasks {
 			tasks[name] = t.Task()
@@ -172,7 +172,7 @@ func (a *AllocRunner) handleAllocUpdates() {
 	}
 }
 
-func (a *AllocRunner) AllocStatus() proto.Allocation1_Status {
+func (a *AllocRunner) AllocStatus() proto.Allocation_Status {
 	states := map[string]*proto.TaskState{}
 	for name, task := range a.tasks {
 		states[name] = task.TaskState()
@@ -180,7 +180,7 @@ func (a *AllocRunner) AllocStatus() proto.Allocation1_Status {
 	return getClientStatus(states)
 }
 
-func (a *AllocRunner) clientAlloc(states map[string]*proto.TaskState) *proto.Allocation1 {
+func (a *AllocRunner) clientAlloc(states map[string]*proto.TaskState) *proto.Allocation {
 	// Notify about the update on the allocation
 	calloc := a.alloc.Copy()
 	calloc.TaskStates = states
@@ -191,7 +191,7 @@ func (a *AllocRunner) clientAlloc(states map[string]*proto.TaskState) *proto.All
 	return calloc
 }
 
-func (a *AllocRunner) newTaskRunner(task *proto.Task1) *taskrunner.TaskRunner {
+func (a *AllocRunner) newTaskRunner(task *proto.Task) *taskrunner.TaskRunner {
 	config := &taskrunner.Config{
 		Logger:           a.logger,
 		Task:             task,
@@ -270,7 +270,7 @@ func (a *AllocRunner) Destroy() {
 	}()
 }
 
-func (a *AllocRunner) Update(deployment *proto.Deployment1) {
+func (a *AllocRunner) Update(deployment *proto.Deployment) {
 	a.logger.Info("alloc updated")
 
 	alloc := a.alloc.Copy()
@@ -325,7 +325,7 @@ func (a *AllocRunner) Shutdown() {
 
 // getClientStatus takes in the task states for a given allocation and computes
 // the client status and description
-func getClientStatus(taskStates map[string]*proto.TaskState) proto.Allocation1_Status {
+func getClientStatus(taskStates map[string]*proto.TaskState) proto.Allocation_Status {
 	var pending, running, dead, failed bool
 	for _, state := range taskStates {
 		switch state.State {
@@ -344,13 +344,13 @@ func getClientStatus(taskStates map[string]*proto.TaskState) proto.Allocation1_S
 
 	// Determine the alloc status
 	if failed {
-		return proto.Allocation1_Failed
+		return proto.Allocation_Failed
 	} else if pending {
-		return proto.Allocation1_Pending
+		return proto.Allocation_Pending
 	} else if running {
-		return proto.Allocation1_Running
+		return proto.Allocation_Running
 	} else if dead {
-		return proto.Allocation1_Complete
+		return proto.Allocation_Complete
 	}
 
 	panic("X")

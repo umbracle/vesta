@@ -7,8 +7,8 @@ import (
 	"github.com/umbracle/vesta/internal/client/runner/allocrunner"
 	"github.com/umbracle/vesta/internal/client/runner/docker"
 	"github.com/umbracle/vesta/internal/client/runner/hooks"
+	"github.com/umbracle/vesta/internal/client/runner/proto"
 	"github.com/umbracle/vesta/internal/client/runner/state"
-	"github.com/umbracle/vesta/internal/server/proto"
 )
 
 type Config struct {
@@ -100,7 +100,7 @@ func (r *Runner) initState() error {
 	return nil
 }
 
-func (r *Runner) UpsertDeployment(deployment *proto.Deployment1) {
+func (r *Runner) UpsertDeployment(deployment *proto.Deployment) {
 	handle, ok := r.allocs[deployment.Name]
 	if ok {
 		if deployment.Sequence > handle.Alloc().Deployment.Sequence {
@@ -115,9 +115,8 @@ func (r *Runner) UpsertDeployment(deployment *proto.Deployment1) {
 
 	} else {
 		// create
-		alloc := &proto.Allocation1{
-			Deployment:    deployment,
-			DesiredStatus: proto.Allocation1_Run,
+		alloc := &proto.Allocation{
+			Deployment: deployment,
 		}
 
 		if err := r.state.PutAllocation(alloc); err != nil {

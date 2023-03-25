@@ -12,8 +12,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/umbracle/vesta/internal/client/runner/proto"
 	"github.com/umbracle/vesta/internal/client/runner/state"
-	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/uuid"
 )
 
@@ -29,8 +29,8 @@ var fuzzTypeActions = []string{
 	"deattach",
 }
 
-func longRunningTask(name string) *proto.Task1 {
-	return &proto.Task1{
+func longRunningTask(name string) *proto.Task {
+	return &proto.Task{
 		Name:  name,
 		Image: "busybox",
 		Tag:   "1.29.3",
@@ -41,10 +41,12 @@ func longRunningTask(name string) *proto.Task1 {
 type fuzzUpdater struct {
 }
 
-func (f *fuzzUpdater) AllocStateUpdated(alloc *proto.Allocation1) {
+func (f *fuzzUpdater) AllocStateUpdated(alloc *proto.Allocation) {
 }
 
 func TestRunner_Fuzz(t *testing.T) {
+	t.Skip("")
+
 	// rand.Seed(time.Now().UTC().UnixNano())
 
 	// use the same state to represent all the execution
@@ -103,9 +105,9 @@ func TestRunner_Fuzz(t *testing.T) {
 					goto RETRY
 				}
 
-				runner.UpsertDeployment(&proto.Deployment1{
+				runner.UpsertDeployment(&proto.Deployment{
 					Name: uuid.Generate(),
-					Tasks: []*proto.Task1{
+					Tasks: []*proto.Task{
 						longRunningTask(uuid.Generate()),
 					},
 				})

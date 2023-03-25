@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-memdb"
 	"github.com/umbracle/vesta/internal/client/runner"
+	cproto "github.com/umbracle/vesta/internal/client/runner/proto"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
@@ -62,14 +63,13 @@ func (c *Client) handle() {
 			panic(err)
 		}
 		for _, alloc := range allocations {
-
-			dep2 := &proto.Deployment1{
+			dep2 := &cproto.Deployment{
 				Name:     alloc.Id,
-				Tasks:    []*proto.Task1{},
+				Tasks:    []*cproto.Task{},
 				Sequence: alloc.Sequence,
 			}
-			for name, tt := range alloc.Deployment.Tasks {
-				ttt := &proto.Task1{
+			for name, tt := range alloc.Tasks {
+				ttt := &cproto.Task{
 					Name:        name,
 					Image:       tt.Image,
 					Tag:         tt.Tag,
@@ -94,12 +94,26 @@ func (c *Client) handle() {
 	}
 }
 
-func (c *Client) AllocStateUpdated(a *proto.Allocation1) {
-	/*
-		if err := c.config.ControlPlane.UpdateAlloc(a); err != nil {
-			c.logger.Error("failed to update alloc", "id", a.Id, "err", err)
+func (c *Client) AllocStateUpdated(a *cproto.Allocation) {
+	// update back to the client important data
+	alloc := &proto.Allocation{
+		Id:         a.Deployment.Name,
+		Status:     proto.Allocation_Status(a.Status),
+		TaskStates: map[string]*proto.TaskState{},
+	}
+	for name, state := range a.TaskStates {
+		alloc.TaskStates[name] = &proto.TaskState{
+			State:    proto.TaskState_State(state.State),
+			Failed:   state.Failed,
+			Restarts: state.Restarts,
+			Id:       state.Id,
+			Killing:  state.Killing,
 		}
-	*/
+	}
+
+	if err := c.config.ControlPlane.UpdateAlloc(alloc); err != nil {
+		c.logger.Error("failed to update alloc", "id", alloc.Id, "err", err)
+	}
 }
 
 func (c *Client) Stop() {

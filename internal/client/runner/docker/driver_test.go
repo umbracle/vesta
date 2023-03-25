@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/vesta/internal/client/runner/driver"
-	"github.com/umbracle/vesta/internal/server/proto"
+	"github.com/umbracle/vesta/internal/client/runner/proto"
 	"github.com/umbracle/vesta/internal/uuid"
 )
 
@@ -19,7 +19,7 @@ func TestDriver_CreateContainerOptions_Labels(t *testing.T) {
 	d, _ := NewDockerDriver(nil)
 
 	tt := &driver.Task{
-		Task1: &proto.Task1{
+		Task: &proto.Task{
 			Labels: map[string]string{
 				"some": "label",
 			},
@@ -36,7 +36,7 @@ func TestDriver_CreateContainerOptions_Env(t *testing.T) {
 	d, _ := NewDockerDriver(nil)
 
 	tt := &driver.Task{
-		Task1: &proto.Task1{
+		Task: &proto.Task{
 			Env: map[string]string{
 				"some": "label",
 			},
@@ -52,7 +52,7 @@ func TestDriver_CreateContainerOptions_Image(t *testing.T) {
 	d, _ := NewDockerDriver(nil)
 
 	tt := &driver.Task{
-		Task1: &proto.Task1{
+		Task: &proto.Task{
 			Image: "a",
 			Tag:   "b",
 		},
@@ -67,7 +67,7 @@ func TestDriver_CreateContainerOptions_DataMount(t *testing.T) {
 	d, _ := NewDockerDriver(nil)
 
 	tt := &driver.Task{
-		Task1: &proto.Task1{
+		Task: &proto.Task{
 			Data: map[string]string{
 				"/var/file3.txt": "c",
 			},
@@ -83,7 +83,7 @@ func TestDriver_Start_Wait(t *testing.T) {
 	d, _ := NewDockerDriver(nil)
 
 	tt := &driver.Task{
-		Task1: &proto.Task1{
+		Task: &proto.Task{
 			Image: "busybox",
 			Tag:   "1.29.3",
 			Args:  []string{"nc", "-l", "-p", "3000", "127.0.0.1"},
@@ -107,8 +107,7 @@ func TestDriver_Start_WaitFinished(t *testing.T) {
 
 	tt := &driver.Task{
 		Id: uuid.Generate(),
-		Task1: &proto.Task1{
-
+		Task: &proto.Task{
 			Image: "busybox",
 			Tag:   "1.29.3",
 			Args:  []string{"echo", "hello"},
@@ -133,8 +132,7 @@ func TestDriver_Start_Kill_Wait(t *testing.T) {
 
 	tt := &driver.Task{
 		Id: uuid.Generate(),
-		Task1: &proto.Task1{
-
+		Task: &proto.Task{
 			Image: "busybox",
 			Tag:   "1.29.3",
 			Args:  []string{"echo", "hello"},
@@ -163,7 +161,7 @@ func TestDriver_Start_Kill_Timeout(t *testing.T) {
 
 	tt := &driver.Task{
 		Id: uuid.Generate(),
-		Task1: &proto.Task1{
+		Task: &proto.Task{
 			Image: "busybox",
 			Tag:   "1.29.3",
 			Args:  []string{"sleep", "10"},
@@ -192,11 +190,11 @@ func TestDriver_Start_WithVolume(t *testing.T) {
 
 	tt := &driver.Task{
 		Id: uuid.Generate(),
-		Task1: &proto.Task1{
+		Task: &proto.Task{
 			Image: "busybox",
 			Tag:   "1.29.3",
 			Args:  []string{"touch", "/data/file"},
-			Volumes: map[string]*proto.Task1_Volume{
+			Volumes: map[string]*proto.Task_Volume{
 				"data": {Path: "/data"},
 			},
 		},
