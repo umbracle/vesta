@@ -75,12 +75,10 @@ func (a *allocReconciler) Compute() *allocResults {
 
 		depTask, ok := depTasks[name]
 		if !ok {
-			fmt.Println("A")
 			// task is not found on the deployment
 			result.removeTasks = append(result.removeTasks, name)
 		} else {
 			if tasksUpdated(task, depTask) {
-				fmt.Println("B")
 				// task is not up to date, remove it. It will be
 				// allocated on the next iteration once this one
 				// is dead.
@@ -112,15 +110,12 @@ func (a *allocReconciler) Compute() *allocResults {
 
 func tasksUpdated(a, b *proto.Task) bool {
 	if !reflect.DeepEqual(a.Image, b.Image) {
-		fmt.Println("1", a.Image, b.Image)
 		return true
 	}
 	if !reflect.DeepEqual(a.Tag, b.Tag) {
-		fmt.Println("2", a.Tag, b.Tag)
 		return true
 	}
 	if !reflect.DeepEqual(a.Args, b.Args) {
-		fmt.Println("3", a.Args, b.Args)
 		return true
 	}
 	return false

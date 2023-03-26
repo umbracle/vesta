@@ -177,11 +177,6 @@ func TestTaskRunner_Restore_RequiresRestart(t *testing.T) {
 	require.Equal(t, events[3].Type, proto.TaskStarted)
 }
 
-func TestTaskRunner_Restart(t *testing.T) {
-	// Task should restart if failed
-	t.Skip("TODO")
-}
-
 func TestTaskRunner_Shutdown(t *testing.T) {
 	// A task can be shutdown and it notifies with the
 	// wait channel
