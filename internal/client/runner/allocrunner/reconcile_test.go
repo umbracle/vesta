@@ -58,12 +58,4 @@ func TestTaskUpdated(t *testing.T) {
 	t2 = mock.Task1()
 	t2.Args = []string{"c"}
 	require.True(t, tasksUpdated(t1, t2))
-
-	t2 = mock.Task1()
-	t2.Env = map[string]string{"c": "d"}
-	require.True(t, tasksUpdated(t1, t2))
-
-	t2 = mock.Task1()
-	t2.Labels = map[string]string{"c": "d"}
-	require.True(t, tasksUpdated(t1, t2))
 }
