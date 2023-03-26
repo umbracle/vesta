@@ -163,7 +163,16 @@ func (s *Server) Pull(nodeId string, ws memdb.WatchSet) ([]*proto.Allocation, er
 }
 
 func (s *Server) UpdateAlloc(alloc *proto.Allocation) error {
-	if err := s.state.UpsertAllocation(alloc); err != nil {
+	// merge alloc types
+	realAlloc, err := s.state.GetAllocation(alloc.Id)
+	if err != nil {
+		return err
+	}
+
+	realAlloc.Status = alloc.Status
+	realAlloc.TaskStates = alloc.TaskStates
+
+	if err := s.state.UpsertAllocation(realAlloc); err != nil {
 		return err
 	}
 	return nil
