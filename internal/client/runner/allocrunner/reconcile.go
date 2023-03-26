@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/umbracle/vesta/internal/client/runner/proto"
+	proto "github.com/umbracle/vesta/internal/client/runner/structs"
 )
 
 type allocResults struct {

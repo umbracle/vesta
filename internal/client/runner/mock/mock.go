@@ -1,6 +1,6 @@
 package mock
 
-import "github.com/umbracle/vesta/internal/client/runner/proto"
+import proto "github.com/umbracle/vesta/internal/client/runner/structs"
 
 func Task1() *proto.Task {
 	return &proto.Task{

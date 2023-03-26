@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-package proto;
+package structs;
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = "/internal/client/runner/proto";
+option go_package = "/internal/client/runner/structs";
 
 message ExitResult {
     int64 exitCode = 1;

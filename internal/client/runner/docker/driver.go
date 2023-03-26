@@ -16,7 +16,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/hashicorp/go-hclog"
 	"github.com/umbracle/vesta/internal/client/runner/driver"
-	"github.com/umbracle/vesta/internal/client/runner/proto"
+	proto "github.com/umbracle/vesta/internal/client/runner/structs"
 )
 
 var ErrTaskNotFound = fmt.Errorf("task not found")

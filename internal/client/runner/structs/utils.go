@@ -1,4 +1,4 @@
-package proto
+package structs
 
 import (
 	"fmt"

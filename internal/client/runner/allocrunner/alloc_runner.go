@@ -9,8 +9,8 @@ import (
 	"github.com/umbracle/vesta/internal/client/runner/allocrunner/taskrunner"
 	"github.com/umbracle/vesta/internal/client/runner/driver"
 	"github.com/umbracle/vesta/internal/client/runner/hooks"
-	"github.com/umbracle/vesta/internal/client/runner/proto"
 	"github.com/umbracle/vesta/internal/client/runner/state"
+	proto "github.com/umbracle/vesta/internal/client/runner/structs"
 )
 
 type StateUpdater interface {

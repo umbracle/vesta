@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-memdb"
 	"github.com/umbracle/vesta/internal/client/runner"
-	cproto "github.com/umbracle/vesta/internal/client/runner/proto"
+	cproto "github.com/umbracle/vesta/internal/client/runner/structs"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 

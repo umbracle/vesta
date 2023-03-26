@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/umbracle/vesta/internal/client/runner/proto"
+	proto "github.com/umbracle/vesta/internal/client/runner/structs"
 )
 
 type Driver interface {

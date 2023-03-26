@@ -6,7 +6,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
-	"github.com/umbracle/vesta/internal/client/runner/proto"
+	proto "github.com/umbracle/vesta/internal/client/runner/structs"
 )
 
 type MetricsUpdater interface {

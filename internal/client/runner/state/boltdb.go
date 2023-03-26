@@ -5,7 +5,7 @@ import (
 
 	"github.com/boltdb/bolt"
 	gproto "github.com/golang/protobuf/proto"
-	"github.com/umbracle/vesta/internal/client/runner/proto"
+	proto "github.com/umbracle/vesta/internal/client/runner/structs"
 )
 
 var _ State = &BoltdbStore{}

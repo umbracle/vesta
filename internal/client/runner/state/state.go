@@ -1,6 +1,6 @@
 package state
 
-import "github.com/umbracle/vesta/internal/client/runner/proto"
+import proto "github.com/umbracle/vesta/internal/client/runner/structs"
 
 type State interface {
 	PutTaskLocalState(allocID string, taskName string, handle *proto.TaskHandle) error
