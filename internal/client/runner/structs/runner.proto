@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package structs;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "/internal/client/runner/structs";
+
+message ExitResult {
+    int64 exitCode = 1;
+    int64 signal = 2;
+    bool oomKiller = 3;
+    string err = 4;
+}
+
+message Deployment {
+    string name = 1;
+    repeated Task tasks = 2;
+    int64 sequence = 3;
+}
+
+message Task {
+    string image = 1;
+    string tag = 2;
+    repeated string args = 3;
+    map<string,string> env = 4;
+    map<string,string> labels = 5;
+    repeated string securityOpt = 7;
+    string name = 8;
+    map<string, string> data = 9;
+    map<string, Volume> volumes = 11;
+    
+    bool batch = 15;
+    
+    message Volume {
+        string path = 1;
+    }
+}
+
+message Allocation {
+    Deployment deployment = 2;
+
+    map<string, TaskState> taskStates = 3;
+
+    Status status = 6;
+
+    enum Status {
+        Pending = 0;
+        Running = 1;
+        Complete = 2;
+        Failed = 3;
+    }
+}
+
+message TaskState {
+    State state = 1;
+
+    bool failed = 2;
+
+    uint64 restarts = 3;
+    
+    repeated Event events = 5;
+
+    string id = 6;
+
+    bool killing = 7;
+    
+    enum State {
+        Pending = 0;
+        Running = 1;
+        Dead = 2;
+    }
+
+    message Event {
+        string type = 1;
+        map<string, string> details = 2;
+        google.protobuf.Timestamp time = 3;
+    }
+}
+
+message TaskHandle {
+    string containerID = 1;
+    Network network = 2;
+
+    string id = 3;
+
+    message Network {
+        string ip = 1;
+    }
+}

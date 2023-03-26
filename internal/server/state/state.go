@@ -95,31 +95,6 @@ func (s *StateStore) DestroyAllocation(id string) error {
 	return nil
 }
 
-func (s *StateStore) UpdateAllocationDeployment(id string, dep *proto.Deployment) error {
-	txn := s.db.Txn(true)
-	defer txn.Abort()
-
-	// get the allocation
-	item, err := txn.First("allocations", "id", id)
-	if err != nil {
-		return err
-	}
-	if item == nil {
-		return fmt.Errorf("allocation not found")
-	}
-
-	alloc := item.(*proto.Allocation).Copy()
-	alloc.Sequence++
-	alloc.Deployment = dep
-
-	if err := txn.Insert("allocations", alloc); err != nil {
-		return err
-	}
-
-	txn.Commit()
-	return nil
-}
-
 func (s *StateStore) UpsertAllocation(t *proto.Allocation) error {
 	txn := s.db.Txn(true)
 	defer txn.Abort()
@@ -130,45 +105,6 @@ func (s *StateStore) UpsertAllocation(t *proto.Allocation) error {
 
 	txn.Commit()
 	return nil
-}
-
-func (s *StateStore) InsertDeployment(n *proto.Deployment) error {
-	txn := s.db.Txn(true)
-	defer txn.Abort()
-
-	if err := txn.Insert("deployments", n); err != nil {
-		return err
-	}
-
-	txn.Commit()
-	return nil
-}
-
-func (s *StateStore) GetDeployment(id string) (*proto.Deployment, error) {
-	txn := s.db.Txn(false)
-	defer txn.Abort()
-
-	item, err := txn.First("deployments", "id", id)
-	if err != nil {
-		return nil, err
-	}
-	if item == nil {
-		return nil, nil
-	}
-	return item.(*proto.Deployment), nil
-}
-
-func (s *StateStore) DeploymentsList(ws memdb.WatchSet) (memdb.ResultIterator, error) {
-	txn := s.db.Txn(false)
-	defer txn.Abort()
-
-	iter, err := txn.Get("deployments", "id")
-	if err != nil {
-		return nil, err
-	}
-
-	ws.Add(iter.WatchCh())
-	return iter, nil
 }
 
 func (s *StateStore) UpsertCatalog(item *proto.Item) error {

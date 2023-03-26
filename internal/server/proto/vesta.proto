@@ -2,8 +2,6 @@ syntax = "proto3";
 
 package proto;
 
-import "google/protobuf/timestamp.proto";
-
 option go_package = "/internal/server/proto";
 
 service VestaService {
@@ -18,7 +16,6 @@ message DestroyRequest {
 }
 
 message DestroyResponse {
-
 }
 
 message DeploymentStatusRequest {
@@ -51,13 +48,6 @@ message ApplyResponse {
     string id = 1;
 }
 
-message ExitResult {
-    int64 exitCode = 1;
-    int64 signal = 2;
-    bool oomKiller = 3;
-    string err = 4;
-}
-
 // Provisonal name, item is an item on the catalog
 message Item {
     string name = 1;
@@ -74,11 +64,6 @@ message Node {
     string name = 3;
 }
 
-// Deployment represents a node deployment
-message Deployment {
-    map<string,Task> tasks = 2;
-}
-
 // Task represents an single container process
 message Task {
     string image = 1;
@@ -88,12 +73,6 @@ message Task {
     map<string,string> labels = 5;
     repeated string securityOpt = 7;
 
-    // unique id of the task
-    string id = 8;
-
-    // logical name of the task in the allocation
-    string name = 10;
-
     // list of data access for this file
     map<string, string> data = 9;
 
@@ -101,7 +80,7 @@ message Task {
 
     Telemetry telemetry = 12;
 
-    string allocId = 13;
+    bool batch = 14;
     
     message Volume {
         string path = 1;
@@ -115,20 +94,25 @@ message Task {
 
 // Allocation represents an allocation of a deployment
 message Allocation {
+    // id of the allocation
     string id = 1;
 
+    // node to which the allocation is assigned
     string nodeId = 2;
     
-    map<string, TaskState> taskStates = 3;
+    // tasks to run on the allocation
+    map<string,Task> tasks = 3;
 
-    string deploymentId = 4;
+    // state of each of the tasks
+    map<string, TaskState> taskStates = 4;
 
-    Deployment deployment = 5;
+    // status of the allocation
+    Status status = 5;
 
-    Status status = 6;
-
+    // desired status of the allocation
     DesiredStatus desiredStatus = 7;
 
+    // modify index sequence number
     int64 sequence = 8;
 
     enum Status {
@@ -151,26 +135,13 @@ message TaskState {
 
     uint64 restarts = 3;
     
-    repeated Event events = 5;
+    string id = 6;
 
+    bool killing = 7;
+    
     enum State {
         Pending = 0;
         Running = 1;
         Dead = 2;
-    }
-
-    message Event {
-        string type = 1;
-        map<string, string> details = 2;
-        google.protobuf.Timestamp time = 3;
-    }
-}
-
-message TaskHandle {
-    string containerID = 1;
-    Network network = 2;
-
-    message Network {
-        string ip = 1;
     }
 }

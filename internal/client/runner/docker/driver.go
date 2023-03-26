@@ -15,7 +15,8 @@ import (
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 	"github.com/hashicorp/go-hclog"
-	"github.com/umbracle/vesta/internal/server/proto"
+	"github.com/umbracle/vesta/internal/client/runner/driver"
+	proto "github.com/umbracle/vesta/internal/client/runner/structs"
 )
 
 var ErrTaskNotFound = fmt.Errorf("task not found")
@@ -143,23 +144,27 @@ func (d *Docker) RecoverTask(taskID string, task *proto.TaskHandle) error {
 	return nil
 }
 
-func (d *Docker) StartTask(task *proto.Task, allocDir string) (*proto.TaskHandle, error) {
+func (d *Docker) StartTask(task *driver.Task, allocDir string) (*proto.TaskHandle, error) {
 	d.logger.Info("Create task", "image", task.Image, "tag", task.Tag)
 
 	if err := d.createImage(task.Image + ":" + task.Tag); err != nil {
+		fmt.Println("A1")
 		return nil, err
 	}
 
 	opts, err := d.createContainerOptions(task, allocDir)
 	if err != nil {
+		fmt.Println("A2")
 		return nil, err
 	}
 	body, err := d.client.ContainerCreate(context.Background(), opts.config, opts.host, opts.network, nil, "")
 	if err != nil {
+		fmt.Println("A2")
 		return nil, err
 	}
 
 	if err := d.client.ContainerStart(context.Background(), body.ID, types.ContainerStartOptions{}); err != nil {
+		fmt.Println("A3")
 		return nil, err
 	}
 
@@ -184,6 +189,7 @@ func (d *Docker) StartTask(task *proto.Task, allocDir string) (*proto.TaskHandle
 	go h.run()
 
 	handle := &proto.TaskHandle{
+		Id:          task.Id,
 		ContainerID: body.ID,
 		Network: &proto.TaskHandle_Network{
 			Ip: ip,
@@ -198,7 +204,7 @@ type createContainerOptions struct {
 	network *network.NetworkingConfig
 }
 
-func (d *Docker) createContainerOptions(task *proto.Task, allocDir string) (*createContainerOptions, error) {
+func (d *Docker) createContainerOptions(task *driver.Task, allocDir string) (*createContainerOptions, error) {
 	// build any mount path
 	mountMap := map[string]string{}
 	for _, mount := range []string{"/var"} {
@@ -281,7 +287,7 @@ func (d *Docker) createContainerOptions(task *proto.Task, allocDir string) (*cre
 		network: &network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
 				networkName: {
-					Aliases: []string{task.AllocId},
+					Aliases: []string{},
 				},
 			},
 		},

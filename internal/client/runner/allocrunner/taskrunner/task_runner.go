@@ -2,13 +2,16 @@ package taskrunner
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/umbracle/vesta/internal/client/allocrunner/driver"
-	"github.com/umbracle/vesta/internal/client/state"
-	"github.com/umbracle/vesta/internal/server/proto"
+	"github.com/umbracle/vesta/internal/client/runner/driver"
+	"github.com/umbracle/vesta/internal/client/runner/hooks"
+	"github.com/umbracle/vesta/internal/client/runner/state"
+	proto "github.com/umbracle/vesta/internal/client/runner/structs"
+	"github.com/umbracle/vesta/internal/uuid"
 )
 
 var defaultMaxEvents = 10
@@ -16,6 +19,7 @@ var defaultMaxEvents = 10
 type TaskRunner struct {
 	logger           hclog.Logger
 	driver           driver.Driver
+	id               string
 	waitCh           chan struct{}
 	alloc            *proto.Allocation
 	task             *proto.Task
@@ -30,7 +34,7 @@ type TaskRunner struct {
 	status           *proto.TaskState
 	handle           *proto.TaskHandle
 	restartCount     uint64
-	metricsHook      *metricsHook
+	runnerHooks      []hooks.TaskHook
 }
 
 type Config struct {
@@ -41,17 +45,17 @@ type Config struct {
 	Task             *proto.Task
 	State            state.State
 	TaskStateUpdated func()
-	MetricsUpdater   MetricsUpdater
+	Hooks            []hooks.TaskHookFactory
 }
 
 func NewTaskRunner(config *Config) *TaskRunner {
-	logger := config.Logger.Named("task_runner").With("task-id", config.Task.Id).With("task-name", config.Task.Name)
+	logger := config.Logger.Named("task_runner").With("task-name", config.Task.Name)
 
 	tr := &TaskRunner{
 		logger:           logger,
 		driver:           config.Driver,
 		alloc:            config.Allocation,
-		task:             config.Task,
+		task:             config.Task.Copy(),
 		allocDir:         config.AllocDir,
 		waitCh:           make(chan struct{}),
 		shutdownCh:       make(chan struct{}),
@@ -61,9 +65,15 @@ func NewTaskRunner(config *Config) *TaskRunner {
 		taskStateUpdated: config.TaskStateUpdated,
 	}
 
-	if config.Task.Telemetry != nil {
-		tr.metricsHook = newMetricsHook(logger, config.Task, config.MetricsUpdater)
+	// generate a unique id for this execution
+	id := fmt.Sprintf("%s/%s/%s", tr.alloc.Deployment.Name, tr.task.Name, uuid.Generate()[:8])
+	tr.id = id
+	tr.status.Id = id
+
+	for _, hookF := range config.Hooks {
+		tr.runnerHooks = append(tr.runnerHooks, hookF(logger, config.Task))
 	}
+
 	return tr
 }
 
@@ -95,18 +105,19 @@ MAIN:
 		}
 
 		if err := t.runDriver(); err != nil {
+			t.logger.Error("driver failed", "error", err)
 			goto RESTART
 		}
 
-		// Run the prestart metrics action
-		if t.metricsHook != nil {
-			t.metricsHook.PostStart(t.handle)
+		if err := t.postStart(); err != nil {
+			t.logger.Error("poststart failed", "error", err)
+			goto RESTART
 		}
 
 		{
 			result = nil
 
-			resultCh, err := t.driver.WaitTask(context.Background(), t.task.Id)
+			resultCh, err := t.driver.WaitTask(context.Background(), t.handle.Id)
 			if err != nil {
 				t.logger.Error("failed to wait for task", "err", err)
 			} else {
@@ -139,15 +150,10 @@ MAIN:
 
 	// task is dead
 	t.UpdateStatus(proto.TaskState_Dead, nil)
-
-	// Run the poststart metrics action
-	if t.metricsHook != nil {
-		t.metricsHook.Stop()
-	}
 }
 
-func (tr *TaskRunner) handleKill(resultCh <-chan *proto.ExitResult) *proto.ExitResult {
-	tr.killed = true
+func (t *TaskRunner) handleKill(resultCh <-chan *proto.ExitResult) *proto.ExitResult {
+	t.killed = true
 
 	// Check if it is still running
 	select {
@@ -156,19 +162,19 @@ func (tr *TaskRunner) handleKill(resultCh <-chan *proto.ExitResult) *proto.ExitR
 	default:
 	}
 
-	if err := tr.driver.StopTask(tr.task.Id, 0); err != nil {
-		tr.killErr = err
+	if err := t.driver.StopTask(t.handle.Id, 0); err != nil {
+		t.killErr = err
 	}
 
 	select {
 	case result := <-resultCh:
 		return result
-	case <-tr.shutdownCh:
+	case <-t.shutdownCh:
 		return nil
 	}
 }
 
-func (tr *TaskRunner) emitExitResultEvent(result *proto.ExitResult) {
+func (t *TaskRunner) emitExitResultEvent(result *proto.ExitResult) {
 	if result == nil {
 		return
 	}
@@ -176,7 +182,7 @@ func (tr *TaskRunner) emitExitResultEvent(result *proto.ExitResult) {
 		SetExitCode(result.ExitCode).
 		SetSignal(result.Signal)
 
-	tr.EmitEvent(event)
+	t.EmitEvent(event)
 }
 
 func (t *TaskRunner) runDriver() error {
@@ -185,23 +191,30 @@ func (t *TaskRunner) runDriver() error {
 		return nil
 	}
 
-	handle, err := t.driver.StartTask(t.task, t.allocDir)
+	invocationid := uuid.Generate()[:8]
+
+	tt := &driver.Task{
+		Id:   fmt.Sprintf("%s/%s", t.id, invocationid),
+		Task: t.task,
+	}
+
+	handle, err := t.driver.StartTask(tt, t.allocDir)
 	if err != nil {
 		return err
 	}
 	t.handle = handle
-	if err := t.state.PutTaskLocalState(t.alloc.Id, t.task.Id, handle); err != nil {
+	if err := t.state.PutTaskLocalState(t.alloc.Deployment.Name, t.task.Name, handle); err != nil {
 		panic(err)
 	}
 	t.UpdateStatus(proto.TaskState_Running, proto.NewTaskEvent(proto.TaskStarted))
 	return nil
 }
 
-func (tr *TaskRunner) clearDriverHandle() {
-	if tr.handle != nil {
-		tr.driver.DestroyTask(tr.task.Id, true)
+func (t *TaskRunner) clearDriverHandle() {
+	if t.handle != nil {
+		t.driver.DestroyTask(t.handle.Id, true)
 	}
-	tr.handle = nil
+	t.handle = nil
 }
 
 func (t *TaskRunner) TaskState() *proto.TaskState {
@@ -212,6 +225,11 @@ func (t *TaskRunner) TaskState() *proto.TaskState {
 
 func (t *TaskRunner) shouldRestart() (bool, time.Duration) {
 	if t.killed {
+		return false, 0
+	}
+
+	if t.task.Batch {
+		// batch tasks are not restarted
 		return false, 0
 	}
 
@@ -227,13 +245,13 @@ func (t *TaskRunner) shouldRestart() (bool, time.Duration) {
 }
 
 func (t *TaskRunner) Restore() error {
-	state, handle, err := t.state.GetTaskState(t.alloc.Id, t.task.Id)
+	state, handle, err := t.state.GetTaskState(t.alloc.Deployment.Name, t.task.Name)
 	if err != nil {
 		return err
 	}
 	t.status = state
 
-	if err := t.driver.RecoverTask(t.task.Id, handle); err != nil {
+	if err := t.driver.RecoverTask(handle.Id, handle); err != nil {
 		t.UpdateStatus(proto.TaskState_Pending, nil)
 		return nil
 	}
@@ -257,7 +275,7 @@ func (t *TaskRunner) UpdateStatus(status proto.TaskState_State, ev *proto.TaskSt
 		t.appendEventLocked(ev)
 	}
 
-	if err := t.state.PutTaskState(t.alloc.Id, t.task.Id, t.status); err != nil {
+	if err := t.state.PutTaskState(t.alloc.Deployment.Name, t.task.Name, t.status); err != nil {
 		t.logger.Warn("failed to persist task state during update status", "err", err)
 	}
 	t.taskStateUpdated()
@@ -269,7 +287,7 @@ func (t *TaskRunner) EmitEvent(ev *proto.TaskState_Event) {
 
 	t.appendEventLocked(ev)
 
-	if err := t.state.PutTaskState(t.alloc.Id, t.task.Id, t.status); err != nil {
+	if err := t.state.PutTaskState(t.alloc.Deployment.Name, t.task.Name, t.status); err != nil {
 		t.logger.Warn("failed to persist task state during emit event", "err", err)
 	}
 
@@ -283,12 +301,14 @@ func (t *TaskRunner) appendEventLocked(ev *proto.TaskState_Event) {
 	t.status.Events = append(t.status.Events, ev)
 }
 
-func (t *TaskRunner) KillNoWait() {
+func (t *TaskRunner) KillNoWait(ev *proto.TaskState_Event) {
 	close(t.killCh)
+
+	t.status.Killing = true
 }
 
 func (t *TaskRunner) Kill(ctx context.Context, ev *proto.TaskState_Event) error {
-	close(t.killCh)
+	t.KillNoWait(ev)
 
 	select {
 	case <-t.WaitCh():
@@ -299,11 +319,53 @@ func (t *TaskRunner) Kill(ctx context.Context, ev *proto.TaskState_Event) error 
 	return t.killErr
 }
 
-func (tr *TaskRunner) WaitCh() <-chan struct{} {
-	return tr.waitCh
+func (t *TaskRunner) WaitCh() <-chan struct{} {
+	return t.waitCh
 }
 
-func (t *TaskRunner) Close() {
+func (t *TaskRunner) Shutdown() {
 	close(t.shutdownCh)
 	<-t.WaitCh()
+	t.taskStateUpdated()
+}
+
+func (t *TaskRunner) postStart() error {
+	if t.logger.IsTrace() {
+		start := time.Now()
+		t.logger.Trace("running poststart hooks", "start", start)
+		defer func() {
+			end := time.Now()
+			t.logger.Trace("finished poststart hooks", "end", end, "duration", end.Sub(start))
+		}()
+	}
+
+	for _, hook := range t.runnerHooks {
+		pre, ok := hook.(hooks.TaskPoststartHook)
+		if !ok {
+			continue
+		}
+
+		name := pre.Name()
+
+		// Build the request
+		req := hooks.TaskPoststartHookRequest{}
+
+		var start time.Time
+		if t.logger.IsTrace() {
+			start = time.Now()
+			t.logger.Trace("running poststart hook", "name", name, "start", start)
+		}
+
+		// Run the poststart hook
+		if err := pre.Poststart(t.killCh, &req); err != nil {
+			return nil
+		}
+
+		if t.logger.IsTrace() {
+			end := time.Now()
+			t.logger.Trace("finished poststart hook", "name", name, "end", end, "duration", end.Sub(start))
+		}
+	}
+
+	return nil
 }

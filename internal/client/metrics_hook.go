@@ -1,15 +1,12 @@
-package taskrunner
+package client
 
 import (
-	"fmt"
 	"io"
-	"net/http"
-	"time"
 
 	"github.com/hashicorp/go-hclog"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
-	"github.com/umbracle/vesta/internal/server/proto"
+	proto "github.com/umbracle/vesta/internal/client/runner/structs"
 )
 
 type MetricsUpdater interface {
@@ -44,32 +41,36 @@ func (m *metricsHook) PostStart(handle *proto.TaskHandle) {
 }
 
 func (m *metricsHook) collectMetrics() {
-	url := fmt.Sprintf("http://%s:%d/%s", m.ip, m.task.Telemetry.Port, m.task.Telemetry.Path)
+	return
 
-	for {
-		res, err := http.Get(url)
-		if err != nil {
-			m.logger.Error("failed to query prometheus endpoint", "url", url, "err", err)
-		} else {
-			metrics, err := getMetricFamilies(res.Body)
+	/*
+		url := fmt.Sprintf("http://%s:%d/%s", m.ip, m.task.Telemetry.Port, m.task.Telemetry.Path)
+
+		for {
+			res, err := http.Get(url)
 			if err != nil {
-				m.logger.Error("failed to process promtheus format", "err", err)
+				m.logger.Error("failed to query prometheus endpoint", "url", url, "err", err)
 			} else {
-				for _, mf := range metrics {
-					for _, metric := range mf.Metric {
-						metric.Label = append(metric.Label, &dto.LabelPair{Name: stringPtr("host"), Value: stringPtr(m.task.Id)})
+				metrics, err := getMetricFamilies(res.Body)
+				if err != nil {
+					m.logger.Error("failed to process promtheus format", "err", err)
+				} else {
+					for _, mf := range metrics {
+						for _, metric := range mf.Metric {
+							metric.Label = append(metric.Label, &dto.LabelPair{Name: stringPtr("host"), Value: stringPtr(m.task.Id)})
+						}
 					}
+					m.updater.UpdateMetrics(m.task.Tag, metrics)
 				}
-				m.updater.UpdateMetrics(m.task.Tag, metrics)
+			}
+
+			select {
+			case <-m.closeCh:
+				return
+			case <-time.After(5 * time.Second):
 			}
 		}
-
-		select {
-		case <-m.closeCh:
-			return
-		case <-time.After(5 * time.Second):
-		}
-	}
+	*/
 }
 
 func (m *metricsHook) Stop() {

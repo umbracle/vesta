@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"sort"
 
 	"github.com/umbracle/vesta/internal/server/proto"
 )
@@ -60,19 +59,18 @@ func formatNodeStatus(r *proto.DeploymentStatusResponse) string {
 		fmt.Sprintf("Sequence|%d", node.Sequence),
 	})
 
-	taskRows := make([]string, len(node.Deployment.Tasks)+1)
+	taskRows := make([]string, len(node.Tasks)+1)
 	taskRows[0] = "ID|Name|Image|Tag|State"
 
 	i := 1
-	for _, d := range node.Deployment.Tasks {
+	for name, d := range node.Tasks {
 		var state string
-		if taskState, ok := node.TaskStates[d.Name]; ok {
+		if taskState, ok := node.TaskStates[name]; ok {
 			state = taskState.State.String()
 		}
 
-		taskRows[i] = fmt.Sprintf("%s|%s|%s|%s|%s",
-			d.Id,
-			d.Name,
+		taskRows[i] = fmt.Sprintf("%s|%s|%s|%s",
+			name,
 			d.Image,
 			d.Tag,
 			state,
@@ -83,29 +81,5 @@ func formatNodeStatus(r *proto.DeploymentStatusResponse) string {
 	base += "\n\n[bold]Tasks[reset]\n"
 	base += formatList(taskRows)
 
-	// sort the last 10 events by timestamp
-	events := []*proto.TaskState_Event{}
-	for _, taskState := range node.TaskStates {
-		events = append(events, taskState.Events...)
-	}
-	sort.SliceStable(events, func(i, j int) bool {
-		return events[i].Time.AsTime().Before(events[j].Time.AsTime())
-	})
-
-	if len(events) > 10 {
-		events = events[:10]
-	}
-	eventsRows := make([]string, len(events)+1)
-	eventsRows[0] = "Time|Type"
-
-	for indx, event := range events {
-		eventsRows[indx+1] = fmt.Sprintf("%s|%s",
-			event.Time.AsTime().String(),
-			event.Type,
-		)
-	}
-
-	base += "\n\n[bold]Events[reset]\n"
-	base += formatList(eventsRows)
 	return base
 }
