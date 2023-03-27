@@ -64,6 +64,7 @@ func TestAllocRunner_Create(t *testing.T) {
 	require.NoError(t, err)
 
 	go allocRunner.Run()
+	defer destroy(allocRunner)
 
 	// wait for the allocation to be running
 	updater := cfg.StateUpdater.(*mockUpdater)
@@ -109,14 +110,7 @@ func TestAllocRunner_Destroy(t *testing.T) {
 	go allocRunner.Run()
 
 	// wait for the alloc to be running
-	testutil.WaitForResult(func() (bool, error) {
-		state := allocRunner.AllocStatus()
-
-		return state == proto.Allocation_Running,
-			fmt.Errorf("got client status %v; want running", state)
-	}, func(err error) {
-		require.NoError(t, err)
-	})
+	waitForRunningAlloc(t, cfg)
 
 	// assert state was stored
 	ts, th, err := cfg.State.GetTaskState(alloc.Deployment.Name, task.Name)
@@ -155,14 +149,7 @@ func TestAllocRunner_Restore(t *testing.T) {
 	go oldAllocRunner.Run()
 
 	// wait for the alloc to be running
-	testutil.WaitForResult(func() (bool, error) {
-		state := oldAllocRunner.AllocStatus()
-
-		return state == proto.Allocation_Running,
-			fmt.Errorf("got client status %v; want running", state)
-	}, func(err error) {
-		require.NoError(t, err)
-	})
+	waitForRunningAlloc(t, cfg)
 
 	// shutdown the alloc runner
 	oldAllocRunner.Shutdown()
@@ -188,6 +175,7 @@ func TestAllocRunner_Restore(t *testing.T) {
 	require.NoError(t, newAllocRunner.Restore())
 
 	go newAllocRunner.Run()
+	defer destroy(newAllocRunner)
 
 	updater := cfg.StateUpdater.(*mockUpdater)
 	testutil.WaitForResult(func() (bool, error) {
@@ -245,14 +233,7 @@ func TestAllocRunner_Reattach(t *testing.T) {
 	go oldAllocRunner.Run()
 
 	// wait for the alloc to be running
-	testutil.WaitForResult(func() (bool, error) {
-		state := oldAllocRunner.AllocStatus()
-
-		return state == proto.Allocation_Running,
-			fmt.Errorf("got client status %v; want running", state)
-	}, func(err error) {
-		require.NoError(t, err)
-	})
+	waitForRunningAlloc(t, cfg)
 
 	// shutdown the alloc runner
 	oldAllocRunner.Shutdown()
@@ -271,6 +252,7 @@ func TestAllocRunner_Reattach(t *testing.T) {
 	require.NoError(t, newAllocRunner.Restore())
 
 	go newAllocRunner.Run()
+	defer destroy(newAllocRunner)
 
 	// it should not create any new tasks
 	updater := cfg.StateUpdater.(*mockUpdater)
@@ -310,16 +292,10 @@ func TestAllocRunner_Update_CreateTask(t *testing.T) {
 	require.NoError(t, err)
 
 	go allocRunner.Run()
+	defer destroy(allocRunner)
 
 	// wait for the alloc to be running
-	testutil.WaitForResult(func() (bool, error) {
-		state := allocRunner.AllocStatus()
-
-		return state == proto.Allocation_Running,
-			fmt.Errorf("got client status %v; want running", state)
-	}, func(err error) {
-		require.NoError(t, err)
-	})
+	waitForRunningAlloc(t, cfg)
 
 	// create an extra task
 	dep := alloc.Deployment.Copy()
@@ -372,6 +348,7 @@ func TestAllocRunner_Update_UpdateTask(t *testing.T) {
 	require.NoError(t, err)
 
 	go allocRunner.Run()
+	defer destroy(allocRunner)
 
 	var taskAId string
 
@@ -437,16 +414,10 @@ func TestAllocRunner_Update_DestroyTask(t *testing.T) {
 	require.NoError(t, err)
 
 	go allocRunner.Run()
+	defer destroy(allocRunner)
 
 	// wait for the alloc to be running
-	testutil.WaitForResult(func() (bool, error) {
-		state := allocRunner.AllocStatus()
-
-		return state == proto.Allocation_Running,
-			fmt.Errorf("got client status %v; want running", state)
-	}, func(err error) {
-		require.NoError(t, err)
-	})
+	waitForRunningAlloc(t, cfg)
 
 	// drop the tasks
 	dep := alloc.Deployment.Copy()
@@ -475,6 +446,50 @@ func TestAllocRunner_Update_DestroyTask(t *testing.T) {
 		}
 		if state.State != proto.TaskState_Running {
 			return false, fmt.Errorf("task 'a' not running %s", state.State)
+		}
+
+		return true, nil
+	}, func(err error) {
+		t.Fatalf("err: %v", err)
+	})
+}
+
+func TestAllocRunner_PortConflict(t *testing.T) {
+	// if two tasks on the same deployment try to listen on
+	// the same port, one will fail since they share the
+	// same networking spec.
+	bindArgs := []string{"nc", "-l", "-p", "3000", "0.0.0.0"}
+
+	alloc := mock.ServiceAlloc()
+	alloc.Deployment.Tasks[0].Args = bindArgs
+	alloc.Deployment.Tasks[1].Args = bindArgs
+
+	cfg := testAllocRunnerConfig(t, alloc)
+
+	allocRunner, err := NewAllocRunner(cfg)
+	require.NoError(t, err)
+
+	go allocRunner.Run()
+	defer destroy(allocRunner)
+
+	updater := cfg.StateUpdater.(*mockUpdater)
+	testutil.WaitForResult(func() (bool, error) {
+		last := updater.Last()
+		if last == nil {
+			return false, fmt.Errorf("no updates")
+		}
+
+		// wait for one of the task to restart
+		restarting := 0
+		for _, s := range last.TaskStates {
+			for _, e := range s.Events {
+				if e.Type == proto.TaskRestarting {
+					restarting++
+				}
+			}
+		}
+		if restarting != 1 {
+			return false, fmt.Errorf("restarting expected")
 		}
 
 		return true, nil
@@ -524,4 +539,21 @@ func TestClientStatus(t *testing.T) {
 	for _, c := range cases {
 		require.Equal(t, c.status, getClientStatus(c.states))
 	}
+}
+
+func waitForRunningAlloc(t *testing.T, cfg *Config) {
+	updater := cfg.StateUpdater.(*mockUpdater)
+	testutil.WaitForResult(func() (bool, error) {
+		last := updater.Last()
+		if last == nil {
+			return false, fmt.Errorf("no updates")
+		}
+		if last.Status != proto.Allocation_Running {
+			return false, fmt.Errorf("alloc not running")
+		}
+
+		return true, nil
+	}, func(err error) {
+		t.Fatalf("err: %v", err)
+	})
 }
