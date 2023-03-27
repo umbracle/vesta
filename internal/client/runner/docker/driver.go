@@ -150,35 +150,21 @@ func (d *Docker) StartTask(task *driver.Task, allocDir string) (*proto.TaskHandl
 	d.logger.Info("Create task", "image", task.Image, "tag", task.Tag)
 
 	if err := d.createImage(task.Image + ":" + task.Tag); err != nil {
-		fmt.Println("A1")
 		return nil, err
 	}
 
 	opts, err := d.createContainerOptions(task, allocDir)
 	if err != nil {
-		fmt.Println("A2")
 		return nil, err
 	}
 	body, err := d.client.ContainerCreate(context.Background(), opts.config, opts.host, opts.network, nil, "")
 	if err != nil {
-		fmt.Println("A2")
 		return nil, err
 	}
 
 	if err := d.client.ContainerStart(context.Background(), body.ID, types.ContainerStartOptions{}); err != nil {
-		fmt.Println("A3")
 		return nil, err
 	}
-
-	container, err := d.client.ContainerInspect(context.Background(), body.ID)
-	if err != nil {
-		return nil, err
-	}
-	net, ok := container.NetworkSettings.Networks[networkName]
-	if !ok {
-		return nil, fmt.Errorf("network settings not found in container")
-	}
-	ip := net.IPAddress
 
 	h := &taskHandle{
 		logger:      d.logger.Named(task.Id),
@@ -193,14 +179,15 @@ func (d *Docker) StartTask(task *driver.Task, allocDir string) (*proto.TaskHandl
 	handle := &proto.TaskHandle{
 		Id:          task.Id,
 		ContainerID: body.ID,
-		Network: &proto.TaskHandle_Network{
-			Ip: ip,
+		Network:     &proto.TaskHandle_Network{
+			// Ip: ip,
 		},
 	}
 	return handle, nil
 }
 
 type createContainerOptions struct {
+	name    string
 	config  *container.Config
 	host    *container.HostConfig
 	network *network.NetworkingConfig
@@ -283,16 +270,15 @@ func (d *Docker) createContainerOptions(task *driver.Task, allocDir string) (*cr
 		}
 	}
 
+	if task.Network != nil {
+		// connect network and pid to the network start container
+		hostConfig.NetworkMode = container.NetworkMode("container:init-" + task.AllocID)
+		hostConfig.PidMode = container.PidMode("container:init-" + task.AllocID)
+	}
+
 	opts := &createContainerOptions{
 		config: config,
 		host:   hostConfig,
-		network: &network.NetworkingConfig{
-			EndpointsConfig: map[string]*network.EndpointSettings{
-				networkName: {
-					Aliases: []string{},
-				},
-			},
-		},
 	}
 	return opts, nil
 }
@@ -308,4 +294,40 @@ func (d *Docker) createImage(image string) error {
 		return err
 	}
 	return nil
+}
+
+func (d *Docker) containerByName(name string) (*types.ContainerJSON, error) {
+	containers, err := d.client.ContainerList(context.Background(), types.ContainerListOptions{All: true})
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		bodyID string
+		found  bool
+	)
+
+	containerName := "/" + name
+
+OUTER:
+	for _, c := range containers {
+		for _, cName := range c.Names {
+			if cName == containerName {
+				bodyID = c.ID
+				found = true
+				break OUTER
+			}
+		}
+	}
+
+	if !found {
+		return nil, nil
+	}
+
+	container, err := d.client.ContainerInspect(context.Background(), bodyID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &container, nil
 }

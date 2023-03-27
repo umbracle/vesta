@@ -44,6 +44,8 @@ message Allocation {
 
     Status status = 6;
 
+    NetworkSpec networkSpec = 8;
+    
     enum Status {
         Pending = 0;
         Running = 1;
@@ -87,4 +89,8 @@ message TaskHandle {
     message Network {
         string ip = 1;
     }
+}
+
+message NetworkSpec {
+    string id = 1;
 }

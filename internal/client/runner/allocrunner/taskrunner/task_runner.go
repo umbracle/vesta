@@ -198,8 +198,10 @@ func (t *TaskRunner) runDriver() error {
 	invocationid := uuid.Generate()[:8]
 
 	tt := &driver.Task{
-		Id:   fmt.Sprintf("%s/%s", t.id, invocationid),
-		Task: t.task,
+		Id:      fmt.Sprintf("%s/%s", t.id, invocationid),
+		Task:    t.task,
+		AllocID: t.alloc.Deployment.Name,
+		Network: t.alloc.NetworkSpec,
 	}
 
 	handle, err := t.driver.StartTask(tt, t.allocDir)

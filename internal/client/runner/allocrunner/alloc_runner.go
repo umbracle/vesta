@@ -43,6 +43,7 @@ type AllocRunner struct {
 	shutdownCh      chan struct{}
 	destroyCh       chan struct{}
 	wg              sync.WaitGroup
+	runnerHooks     []hooks.RunnerHook
 }
 
 func NewAllocRunner(c *Config) (*AllocRunner, error) {
@@ -63,12 +64,22 @@ func NewAllocRunner(c *Config) (*AllocRunner, error) {
 		shutdownCh:      make(chan struct{}),
 		destroyCh:       make(chan struct{}),
 		allocUpdatedCh:  make(chan *proto.Allocation, 1),
+		runnerHooks:     []hooks.RunnerHook{},
 	}
+
+	if err := runner.initHooks(); err != nil {
+		return nil, err
+	}
+
 	return runner, nil
 }
 
 func (a *AllocRunner) Deployment() *proto.Deployment {
 	return a.alloc.Deployment.Copy()
+}
+
+func (a *AllocRunner) SetNetworkSpec(spec *proto.NetworkSpec) {
+	a.alloc.NetworkSpec = spec
 }
 
 func (a *AllocRunner) ShutdownCh() chan struct{} {
@@ -155,14 +166,27 @@ func (a *AllocRunner) handleTaskStateUpdates() {
 }
 
 func (a *AllocRunner) Run() {
-	go a.handleTaskStateUpdates()
+	if err := a.prerun(); err != nil {
+		a.logger.Error("prerun failed", "error", err)
+
+		goto POST
+	}
 
 	go a.handleAllocUpdates()
+
+	go a.handleTaskStateUpdates()
 
 	// wait for the shutdown to start and wait for the tasks to finish
 	<-a.shutdownStarted
 
 	a.wg.Wait()
+
+POST:
+	// Run the postrun hooks
+	if err := a.postrun(); err != nil {
+		a.logger.Error("postrun failed", "error", err)
+	}
+
 	close(a.waitCh)
 }
 
