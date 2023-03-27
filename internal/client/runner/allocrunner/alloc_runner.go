@@ -1,6 +1,7 @@
 package allocrunner
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -80,6 +81,15 @@ func (a *AllocRunner) Alloc() *proto.Allocation {
 }
 
 func (a *AllocRunner) handleTaskStateUpdates() {
+
+	// start any tasks that were started during Restore
+	for _, task := range a.tasks {
+		a.wg.Add(1)
+		go func(runner *taskrunner.TaskRunner) {
+			runner.Run()
+			a.wg.Done()
+		}(task)
+	}
 
 	// start the reconcile loop
 	for {
@@ -161,6 +171,7 @@ func (a *AllocRunner) handleAllocUpdates() {
 	for {
 		select {
 		case update := <-a.allocUpdatedCh:
+			fmt.Println("-- alloc updated 2 --")
 			a.alloc = update
 
 			// update the tasks

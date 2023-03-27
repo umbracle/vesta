@@ -82,7 +82,9 @@ func (d *Docker) DestroyTask(taskID string, force bool) error {
 			if !force {
 				return fmt.Errorf("cannot destroy if force not set to true")
 			}
-			if err := d.client.ContainerStop(context.Background(), h.containerID, nil); err != nil {
+
+			timeout := 1 * time.Second
+			if err := d.client.ContainerStop(context.Background(), h.containerID, &timeout); err != nil {
 				h.logger.Warn("failed to stop container", "err", err)
 			}
 		}
