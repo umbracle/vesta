@@ -1,7 +1,6 @@
 package allocrunner
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -171,7 +170,6 @@ func (a *AllocRunner) handleAllocUpdates() {
 	for {
 		select {
 		case update := <-a.allocUpdatedCh:
-			fmt.Println("-- alloc updated 2 --")
 			a.alloc = update
 
 			// update the tasks
