@@ -81,6 +81,15 @@ func (a *AllocRunner) Alloc() *proto.Allocation {
 
 func (a *AllocRunner) handleTaskStateUpdates() {
 
+	// start any tasks that were started during Restore
+	for _, task := range a.tasks {
+		a.wg.Add(1)
+		go func(runner *taskrunner.TaskRunner) {
+			runner.Run()
+			a.wg.Done()
+		}(task)
+	}
+
 	// start the reconcile loop
 	for {
 		tasks := map[string]*proto.Task{}

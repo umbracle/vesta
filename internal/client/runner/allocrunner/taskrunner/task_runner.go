@@ -77,6 +77,10 @@ func NewTaskRunner(config *Config) *TaskRunner {
 	return tr
 }
 
+func (t *TaskRunner) Handle() *proto.TaskHandle {
+	return t.handle
+}
+
 func (t *TaskRunner) IsShuttingDown() bool {
 	select {
 	case <-t.killCh:

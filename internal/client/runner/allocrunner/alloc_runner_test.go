@@ -144,7 +144,97 @@ func TestAllocRunner_Destroy(t *testing.T) {
 }
 
 func TestAllocRunner_Restore(t *testing.T) {
-	// The allocation runner has to restore the running tasks if
+	// If after a restore the tasks are not running, the runner
+	// has to start them again
+	alloc := mock.ServiceAlloc()
+	cfg := testAllocRunnerConfig(t, alloc)
+
+	oldAllocRunner, err := NewAllocRunner(cfg)
+	require.NoError(t, err)
+
+	go oldAllocRunner.Run()
+
+	// wait for the alloc to be running
+	testutil.WaitForResult(func() (bool, error) {
+		state := oldAllocRunner.AllocStatus()
+
+		return state == proto.Allocation_Running,
+			fmt.Errorf("got client status %v; want running", state)
+	}, func(err error) {
+		require.NoError(t, err)
+	})
+
+	// shutdown the alloc runner
+	oldAllocRunner.Shutdown()
+
+	select {
+	case <-oldAllocRunner.ShutdownCh():
+	case <-time.After(10 * time.Second):
+		t.Fatal("alloc runner did not shutdown")
+	}
+
+	// destroy the tasks
+	for _, task := range oldAllocRunner.tasks {
+		require.NoError(t, cfg.Driver.DestroyTask(task.Handle().Id, true))
+	}
+
+	// reattach with a new alloc runner. The tasks have been destroyed
+	// but the desired state is running. Thus, the alloc runner should start
+	// the containers again
+	newAllocRunner, err := NewAllocRunner(cfg)
+	require.NoError(t, err)
+
+	// restore the task
+	require.NoError(t, newAllocRunner.Restore())
+
+	go newAllocRunner.Run()
+
+	updater := cfg.StateUpdater.(*mockUpdater)
+	testutil.WaitForResult(func() (bool, error) {
+		last := updater.Last()
+		if last == nil {
+			return false, fmt.Errorf("no updates")
+		}
+		if last.Status != proto.Allocation_Running {
+			return false, fmt.Errorf("alloc not complete")
+		}
+
+		started := 0
+		restarting := 0
+		terminated := 0
+
+		for _, task := range last.TaskStates {
+			for _, ev := range task.Events {
+				if ev.Type == proto.TaskStarted {
+					started++
+				}
+				if ev.Type == proto.TaskRestarting {
+					restarting++
+				}
+				if ev.Type == proto.TaskTerminated {
+					terminated++
+				}
+			}
+		}
+
+		if started != 4 {
+			return false, fmt.Errorf("expected 4 started events but found %d", started)
+		}
+		if restarting != 2 {
+			return false, fmt.Errorf("expected 2 restarting events but found %d", restarting)
+		}
+		if terminated != 2 {
+			return false, fmt.Errorf("expected 2 terminated events but found %d", terminated)
+		}
+
+		return true, nil
+	}, func(err error) {
+		require.NoError(t, err)
+	})
+}
+
+func TestAllocRunner_Reattach(t *testing.T) {
+	// The allocation runner has to reattach to the running tasks if
 	// it gets reconnected.
 	alloc := mock.ServiceAlloc()
 	cfg := testAllocRunnerConfig(t, alloc)
