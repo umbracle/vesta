@@ -52,11 +52,6 @@ func Commands() map[string]cli.CommandFactory {
 				Meta: meta,
 			}, nil
 		},
-		"fmt": func() (cli.Command, error) {
-			return &FormatCommand{
-				UI: ui,
-			}, nil
-		},
 		"version": func() (cli.Command, error) {
 			return &VersionCommand{
 				UI: ui,
