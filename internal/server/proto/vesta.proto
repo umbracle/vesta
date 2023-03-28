@@ -42,6 +42,10 @@ message ApplyRequest {
 
     // name of the allocation to modify
     string allocationId = 3;
+
+    bool metrics = 4;
+
+    string chain = 5;
 }
 
 message ApplyResponse {
