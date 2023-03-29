@@ -67,16 +67,15 @@ func TestDriver_CreateContainerOptions_DataMount(t *testing.T) {
 	d, _ := NewDockerDriver(nil)
 
 	tt := &driver.Task{
-		Task: &proto.Task{
-			Data: map[string]string{
-				"/var/file3.txt": "c",
-			},
+		Task: &proto.Task{},
+		Mounts: []*driver.MountConfig{
+			{HostPath: "a", TaskPath: "b"},
 		},
 	}
 	opts, err := d.createContainerOptions(tt)
 	assert.NoError(t, err)
 
-	assert.Equal(t, strings.Split(opts.host.Binds[0], ":")[1], "/var")
+	assert.Equal(t, opts.host.Binds[0], "a:b")
 }
 
 func TestDriver_Start_Wait(t *testing.T) {
