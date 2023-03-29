@@ -25,7 +25,7 @@ func TestDriver_CreateContainerOptions_Labels(t *testing.T) {
 			},
 		},
 	}
-	opts, err := d.createContainerOptions(tt, "")
+	opts, err := d.createContainerOptions(tt)
 	assert.NoError(t, err)
 
 	assert.Equal(t, opts.config.Labels["some"], "label")
@@ -42,7 +42,7 @@ func TestDriver_CreateContainerOptions_Env(t *testing.T) {
 			},
 		},
 	}
-	opts, err := d.createContainerOptions(tt, "")
+	opts, err := d.createContainerOptions(tt)
 	assert.NoError(t, err)
 
 	assert.Equal(t, opts.config.Env, []string{"some=label"})
@@ -57,7 +57,7 @@ func TestDriver_CreateContainerOptions_Image(t *testing.T) {
 			Tag:   "b",
 		},
 	}
-	opts, err := d.createContainerOptions(tt, "")
+	opts, err := d.createContainerOptions(tt)
 	assert.NoError(t, err)
 
 	assert.Equal(t, opts.config.Image, "a:b")
@@ -67,16 +67,15 @@ func TestDriver_CreateContainerOptions_DataMount(t *testing.T) {
 	d, _ := NewDockerDriver(nil)
 
 	tt := &driver.Task{
-		Task: &proto.Task{
-			Data: map[string]string{
-				"/var/file3.txt": "c",
-			},
+		Task: &proto.Task{},
+		Mounts: []*driver.MountConfig{
+			{HostPath: "a", TaskPath: "b"},
 		},
 	}
-	opts, err := d.createContainerOptions(tt, "")
+	opts, err := d.createContainerOptions(tt)
 	assert.NoError(t, err)
 
-	assert.Equal(t, strings.Split(opts.host.Binds[0], ":")[1], "/var")
+	assert.Equal(t, opts.host.Binds[0], "a:b")
 }
 
 func TestDriver_Start_Wait(t *testing.T) {
@@ -89,7 +88,7 @@ func TestDriver_Start_Wait(t *testing.T) {
 			Args:  []string{"nc", "-l", "-p", "3000", "127.0.0.1"},
 		},
 	}
-	_, err := d.StartTask(tt, "")
+	_, err := d.StartTask(tt)
 	assert.NoError(t, err)
 
 	defer d.DestroyTask(tt.Id, true)
@@ -113,7 +112,7 @@ func TestDriver_Start_WaitFinished(t *testing.T) {
 			Args:  []string{"echo", "hello"},
 		},
 	}
-	_, err := d.StartTask(tt, "")
+	_, err := d.StartTask(tt)
 	assert.NoError(t, err)
 
 	defer d.DestroyTask(tt.Id, true)
@@ -138,7 +137,7 @@ func TestDriver_Start_Kill_Wait(t *testing.T) {
 			Args:  []string{"echo", "hello"},
 		},
 	}
-	_, err := d.StartTask(tt, "")
+	_, err := d.StartTask(tt)
 	assert.NoError(t, err)
 
 	defer d.DestroyTask(tt.Id, true)
@@ -167,7 +166,7 @@ func TestDriver_Start_Kill_Timeout(t *testing.T) {
 			Args:  []string{"sleep", "10"},
 		},
 	}
-	_, err := d.StartTask(tt, "")
+	_, err := d.StartTask(tt)
 	assert.NoError(t, err)
 
 	defer d.DestroyTask(tt.Id, true)
@@ -186,6 +185,8 @@ func TestDriver_Start_Kill_Timeout(t *testing.T) {
 }
 
 func TestDriver_Start_WithVolume(t *testing.T) {
+	t.Skip("tested now that we can bind a volume")
+
 	d, _ := NewDockerDriver(nil)
 
 	tt := &driver.Task{
@@ -203,11 +204,72 @@ func TestDriver_Start_WithVolume(t *testing.T) {
 	allocDir, err := os.MkdirTemp("/tmp", "driver-")
 	require.NoError(t, err)
 
-	_, err = d.StartTask(tt, allocDir)
+	_, err = d.StartTask(tt)
 	assert.NoError(t, err)
 
 	defer d.StopTask(tt.Id, 0)
 
 	_, err = os.Stat(filepath.Join(allocDir, "data", "file"))
+	require.NoError(t, err)
+}
+
+func TestDriver_Exec(t *testing.T) {
+	d, _ := NewDockerDriver(nil)
+
+	tt := &driver.Task{
+		Id: uuid.Generate(),
+		Task: &proto.Task{
+			Image: "busybox",
+			Tag:   "1.29.3",
+			Args:  []string{"sleep", "10"},
+		},
+	}
+	_, err := d.StartTask(tt)
+	assert.NoError(t, err)
+
+	defer d.DestroyTask(tt.Id, true)
+
+	// send a command that returns true
+	res, err := d.ExecTask(tt.Id, []string{"echo", "a"})
+	require.NoError(t, err)
+
+	require.Zero(t, res.ExitCode)
+	require.Empty(t, res.Stderr)
+	require.Equal(t, strings.TrimSpace(string(res.Stdout)), "a")
+
+	// send a command that should fail (command not found)
+	res, err = d.ExecTask(tt.Id, []string{"curl"})
+	require.NoError(t, err)
+	require.NotZero(t, res.ExitCode)
+}
+
+func TestDriver_BindMount(t *testing.T) {
+	d, _ := NewDockerDriver(nil)
+
+	bindDir, err := os.MkdirTemp("/tmp", "driver-")
+	require.NoError(t, err)
+
+	tt := &driver.Task{
+		Id: uuid.Generate(),
+		Task: &proto.Task{
+			Image: "busybox",
+			Tag:   "1.29.3",
+			Args:  []string{"sleep", "10"},
+		},
+		Mounts: []*driver.MountConfig{
+			{HostPath: bindDir, TaskPath: "/var"},
+		},
+	}
+
+	_, err = d.StartTask(tt)
+	assert.NoError(t, err)
+
+	// touch the file /var/file.txt should be visible
+	// on the bind folder as {bindDir}/file.txt
+	res, err := d.ExecTask(tt.Id, []string{"touch", "/var/file.txt"})
+	require.NoError(t, err)
+	require.Zero(t, res.ExitCode)
+
+	_, err = os.Stat(filepath.Join(bindDir, "file.txt"))
 	require.NoError(t, err)
 }

@@ -200,3 +200,32 @@ func TestTaskRunner_Shutdown(t *testing.T) {
 		t.Fatal("it did not notify shutdown")
 	}
 }
+
+func TestTaskRunner_MountData(t *testing.T) {
+	mountData := map[string]string{
+		"/var/xx.txt": "data",
+		"/var/yy.txt": "data2",
+	}
+
+	// we can create a task with mount data and deploy it
+	tt := &proto.Task{
+		Image: "busybox",
+		Tag:   "1.29.3",
+		Args:  []string{"sleep", "6"},
+		Data:  mountData,
+	}
+	cfg := setupTaskRunner(t, tt)
+
+	runner := NewTaskRunner(cfg)
+	go runner.Run()
+
+	testWaitForTaskToStart(t, runner)
+
+	for fileName, content := range mountData {
+		res, err := cfg.Driver.ExecTask(runner.handle.Id, []string{"cat", fileName})
+		require.NoError(t, err)
+
+		require.Zero(t, res.ExitCode)
+		require.Equal(t, content, string(res.Stdout))
+	}
+}

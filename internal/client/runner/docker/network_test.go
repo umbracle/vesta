@@ -66,7 +66,7 @@ func TestNetwork_MultipleContainers(t *testing.T) {
 		},
 	}
 
-	handle, err := d.StartTask(t0, "")
+	handle, err := d.StartTask(t0)
 	assert.NoError(t, err)
 
 	d.DestroyTask(handle.Id, true)
