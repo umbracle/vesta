@@ -19,3 +19,12 @@ type TaskPoststartHook interface {
 
 	Poststart(chan struct{}, *TaskPoststartHookRequest) error
 }
+
+type TaskPrestartHookRequest struct {
+}
+
+type TaskPrestartHook interface {
+	TaskHook
+
+	Prestart(chan struct{}, *TaskPrestartHookRequest) error
+}

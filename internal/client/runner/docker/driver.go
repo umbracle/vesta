@@ -3,10 +3,6 @@ package docker
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -146,14 +142,23 @@ func (d *Docker) RecoverTask(taskID string, task *proto.TaskHandle) error {
 	return nil
 }
 
-func (d *Docker) StartTask(task *driver.Task, allocDir string) (*proto.TaskHandle, error) {
+func (d *Docker) ExecTask(taskID string, cmd []string) (*driver.ExecTaskResult, error) {
+	h, ok := d.store.Get(taskID)
+	if !ok {
+		return nil, fmt.Errorf("task not found")
+	}
+
+	return h.Exec(context.Background(), cmd)
+}
+
+func (d *Docker) StartTask(task *driver.Task) (*proto.TaskHandle, error) {
 	d.logger.Info("Create task", "image", task.Image, "tag", task.Tag)
 
 	if err := d.createImage(task.Image + ":" + task.Tag); err != nil {
 		return nil, err
 	}
 
-	opts, err := d.createContainerOptions(task, allocDir)
+	opts, err := d.createContainerOptions(task)
 	if err != nil {
 		return nil, err
 	}
@@ -193,49 +198,7 @@ type createContainerOptions struct {
 	network *network.NetworkingConfig
 }
 
-func (d *Docker) createContainerOptions(task *driver.Task, allocDir string) (*createContainerOptions, error) {
-	// build any mount path
-	mountMap := map[string]string{}
-	for _, mount := range []string{"/var"} {
-		tmpDir, err := ioutil.TempDir("/tmp", "vesta-")
-		if err != nil {
-			return nil, err
-		}
-		mountMap[mount] = tmpDir
-	}
-
-	for dest, data := range task.Data {
-		// --- write data ---
-		path := dest
-
-		// find the mount match
-		var mount, local string
-		var found bool
-
-	MOUNT:
-		for mount, local = range mountMap {
-			if strings.HasPrefix(path, mount) {
-				found = true
-				break MOUNT
-			}
-		}
-		if !found {
-			return nil, fmt.Errorf("mount match for '%s' not found", path)
-		}
-
-		relPath := strings.TrimPrefix(path, mount)
-		localPath := filepath.Join(local, relPath)
-
-		// create all the directory paths required
-		parentDir := filepath.Dir(localPath)
-		if err := os.MkdirAll(parentDir, 0700); err != nil {
-			return nil, err
-		}
-		if err := ioutil.WriteFile(localPath, []byte(data), 0644); err != nil {
-			return nil, err
-		}
-	}
-
+func (d *Docker) createContainerOptions(task *driver.Task) (*createContainerOptions, error) {
 	labels := map[string]string{}
 	for k, v := range task.Labels {
 		labels[k] = v
@@ -255,20 +218,22 @@ func (d *Docker) createContainerOptions(task *driver.Task, allocDir string) (*cr
 	hostConfig := &container.HostConfig{
 		Binds: []string{},
 	}
-	for dest, src := range mountMap {
-		hostConfig.Binds = append(hostConfig.Binds, src+":"+dest)
+	for _, mount := range task.Mounts {
+		hostConfig.Binds = append(hostConfig.Binds, mount.HostPath+":"+mount.TaskPath)
 	}
 
-	if allocDir != "" {
-		// for each volume, create an entry in alloc dir and mount it
-		for name, vol := range task.Volumes {
-			path := filepath.Join(allocDir, name)
-			if err := os.Mkdir(path, 0755); err != nil {
-				return nil, fmt.Errorf("failed to create volume dir '%s': %v", name, vol)
+	/*
+		if allocDir != "" {
+			// for each volume, create an entry in alloc dir and mount it
+			for name, vol := range task.Volumes {
+				path := filepath.Join(allocDir, name)
+				if err := os.Mkdir(path, 0755); err != nil {
+					return nil, fmt.Errorf("failed to create volume dir '%s': %v", name, vol)
+				}
+				hostConfig.Binds = append(hostConfig.Binds, path+":"+vol.Path)
 			}
-			hostConfig.Binds = append(hostConfig.Binds, path+":"+vol.Path)
 		}
-	}
+	*/
 
 	if task.Network != nil {
 		// connect network and pid to the network start container

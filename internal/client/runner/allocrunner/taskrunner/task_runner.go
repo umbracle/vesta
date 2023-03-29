@@ -23,7 +23,6 @@ type TaskRunner struct {
 	waitCh           chan struct{}
 	alloc            *proto.Allocation
 	task             *proto.Task
-	allocDir         string
 	shutdownCh       chan struct{}
 	killCh           chan struct{}
 	state            state.State
@@ -35,6 +34,7 @@ type TaskRunner struct {
 	handle           *proto.TaskHandle
 	restartCount     uint64
 	runnerHooks      []hooks.TaskHook
+	mounts           []*driver.MountConfig
 }
 
 type Config struct {
@@ -56,13 +56,14 @@ func NewTaskRunner(config *Config) *TaskRunner {
 		driver:           config.Driver,
 		alloc:            config.Allocation,
 		task:             config.Task.Copy(),
-		allocDir:         config.AllocDir,
 		waitCh:           make(chan struct{}),
 		shutdownCh:       make(chan struct{}),
 		killCh:           make(chan struct{}),
 		state:            config.State,
 		status:           proto.NewTaskState(),
 		taskStateUpdated: config.TaskStateUpdated,
+		mounts:           []*driver.MountConfig{},
+		runnerHooks:      []hooks.TaskHook{},
 	}
 
 	// generate a unique id for this execution
@@ -74,7 +75,13 @@ func NewTaskRunner(config *Config) *TaskRunner {
 		tr.runnerHooks = append(tr.runnerHooks, hookF(logger, config.Task))
 	}
 
+	tr.initHooks()
+
 	return tr
+}
+
+func (t *TaskRunner) setMount(mount *driver.MountConfig) {
+	t.mounts = append(t.mounts, mount)
 }
 
 func (t *TaskRunner) Handle() *proto.TaskHandle {
@@ -100,6 +107,19 @@ func (t *TaskRunner) Run() {
 
 MAIN:
 	for {
+		select {
+		case <-t.killCh:
+			break MAIN
+		case <-t.shutdownCh:
+			return
+		default:
+		}
+
+		if err := t.preStart(); err != nil {
+			t.logger.Error("prestart failed", "error", err)
+			goto RESTART
+		}
+
 		select {
 		case <-t.killCh:
 			break MAIN
@@ -202,9 +222,10 @@ func (t *TaskRunner) runDriver() error {
 		Task:    t.task,
 		AllocID: t.alloc.Deployment.Name,
 		Network: t.alloc.NetworkSpec,
+		Mounts:  t.mounts,
 	}
 
-	handle, err := t.driver.StartTask(tt, t.allocDir)
+	handle, err := t.driver.StartTask(tt)
 	if err != nil {
 		return err
 	}
@@ -333,45 +354,4 @@ func (t *TaskRunner) Shutdown() {
 	close(t.shutdownCh)
 	<-t.WaitCh()
 	t.taskStateUpdated()
-}
-
-func (t *TaskRunner) postStart() error {
-	if t.logger.IsTrace() {
-		start := time.Now()
-		t.logger.Trace("running poststart hooks", "start", start)
-		defer func() {
-			end := time.Now()
-			t.logger.Trace("finished poststart hooks", "end", end, "duration", end.Sub(start))
-		}()
-	}
-
-	for _, hook := range t.runnerHooks {
-		pre, ok := hook.(hooks.TaskPoststartHook)
-		if !ok {
-			continue
-		}
-
-		name := pre.Name()
-
-		// Build the request
-		req := hooks.TaskPoststartHookRequest{}
-
-		var start time.Time
-		if t.logger.IsTrace() {
-			start = time.Now()
-			t.logger.Trace("running poststart hook", "name", name, "start", start)
-		}
-
-		// Run the poststart hook
-		if err := pre.Poststart(t.killCh, &req); err != nil {
-			return nil
-		}
-
-		if t.logger.IsTrace() {
-			end := time.Now()
-			t.logger.Trace("finished poststart hook", "name", name, "end", end, "duration", end.Sub(start))
-		}
-	}
-
-	return nil
 }
