@@ -79,6 +79,12 @@ func (c *Client) handle() {
 					SecurityOpt: tt.SecurityOpt,
 					Data:        tt.Data,
 					Batch:       tt.Batch,
+					Volumes:     map[string]*cproto.Task_Volume{},
+				}
+				for name, v := range tt.Volumes {
+					ttt.Volumes[name] = &cproto.Task_Volume{
+						Path: v.Path,
+					}
 				}
 				dep2.Tasks = append(dep2.Tasks, ttt)
 			}

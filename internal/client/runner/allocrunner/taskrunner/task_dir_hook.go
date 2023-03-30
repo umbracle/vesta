@@ -1,6 +1,7 @@
 package taskrunner
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
@@ -18,13 +19,16 @@ type mountSetter interface {
 type taskDirHook struct {
 	logger      hclog.Logger
 	task        *proto.Task
+	alloc       *proto.Allocation
 	mountSetter mountSetter
+	done        bool
 }
 
-func newTaskDirHook(logger hclog.Logger, task *proto.Task, mountSetter mountSetter) *taskDirHook {
+func newTaskDirHook(logger hclog.Logger, alloc *proto.Allocation, task *proto.Task, mountSetter mountSetter) *taskDirHook {
 	h := &taskDirHook{
 		task:        task,
 		mountSetter: mountSetter,
+		alloc:       alloc,
 	}
 	h.logger = logger.Named(h.Name())
 	return h
@@ -35,7 +39,7 @@ func (t *taskDirHook) Name() string {
 }
 
 func (t *taskDirHook) Prestart(ctx chan struct{}, req *hooks.TaskPrestartHookRequest) error {
-	if len(t.task.Data) == 0 {
+	if t.done {
 		return nil
 	}
 
@@ -64,6 +68,16 @@ func (t *taskDirHook) Prestart(ctx chan struct{}, req *hooks.TaskPrestartHookReq
 		})
 	}
 
+	for name, volume := range t.task.Volumes {
+		volName := fmt.Sprintf("%s-%s-%s", t.alloc.Deployment.Name, t.task.Name, name)
+
+		t.mountSetter.setMount(&driver.MountConfig{
+			HostPath: volName,
+			TaskPath: volume.Path,
+		})
+	}
+
+	t.done = true
 	return nil
 }
 

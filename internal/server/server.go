@@ -144,6 +144,9 @@ func (s *Server) Pull(nodeId string, ws memdb.WatchSet) ([]*proto.Allocation, er
 }
 
 func (s *Server) UpdateAlloc(alloc *proto.Allocation) error {
+	// TODO: Persistence
+	return nil
+
 	// merge alloc types
 	realAlloc, err := s.state.GetAllocation(alloc.Id)
 	if err != nil {

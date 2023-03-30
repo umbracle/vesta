@@ -498,6 +498,94 @@ func TestAllocRunner_PortConflict(t *testing.T) {
 	})
 }
 
+func TestAllocRunner_VolumeMount(t *testing.T) {
+	// one of the tasks mounts a volume
+	// 1. Deploy the tasks (volume not found, create it)
+	// 2. Touch a file in the folder
+	// 3. Restart the task and check the touched file
+
+	alloc := mock.ServiceAlloc()
+	alloc.Deployment.Tasks[0].Volumes = map[string]*proto.Task_Volume{
+		"data": {
+			Path: "/data1",
+		},
+	}
+
+	cfg := testAllocRunnerConfig(t, alloc)
+
+	oldAllocRunner, err := NewAllocRunner(cfg)
+	require.NoError(t, err)
+
+	go oldAllocRunner.Run()
+
+	// wait for the alloc to be running
+	waitForRunningAlloc(t, cfg)
+
+	handleID := oldAllocRunner.tasks["a"].Handle().Id
+	res, err := cfg.Driver.ExecTask(handleID, []string{
+		"touch", "/data1/file.txt",
+	})
+	require.NoError(t, err)
+	require.Zero(t, res.ExitCode, 0)
+
+	oldAllocRunner.Shutdown()
+	<-oldAllocRunner.ShutdownCh()
+
+	// destroy the tasks
+	for _, task := range oldAllocRunner.tasks {
+		require.NoError(t, cfg.Driver.DestroyTask(task.Handle().Id, true))
+	}
+
+	// restart with a new allocation
+	newAllocRunner, err := NewAllocRunner(cfg)
+	require.NoError(t, err)
+
+	// restore the task
+	require.NoError(t, newAllocRunner.Restore())
+
+	go newAllocRunner.Run()
+	defer destroy(newAllocRunner)
+
+	// wait for the other two tasks to be started since when
+	// it gets restored it starts in Running state (its old state before stopping)
+	updater := cfg.StateUpdater.(*mockUpdater)
+	testutil.WaitForResult(func() (bool, error) {
+		last := updater.Last()
+		if last == nil {
+			return false, fmt.Errorf("no updates")
+		}
+		if last.Status != proto.Allocation_Running {
+			return false, fmt.Errorf("alloc not complete")
+		}
+
+		started := 0
+
+		for _, task := range last.TaskStates {
+			for _, ev := range task.Events {
+				if ev.Type == proto.TaskStarted {
+					started++
+				}
+			}
+		}
+
+		if started != 4 {
+			return false, fmt.Errorf("expected 4 started events but found %d", started)
+		}
+
+		return true, nil
+	}, func(err error) {
+		require.NoError(t, err)
+	})
+
+	handleID = newAllocRunner.tasks["a"].Handle().Id
+	fmt.Println(handleID)
+
+	res, err = cfg.Driver.ExecTask(handleID, []string{"cat", "/data1/file.txt"})
+	require.NoError(t, err)
+	require.Empty(t, res.Stderr)
+	require.Empty(t, res.Stdout)
+}
+
 type mockUpdater struct {
 	alloc *proto.Allocation
 	lock  sync.Mutex
