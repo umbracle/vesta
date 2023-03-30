@@ -10,6 +10,7 @@ import (
 func (a *AllocRunner) initHooks() error {
 	a.runnerHooks = []hooks.RunnerHook{
 		newNetworkHook(a.logger, a.driver, a.alloc, a),
+		newVolumeHook(a.logger, a.driver, a.alloc),
 	}
 
 	return nil

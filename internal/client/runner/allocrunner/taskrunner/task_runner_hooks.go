@@ -8,7 +8,7 @@ import (
 
 func (t *TaskRunner) initHooks() {
 	sysHooks := []hooks.TaskHook{
-		newTaskDirHook(t.logger, t.task, t),
+		newTaskDirHook(t.logger, t.alloc, t.task, t),
 	}
 
 	for _, hook := range sysHooks {

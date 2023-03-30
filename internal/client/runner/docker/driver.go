@@ -15,6 +15,8 @@ import (
 	proto "github.com/umbracle/vesta/internal/client/runner/structs"
 )
 
+var _ driver.Driver = &Docker{}
+
 var ErrTaskNotFound = fmt.Errorf("task not found")
 
 var networkName = "vesta"
@@ -219,21 +221,9 @@ func (d *Docker) createContainerOptions(task *driver.Task) (*createContainerOpti
 		Binds: []string{},
 	}
 	for _, mount := range task.Mounts {
+		// both volume and bind get mounted the same way
 		hostConfig.Binds = append(hostConfig.Binds, mount.HostPath+":"+mount.TaskPath)
 	}
-
-	/*
-		if allocDir != "" {
-			// for each volume, create an entry in alloc dir and mount it
-			for name, vol := range task.Volumes {
-				path := filepath.Join(allocDir, name)
-				if err := os.Mkdir(path, 0755); err != nil {
-					return nil, fmt.Errorf("failed to create volume dir '%s': %v", name, vol)
-				}
-				hostConfig.Binds = append(hostConfig.Binds, path+":"+vol.Path)
-			}
-		}
-	*/
 
 	if task.Network != nil {
 		// connect network and pid to the network start container

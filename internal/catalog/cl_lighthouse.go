@@ -38,6 +38,11 @@ func (l *Lighthouse) Generate(config *framework.Config) map[string]*proto.Task {
 		Data: map[string]string{
 			"/var/lib/jwtsecret/jwt.hex": jwtToken,
 		},
+		Volumes: map[string]*proto.Task_Volume{
+			"data": {
+				Path: "/data",
+			},
+		},
 	}
 
 	if config.Metrics {
