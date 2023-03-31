@@ -16,17 +16,13 @@ type service struct {
 }
 
 func (s *service) Apply(ctx context.Context, req *proto.ApplyRequest) (*proto.ApplyResponse, error) {
-	act := s.srv.runner.getAction(req.Action)
-	if act == nil {
-		return nil, fmt.Errorf("action '%s' not found", req.Action)
-	}
 	var input map[string]interface{}
 	if err := json.Unmarshal(req.Input, &input); err != nil {
 		return nil, err
 	}
 
 	// create
-	id, err := s.srv.Create(req.AllocationId, act, input)
+	id, err := s.srv.Create(req, input)
 	if err != nil {
 		return nil, err
 	}
