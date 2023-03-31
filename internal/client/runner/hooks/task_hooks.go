@@ -12,6 +12,7 @@ type TaskHook interface {
 type TaskHookFactory func(logger hclog.Logger, task *proto.Task) TaskHook
 
 type TaskPoststartHookRequest struct {
+	Spec *proto.TaskHandle_Network
 }
 
 type TaskPoststartHook interface {

@@ -173,6 +173,12 @@ func (d *Docker) StartTask(task *driver.Task) (*proto.TaskHandle, error) {
 		return nil, err
 	}
 
+	var ip string
+	if task.Network != nil {
+		// ip gets derived from the network
+		ip = task.Network.Ip
+	}
+
 	h := &taskHandle{
 		logger:      d.logger.Named(task.Id),
 		client:      d.client,
@@ -186,8 +192,8 @@ func (d *Docker) StartTask(task *driver.Task) (*proto.TaskHandle, error) {
 	handle := &proto.TaskHandle{
 		Id:          task.Id,
 		ContainerID: body.ID,
-		Network:     &proto.TaskHandle_Network{
-			// Ip: ip,
+		Network: &proto.TaskHandle_Network{
+			Ip: ip,
 		},
 	}
 	return handle, nil

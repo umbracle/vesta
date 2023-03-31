@@ -71,4 +71,7 @@ func TestNetwork_MultipleContainers(t *testing.T) {
 
 	d.DestroyTask(handle.Id, true)
 	d.DestroyNetwork(spec)
+
+	// ip of the handle and the network
+	require.Equal(t, spec.Ip, handle.Network.Ip)
 }

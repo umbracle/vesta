@@ -39,7 +39,18 @@ func (d *Docker) CreateNetwork(allocID string, hostname string) (*structs.Networ
 	}
 
 	specFromContainer := func(container *types.ContainerJSON) *structs.NetworkSpec {
-		return &structs.NetworkSpec{Id: container.ID}
+		// resolve the ip
+		var ip string
+		for _, net := range container.NetworkSettings.Networks {
+			if net.IPAddress == "" {
+				// Ignore networks without an IP address
+				continue
+			}
+
+			ip = net.IPAddress
+			break
+		}
+		return &structs.NetworkSpec{Id: container.ID, Ip: ip}
 	}
 
 	container, err := d.containerByName(opts.name)

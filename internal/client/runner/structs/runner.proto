@@ -32,6 +32,8 @@ message Task {
     
     bool batch = 15;
     
+    map<string, string> metadata = 16;
+    
     message Volume {
         string path = 1;
     }
@@ -93,4 +95,5 @@ message TaskHandle {
 
 message NetworkSpec {
     string id = 1;
+    string ip = 2;
 }

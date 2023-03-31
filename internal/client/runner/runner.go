@@ -16,6 +16,7 @@ type Config struct {
 	Volume            *HostVolume
 	AllocStateUpdated allocrunner.StateUpdater
 	State             state.State
+	Hooks             []hooks.TaskHookFactory
 }
 
 type HostVolume struct {
@@ -47,6 +48,7 @@ func NewRunner(config *Config) (*Runner, error) {
 		config: config,
 		driver: driver,
 		allocs: map[string]*allocrunner.AllocRunner{},
+		hooks:  config.Hooks,
 	}
 
 	if err := r.initState(); err != nil {
@@ -77,6 +79,7 @@ func (r *Runner) initState() error {
 			State:        r.state,
 			StateUpdater: r.config.AllocStateUpdated,
 			Driver:       r.driver,
+			Hooks:        r.hooks,
 		}
 		if r.config.Volume != nil {
 			config.Volume = r.config.Volume.Path
@@ -129,6 +132,7 @@ func (r *Runner) UpsertDeployment(deployment *proto.Deployment) {
 			State:        r.state,
 			StateUpdater: r.config.AllocStateUpdated,
 			Driver:       r.driver,
+			Hooks:        r.hooks,
 		}
 		if r.config.Volume != nil {
 			config.Volume = r.config.Volume.Path

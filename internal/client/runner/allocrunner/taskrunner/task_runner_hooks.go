@@ -76,7 +76,9 @@ func (t *TaskRunner) postStart() error {
 		name := post.Name()
 
 		// Build the request
-		req := hooks.TaskPoststartHookRequest{}
+		req := hooks.TaskPoststartHookRequest{
+			Spec: t.handle.Network,
+		}
 
 		var start time.Time
 		if t.logger.IsTrace() {

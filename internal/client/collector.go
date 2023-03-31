@@ -7,8 +7,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/umbracle/vesta/internal/client/runner/hooks"
+	proto "github.com/umbracle/vesta/internal/client/runner/structs"
 )
 
 type collector struct {
@@ -18,6 +21,10 @@ type collector struct {
 
 func newCollector() *collector {
 	return &collector{lock: sync.Mutex{}, metrics: map[string][]*dto.MetricFamily{}}
+}
+
+func (c *collector) hookFactory(logger hclog.Logger, task *proto.Task) hooks.TaskHook {
+	return newMetricsHook(logger, task, c)
 }
 
 func (c *collector) push(id string, metrics map[string]*dto.MetricFamily) {
@@ -44,6 +51,10 @@ func (c *collector) Gather() ([]*dto.MetricFamily, error) {
 	return res, nil
 }
 
+func (c *collector) UpdateMetrics(id string, metrics map[string]*dto.MetricFamily) {
+	c.push(id, metrics)
+}
+
 func (c *Client) startCollectorPrometheusServer(listenAddr *net.TCPAddr) *http.Server {
 	srv := &http.Server{
 		Addr: listenAddr.String(),
@@ -63,8 +74,4 @@ func (c *Client) startCollectorPrometheusServer(listenAddr *net.TCPAddr) *http.S
 	}()
 
 	return srv
-}
-
-func (c *Client) UpdateMetrics(id string, metrics map[string]*dto.MetricFamily) {
-	c.collector.push(id, metrics)
 }

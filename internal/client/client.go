@@ -2,11 +2,13 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-memdb"
 	"github.com/umbracle/vesta/internal/client/runner"
+	"github.com/umbracle/vesta/internal/client/runner/hooks"
 	cproto "github.com/umbracle/vesta/internal/client/runner/structs"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
@@ -45,6 +47,9 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 	rConfig := &runner.Config{
 		Logger:            logger,
 		AllocStateUpdated: c,
+		Hooks: []hooks.TaskHookFactory{
+			c.collector.hookFactory,
+		},
 	}
 	r, err := runner.NewRunner(rConfig)
 	if err != nil {
@@ -80,11 +85,15 @@ func (c *Client) handle() {
 					Data:        tt.Data,
 					Batch:       tt.Batch,
 					Volumes:     map[string]*cproto.Task_Volume{},
+					Metadata:    map[string]string{},
 				}
 				for name, v := range tt.Volumes {
 					ttt.Volumes[name] = &cproto.Task_Volume{
 						Path: v.Path,
 					}
+				}
+				if tt.Telemetry != nil {
+					ttt.Metadata["telemetry"] = fmt.Sprintf("%d/%s", tt.Telemetry.Port, tt.Telemetry.Path)
 				}
 				dep2.Tasks = append(dep2.Tasks, ttt)
 			}
