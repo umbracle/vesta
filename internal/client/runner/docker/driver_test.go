@@ -184,35 +184,6 @@ func TestDriver_Start_Kill_Timeout(t *testing.T) {
 	}
 }
 
-func TestDriver_Start_WithVolume(t *testing.T) {
-	t.Skip("tested now that we can bind a volume")
-
-	d, _ := NewDockerDriver(nil)
-
-	tt := &driver.Task{
-		Id: uuid.Generate(),
-		Task: &proto.Task{
-			Image: "busybox",
-			Tag:   "1.29.3",
-			Args:  []string{"touch", "/data/file"},
-			Volumes: map[string]*proto.Task_Volume{
-				"data": {Path: "/data"},
-			},
-		},
-	}
-
-	allocDir, err := os.MkdirTemp("/tmp", "driver-")
-	require.NoError(t, err)
-
-	_, err = d.StartTask(tt)
-	assert.NoError(t, err)
-
-	defer d.StopTask(tt.Id, 0)
-
-	_, err = os.Stat(filepath.Join(allocDir, "data", "file"))
-	require.NoError(t, err)
-}
-
 func TestDriver_Exec(t *testing.T) {
 	d, _ := NewDockerDriver(nil)
 
