@@ -69,7 +69,16 @@ func (g *Geth) Generate(config *framework.Config) map[string]*proto.Task {
 		}
 	}
 
+	babel := &proto.Task{
+		Image: "babel",
+		Tag:   "dev",
+		Args: []string{
+			"--plugin", "ethereum_el", "server", "url=http://0.0.0.0:8545",
+		},
+	}
+
 	return map[string]*proto.Task{
-		"geth": tt,
+		"geth":  tt,
+		"babel": babel,
 	}
 }

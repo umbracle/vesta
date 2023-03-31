@@ -50,6 +50,7 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 		Volume:            (*runner.HostVolume)(config.Volume),
 		Hooks: []hooks.TaskHookFactory{
 			c.collector.hookFactory,
+			c.syncHookFactory,
 		},
 	}
 
@@ -73,6 +74,10 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 	go c.startCollectorPrometheusServer(&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 5555})
 
 	return c, nil
+}
+
+func (c *Client) syncHookFactory(logger hclog.Logger, task *cproto.Task) hooks.TaskHook {
+	return newSyncHook(logger, task)
 }
 
 func (c *Client) handle() {
