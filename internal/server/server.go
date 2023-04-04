@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/boltdb/bolt"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-memdb"
 	"github.com/mitchellh/mapstructure"
@@ -19,7 +20,8 @@ import (
 )
 
 type Config struct {
-	GrpcAddr string
+	GrpcAddr     string
+	PersistentDB *bolt.DB
 }
 
 // DefaultConfig returns a default configuration
@@ -36,14 +38,27 @@ type Server struct {
 }
 
 func NewServer(logger hclog.Logger, config *Config) (*Server, error) {
-	state, err := state.NewStateStore("server.db")
-	if err != nil {
-		return nil, err
+
+	var statedb *state.StateStore
+
+	if config.PersistentDB != nil {
+		s, err := state.NewStateStoreWithBoltDB(config.PersistentDB)
+		if err != nil {
+			return nil, err
+		}
+		statedb = s
+
+	} else {
+		s, err := state.NewStateStore("server.db")
+		if err != nil {
+			return nil, err
+		}
+		statedb = s
 	}
 
 	srv := &Server{
 		logger: logger,
-		state:  state,
+		state:  statedb,
 	}
 
 	if err := srv.setupGRPCServer(config.GrpcAddr); err != nil {

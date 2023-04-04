@@ -27,8 +27,12 @@ func NewStateStore(path string) (*StateStore, error) {
 		return nil, fmt.Errorf("could not open db, %v", err)
 	}
 
+	return NewStateStoreWithBoltDB(db)
+}
+
+func NewStateStoreWithBoltDB(db *bolt.DB) (*StateStore, error) {
 	// init buckets
-	err = db.Update(func(tx *bolt.Tx) error {
+	err := db.Update(func(tx *bolt.Tx) error {
 		bkts := [][]byte{
 			allocationBucket,
 		}
