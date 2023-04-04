@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 
@@ -9,17 +8,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var netCreateOnce sync.Once
+var lock sync.Mutex
 
 func NewTestDockerDriver(t *testing.T) *Docker {
 	t.Helper()
 
+	lock.Lock()
+	defer lock.Unlock()
+
 	d, err := NewDockerDriver(hclog.NewNullLogger())
 	require.NoError(t, err)
-
-	netCreateOnce.Do(func() {
-		fmt.Println("_ DO ONCE ? _")
-	})
 
 	return d
 }
