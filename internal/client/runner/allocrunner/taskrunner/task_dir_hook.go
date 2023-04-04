@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/hashicorp/go-hclog"
@@ -87,8 +88,17 @@ type mountPoint struct {
 }
 
 func composeMountData(files map[string]string) []*mountPoint {
+	// sort by names
+	names := sort.StringSlice{}
+	for name := range files {
+		names = append(names, name)
+	}
+
+	names.Sort()
+
 	groups := []*mountPoint{}
-	for name, content := range files {
+	for _, name := range names {
+		content := files[name]
 
 		found := false
 		for _, grp := range groups {
