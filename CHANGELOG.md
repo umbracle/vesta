@@ -1,5 +1,6 @@
 # 0.1.1 (Unreleased)
 
+- feat: Add cli `catalog list` and `catalog inspect` commands [[GH-6](https://github.com/umbracle/eth2-validator/issues/6)]
 - feat: Add cue scripts for `Nethermind` and `Besu` [[GH-32](https://github.com/umbracle/eth2-validator/issues/32)]
 - feat: Link dependent deployments by DNS [[GH-7](https://github.com/umbracle/eth2-validator/issues/7)]
 - feat: Aggreate and expose node metrics [[GH-29](https://github.com/umbracle/eth2-validator/issues/29)]
