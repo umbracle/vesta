@@ -15,7 +15,7 @@ import (
 func TestNetwork_CreateSameNetwork(t *testing.T) {
 	allocName := "test-same-network"
 
-	d, _ := NewDockerDriver(nil)
+	d := NewTestDockerDriver(t)
 
 	defer func() {
 		nets, err := d.client.NetworkList(context.Background(), types.NetworkListOptions{})
@@ -43,7 +43,7 @@ func TestNetwork_CreateSameNetwork(t *testing.T) {
 func TestNetwork_Destroy(t *testing.T) {
 	allocName := "test-destroy"
 
-	d, _ := NewDockerDriver(nil)
+	d := NewTestDockerDriver(t)
 
 	defer func() {
 		nets, err := d.client.NetworkList(context.Background(), types.NetworkListOptions{})
@@ -74,7 +74,7 @@ func TestNetwork_Destroy(t *testing.T) {
 func TestNetwork_MultipleContainers(t *testing.T) {
 	allocName := "test-multiple"
 
-	d, _ := NewDockerDriver(nil)
+	d := NewTestDockerDriver(t)
 
 	defer func() {
 		nets, err := d.client.NetworkList(context.Background(), types.NetworkListOptions{})

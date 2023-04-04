@@ -7,7 +7,7 @@ import (
 )
 
 func TestVolumes_Create(t *testing.T) {
-	d, _ := NewDockerDriver(nil)
+	d := NewTestDockerDriver(t)
 
 	created, err := d.CreateVolume("abc")
 	require.NoError(t, err)
