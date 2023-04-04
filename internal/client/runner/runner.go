@@ -38,7 +38,7 @@ func NewRunner(config *Config) (*Runner, error) {
 		logger = hclog.NewNullLogger()
 	}
 
-	driver, err := docker.NewDockerDriver(logger)
+	driver, err := docker.NewDockerDriver(logger, "vesta")
 	if err != nil {
 		return nil, err
 	}

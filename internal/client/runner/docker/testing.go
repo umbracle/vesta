@@ -1,32 +1,30 @@
 package docker
 
 import (
+	"context"
 	"fmt"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
+	"github.com/umbracle/vesta/internal/uuid"
 )
-
-var lock sync.Mutex
-var xxx uint64
 
 func NewTestDockerDriver(t *testing.T) *Docker {
 	t.Helper()
 
-	fmt.Println("- is locked ? -", time.Now())
-	defer func() {
-		fmt.Println("after", time.Now())
-	}()
+	// create a custom name for the network
+	testingNetworkName := uuid.Generate()
 
-	lock.Lock()
-	fmt.Println("- in -")
-	defer lock.Unlock()
-	fmt.Println("- out -")
-	d, err := NewDockerDriver(hclog.NewNullLogger())
+	d, err := NewDockerDriver(hclog.NewNullLogger(), testingNetworkName)
 	require.NoError(t, err)
+
+	// destroy the network afterwards
+	t.Cleanup(func() {
+		if err := d.client.NetworkRemove(context.Background(), testingNetworkName); err != nil {
+			fmt.Printf("[ERROR]: failed to remove network: %s", testingNetworkName)
+		}
+	})
 
 	return d
 }
