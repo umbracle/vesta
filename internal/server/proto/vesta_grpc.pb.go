@@ -22,6 +22,8 @@ type VestaServiceClient interface {
 	Destroy(ctx context.Context, in *DestroyRequest, opts ...grpc.CallOption) (*DestroyResponse, error)
 	DeploymentList(ctx context.Context, in *ListDeploymentRequest, opts ...grpc.CallOption) (*ListDeploymentResponse, error)
 	DeploymentStatus(ctx context.Context, in *DeploymentStatusRequest, opts ...grpc.CallOption) (*DeploymentStatusResponse, error)
+	CatalogList(ctx context.Context, in *CatalogListRequest, opts ...grpc.CallOption) (*CatalogListResponse, error)
+	CatalogInspect(ctx context.Context, in *CatalogInspectRequest, opts ...grpc.CallOption) (*CatalogInspectResponse, error)
 }
 
 type vestaServiceClient struct {
@@ -68,6 +70,24 @@ func (c *vestaServiceClient) DeploymentStatus(ctx context.Context, in *Deploymen
 	return out, nil
 }
 
+func (c *vestaServiceClient) CatalogList(ctx context.Context, in *CatalogListRequest, opts ...grpc.CallOption) (*CatalogListResponse, error) {
+	out := new(CatalogListResponse)
+	err := c.cc.Invoke(ctx, "/proto.VestaService/CatalogList", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vestaServiceClient) CatalogInspect(ctx context.Context, in *CatalogInspectRequest, opts ...grpc.CallOption) (*CatalogInspectResponse, error) {
+	out := new(CatalogInspectResponse)
+	err := c.cc.Invoke(ctx, "/proto.VestaService/CatalogInspect", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // VestaServiceServer is the server API for VestaService service.
 // All implementations must embed UnimplementedVestaServiceServer
 // for forward compatibility
@@ -76,6 +96,8 @@ type VestaServiceServer interface {
 	Destroy(context.Context, *DestroyRequest) (*DestroyResponse, error)
 	DeploymentList(context.Context, *ListDeploymentRequest) (*ListDeploymentResponse, error)
 	DeploymentStatus(context.Context, *DeploymentStatusRequest) (*DeploymentStatusResponse, error)
+	CatalogList(context.Context, *CatalogListRequest) (*CatalogListResponse, error)
+	CatalogInspect(context.Context, *CatalogInspectRequest) (*CatalogInspectResponse, error)
 	mustEmbedUnimplementedVestaServiceServer()
 }
 
@@ -94,6 +116,12 @@ func (UnimplementedVestaServiceServer) DeploymentList(context.Context, *ListDepl
 }
 func (UnimplementedVestaServiceServer) DeploymentStatus(context.Context, *DeploymentStatusRequest) (*DeploymentStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeploymentStatus not implemented")
+}
+func (UnimplementedVestaServiceServer) CatalogList(context.Context, *CatalogListRequest) (*CatalogListResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CatalogList not implemented")
+}
+func (UnimplementedVestaServiceServer) CatalogInspect(context.Context, *CatalogInspectRequest) (*CatalogInspectResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CatalogInspect not implemented")
 }
 func (UnimplementedVestaServiceServer) mustEmbedUnimplementedVestaServiceServer() {}
 
@@ -180,6 +208,42 @@ func _VestaService_DeploymentStatus_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _VestaService_CatalogList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CatalogListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VestaServiceServer).CatalogList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.VestaService/CatalogList",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VestaServiceServer).CatalogList(ctx, req.(*CatalogListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VestaService_CatalogInspect_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CatalogInspectRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VestaServiceServer).CatalogInspect(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.VestaService/CatalogInspect",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VestaServiceServer).CatalogInspect(ctx, req.(*CatalogInspectRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // VestaService_ServiceDesc is the grpc.ServiceDesc for VestaService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -202,6 +266,14 @@ var VestaService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeploymentStatus",
 			Handler:    _VestaService_DeploymentStatus_Handler,
+		},
+		{
+			MethodName: "CatalogList",
+			Handler:    _VestaService_CatalogList_Handler,
+		},
+		{
+			MethodName: "CatalogInspect",
+			Handler:    _VestaService_CatalogInspect_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

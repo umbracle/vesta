@@ -32,6 +32,12 @@ func (c *DeploymentStatusCommand) Run(args []string) int {
 		return 1
 	}
 
+	args = flags.Args()
+	if len(args) != 1 {
+		c.UI.Error("incorrect input, provide one argument")
+		return 1
+	}
+
 	id := args[0]
 
 	client, err := c.Conn()

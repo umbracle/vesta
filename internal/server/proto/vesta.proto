@@ -9,6 +9,23 @@ service VestaService {
     rpc Destroy(DestroyRequest) returns (DestroyResponse);
     rpc DeploymentList(ListDeploymentRequest) returns (ListDeploymentResponse);
     rpc DeploymentStatus(DeploymentStatusRequest) returns (DeploymentStatusResponse);
+    rpc CatalogList(CatalogListRequest) returns (CatalogListResponse);
+    rpc CatalogInspect(CatalogInspectRequest) returns (CatalogInspectResponse);
+}
+
+message CatalogListRequest {
+}
+
+message CatalogListResponse {
+    repeated string plugins = 1;
+}
+
+message CatalogInspectRequest {
+    string name = 1;
+}
+
+message CatalogInspectResponse {
+    Item item = 1;
 }
 
 message DestroyRequest {
@@ -56,9 +73,7 @@ message ApplyResponse {
 message Item {
     string name = 1;
     
-    bytes input = 2;
-
-    bytes output = 3;
+    repeated string input = 2;
 }
 
 // Node1 is a node that can allocate resources
