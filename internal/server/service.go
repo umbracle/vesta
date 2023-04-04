@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/go-memdb"
+	"github.com/mitchellh/mapstructure"
+	"github.com/umbracle/vesta/internal/catalog"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
@@ -62,4 +65,44 @@ func (s *service) Destroy(ctx context.Context, req *proto.DestroyRequest) (*prot
 		return nil, err
 	}
 	return &proto.DestroyResponse{}, nil
+}
+
+func (s *service) CatalogList(ctx context.Context, req *proto.CatalogListRequest) (*proto.CatalogListResponse, error) {
+	resp := &proto.CatalogListResponse{
+		Plugins: []string{},
+	}
+	for name := range catalog.Catalog {
+		resp.Plugins = append(resp.Plugins, name)
+	}
+	return resp, nil
+}
+
+func (s *service) CatalogInspect(ctx context.Context, req *proto.CatalogInspectRequest) (*proto.CatalogInspectResponse, error) {
+	pl, ok := catalog.Catalog[strings.ToLower(req.Name)]
+	if !ok {
+		return nil, fmt.Errorf("plugin %s not found", req.Name)
+	}
+
+	cfg := pl.Config()
+
+	// convert to the keys to return a list of inputs. Note, this does
+	// not work if the config has nested items
+	var input map[string]interface{}
+	if err := mapstructure.Decode(cfg, &input); err != nil {
+		return nil, err
+	}
+
+	var inputNames []string
+	for name := range input {
+		inputNames = append(inputNames, name)
+	}
+
+	resp := &proto.CatalogInspectResponse{
+		Item: &proto.Item{
+			Name:  req.Name,
+			Input: inputNames,
+		},
+	}
+
+	return resp, nil
 }
