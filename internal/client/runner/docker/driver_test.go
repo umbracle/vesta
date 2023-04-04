@@ -16,7 +16,7 @@ import (
 )
 
 func TestDriver_CreateContainerOptions_Labels(t *testing.T) {
-	d, _ := NewDockerDriver(nil)
+	d := NewTestDockerDriver(t)
 
 	tt := &driver.Task{
 		Task: &proto.Task{
@@ -33,7 +33,7 @@ func TestDriver_CreateContainerOptions_Labels(t *testing.T) {
 }
 
 func TestDriver_CreateContainerOptions_Env(t *testing.T) {
-	d, _ := NewDockerDriver(nil)
+	d := NewTestDockerDriver(t)
 
 	tt := &driver.Task{
 		Task: &proto.Task{
@@ -49,7 +49,7 @@ func TestDriver_CreateContainerOptions_Env(t *testing.T) {
 }
 
 func TestDriver_CreateContainerOptions_Image(t *testing.T) {
-	d, _ := NewDockerDriver(nil)
+	d := NewTestDockerDriver(t)
 
 	tt := &driver.Task{
 		Task: &proto.Task{
@@ -64,7 +64,7 @@ func TestDriver_CreateContainerOptions_Image(t *testing.T) {
 }
 
 func TestDriver_CreateContainerOptions_DataMount(t *testing.T) {
-	d, _ := NewDockerDriver(nil)
+	d := NewTestDockerDriver(t)
 
 	tt := &driver.Task{
 		Task: &proto.Task{},
@@ -79,7 +79,7 @@ func TestDriver_CreateContainerOptions_DataMount(t *testing.T) {
 }
 
 func TestDriver_Start_Wait(t *testing.T) {
-	d, _ := NewDockerDriver(nil)
+	d := NewTestDockerDriver(t)
 
 	tt := &driver.Task{
 		Task: &proto.Task{
@@ -102,7 +102,7 @@ func TestDriver_Start_Wait(t *testing.T) {
 }
 
 func TestDriver_Start_WaitFinished(t *testing.T) {
-	d, _ := NewDockerDriver(nil)
+	d := NewTestDockerDriver(t)
 
 	tt := &driver.Task{
 		Id: uuid.Generate(),
@@ -127,7 +127,7 @@ func TestDriver_Start_WaitFinished(t *testing.T) {
 }
 
 func TestDriver_Start_Kill_Wait(t *testing.T) {
-	d, _ := NewDockerDriver(nil)
+	d := NewTestDockerDriver(t)
 
 	tt := &driver.Task{
 		Id: uuid.Generate(),
@@ -156,7 +156,7 @@ func TestDriver_Start_Kill_Wait(t *testing.T) {
 }
 
 func TestDriver_Start_Kill_Timeout(t *testing.T) {
-	d, _ := NewDockerDriver(nil)
+	d := NewTestDockerDriver(t)
 
 	tt := &driver.Task{
 		Id: uuid.Generate(),
@@ -185,7 +185,7 @@ func TestDriver_Start_Kill_Timeout(t *testing.T) {
 }
 
 func TestDriver_Exec(t *testing.T) {
-	d, _ := NewDockerDriver(nil)
+	d := NewTestDockerDriver(t)
 
 	tt := &driver.Task{
 		Id: uuid.Generate(),
@@ -215,7 +215,7 @@ func TestDriver_Exec(t *testing.T) {
 }
 
 func TestDriver_BindMount(t *testing.T) {
-	d, _ := NewDockerDriver(nil)
+	d := NewTestDockerDriver(t)
 
 	bindDir, err := os.MkdirTemp("/tmp", "driver-")
 	require.NoError(t, err)

@@ -44,8 +44,7 @@ func setupTaskRunner(t *testing.T, task *proto.Task) *Config {
 	task.Name = "test-task"
 	logger := hclog.New(&hclog.LoggerOptions{Level: hclog.Debug})
 
-	driver, err := docker.NewDockerDriver(logger)
-	assert.NoError(t, err)
+	driver := docker.NewTestDockerDriver(t)
 
 	alloc := &proto.Allocation{
 		Deployment: &proto.Deployment{
