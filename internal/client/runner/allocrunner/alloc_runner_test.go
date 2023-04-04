@@ -29,8 +29,7 @@ func testAllocRunnerConfig(t *testing.T, alloc *proto.Allocation) *Config {
 	alloc.Deployment.Name = "mock-dep"
 	logger := hclog.New(&hclog.LoggerOptions{Level: hclog.Debug})
 
-	driver, err := docker.NewDockerDriver(logger)
-	assert.NoError(t, err)
+	driver := docker.NewTestDockerDriver(t)
 
 	tmpDir, err := ioutil.TempDir("/tmp", "task-runner-")
 	assert.NoError(t, err)

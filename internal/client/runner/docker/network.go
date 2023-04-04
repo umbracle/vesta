@@ -25,11 +25,11 @@ func (d *Docker) CreateNetwork(allocID string, hostname string) (*structs.Networ
 			Hostname: hostname,
 		},
 		host: &container.HostConfig{
-			NetworkMode: container.NetworkMode(networkName),
+			NetworkMode: container.NetworkMode(d.networkName),
 		},
 		network: &network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
-				networkName: {
+				d.networkName: {
 					Aliases: []string{
 						allocID,
 					},

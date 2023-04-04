@@ -36,7 +36,11 @@ func NewBoltdbStore(path string) (*BoltdbStore, error) {
 		return nil, err
 	}
 
-	err = db.Update(func(tx *bolt.Tx) error {
+	return NewBoltdbStoreWithDB(db)
+}
+
+func NewBoltdbStoreWithDB(db *bolt.DB) (*BoltdbStore, error) {
+	err := db.Update(func(tx *bolt.Tx) error {
 		buckets := [][]byte{
 			allocsBucket,
 		}

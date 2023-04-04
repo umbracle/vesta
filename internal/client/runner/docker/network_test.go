@@ -12,7 +12,7 @@ import (
 func TestNetwork_CreateSameNetwork(t *testing.T) {
 	allocName := "test-same-network"
 
-	d, _ := NewDockerDriver(nil)
+	d := NewTestDockerDriver(t)
 
 	spec, created, err := d.CreateNetwork(allocName, "b")
 	require.NoError(t, err)
@@ -30,7 +30,7 @@ func TestNetwork_CreateSameNetwork(t *testing.T) {
 func TestNetwork_Destroy(t *testing.T) {
 	allocName := "test-destroy"
 
-	d, _ := NewDockerDriver(nil)
+	d := NewTestDockerDriver(t)
 
 	spec, created, err := d.CreateNetwork(allocName, "b")
 	require.NoError(t, err)
@@ -51,7 +51,7 @@ func TestNetwork_Destroy(t *testing.T) {
 func TestNetwork_MultipleContainers(t *testing.T) {
 	allocName := "test-multiple"
 
-	d, _ := NewDockerDriver(nil)
+	d := NewTestDockerDriver(t)
 
 	spec, _, err := d.CreateNetwork(allocName, "b")
 	require.NoError(t, err)

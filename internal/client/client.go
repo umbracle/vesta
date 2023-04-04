@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/boltdb/bolt"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-memdb"
 	"github.com/umbracle/vesta/internal/client/runner"
 	"github.com/umbracle/vesta/internal/client/runner/hooks"
+	"github.com/umbracle/vesta/internal/client/runner/state"
 	cproto "github.com/umbracle/vesta/internal/client/runner/structs"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
@@ -17,6 +19,7 @@ type Config struct {
 	NodeID       string
 	ControlPlane ControlPlane
 	Volume       *HostVolume
+	PersistentDB *bolt.DB
 }
 
 type HostVolume struct {
@@ -39,9 +42,6 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 		collector: newCollector(),
 	}
 
-	go c.startCollectorPrometheusServer(&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 5555})
-
-	go c.handle()
 	c.logger.Info("agent started")
 
 	rConfig := &runner.Config{
@@ -51,11 +51,25 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 			c.collector.hookFactory,
 		},
 	}
+
+	if config.PersistentDB != nil {
+		// create custom state
+		stateDB, err := state.NewBoltdbStoreWithDB(config.PersistentDB)
+		if err != nil {
+			return nil, err
+		}
+		rConfig.State = stateDB
+	}
+
 	r, err := runner.NewRunner(rConfig)
 	if err != nil {
 		return nil, err
 	}
 	c.runner = r
+
+	go c.handle()
+
+	go c.startCollectorPrometheusServer(&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 5555})
 
 	return c, nil
 }

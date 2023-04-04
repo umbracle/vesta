@@ -19,16 +19,15 @@ var _ driver.Driver = &Docker{}
 
 var ErrTaskNotFound = fmt.Errorf("task not found")
 
-var networkName = "vesta"
-
 type Docker struct {
 	logger      hclog.Logger
 	client      *client.Client
 	coordinator *dockerImageCoordinator
 	store       *taskStore
+	networkName string
 }
 
-func NewDockerDriver(logger hclog.Logger) (*Docker, error) {
+func NewDockerDriver(logger hclog.Logger, networkName string) (*Docker, error) {
 	if logger == nil {
 		logger = hclog.NewNullLogger()
 	}
@@ -38,7 +37,7 @@ func NewDockerDriver(logger hclog.Logger) (*Docker, error) {
 		return nil, err
 	}
 
-	// initialize the vesta private network. This is required to have
+	// initialize the private network. This is required to have
 	// DNS discovery by docker.
 	networks, err := client.NetworkList(context.Background(), types.NetworkListOptions{})
 	if err != nil {
@@ -51,7 +50,9 @@ func NewDockerDriver(logger hclog.Logger) (*Docker, error) {
 			break
 		}
 	}
+
 	if !found {
+		logger.Info("create private network", "name", networkName)
 		if _, err := client.NetworkCreate(context.Background(), networkName, types.NetworkCreate{CheckDuplicate: true}); err != nil {
 			return nil, err
 		}
@@ -62,6 +63,7 @@ func NewDockerDriver(logger hclog.Logger) (*Docker, error) {
 		client:      client,
 		coordinator: newDockerImageCoordinator(client),
 		store:       newTaskStore(),
+		networkName: networkName,
 	}
 	return d, nil
 }

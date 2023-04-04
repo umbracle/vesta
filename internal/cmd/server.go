@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/boltdb/bolt"
 	"github.com/hashicorp/go-hclog"
 	"github.com/mitchellh/cli"
 	flag "github.com/spf13/pflag"
@@ -52,7 +53,16 @@ func (c *ServerCommand) Run(args []string) int {
 		Level: hclog.LevelFromString(c.logLevel),
 	})
 
-	srv, err := server.NewServer(logger, server.DefaultConfig())
+	db, err := bolt.Open("vesta.db", 0600, nil)
+	if err != nil {
+		c.UI.Output(fmt.Sprintf("failed to open persistence layer: %v", err))
+		return 1
+	}
+
+	sCfg := server.DefaultConfig()
+	sCfg.PersistentDB = db
+
+	srv, err := server.NewServer(logger, sCfg)
 	if err != nil {
 		c.UI.Output(fmt.Sprintf("failed to start validator: %v", err))
 		return 1
@@ -62,6 +72,7 @@ func (c *ServerCommand) Run(args []string) int {
 	cfg := &client.Config{
 		ControlPlane: srv,
 		NodeID:       "local",
+		PersistentDB: db,
 	}
 	if c.volume == "" {
 		logger.Warn("no volume is set")
