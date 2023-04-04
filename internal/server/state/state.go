@@ -3,27 +3,97 @@ package state
 import (
 	"fmt"
 
+	"github.com/boltdb/bolt"
 	"github.com/hashicorp/go-memdb"
 	"github.com/umbracle/vesta/internal/server/proto"
+	gproto "google.golang.org/protobuf/proto"
+)
+
+// list of buckets
+var (
+	allocationBucket = []byte("allocation")
 )
 
 type StateStore struct {
-	db *memdb.MemDB
+	memDb *memdb.MemDB
+
+	// db is the persistence layer
+	db *bolt.DB
 }
 
-func NewStateStore() *StateStore {
-	db, err := memdb.NewMemDB(schema)
+func NewStateStore(path string) (*StateStore, error) {
+	db, err := bolt.Open(path, 0600, nil)
+	if err != nil {
+		return nil, fmt.Errorf("could not open db, %v", err)
+	}
+
+	// init buckets
+	err = db.Update(func(tx *bolt.Tx) error {
+		bkts := [][]byte{
+			allocationBucket,
+		}
+
+		for _, b := range bkts {
+			if _, err := tx.CreateBucketIfNotExists(b); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	memDb, err := memdb.NewMemDB(schema)
 	if err != nil {
 		panic(err)
 	}
 	s := &StateStore{
-		db: db,
+		db:    db,
+		memDb: memDb,
 	}
-	return s
+
+	if err := s.reIndex(); err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
+
+func (s *StateStore) Close() error {
+	return s.db.Close()
+}
+
+func (s *StateStore) reIndex() error {
+	memTxn := s.memDb.Txn(true)
+	defer memTxn.Abort()
+
+	// re-index allocations
+	err := s.db.View(func(tx *bolt.Tx) error {
+		bkt := tx.Bucket(allocationBucket)
+
+		return bkt.ForEach(func(k, v []byte) error {
+			var alloc proto.Allocation
+			if err := dbGet(bkt, k, &alloc); err != nil {
+				return err
+			}
+
+			if err := memTxn.Insert("allocations", &alloc); err != nil {
+				return err
+			}
+			return nil
+		})
+	})
+	if err != nil {
+		return err
+	}
+
+	memTxn.Commit()
+	return nil
 }
 
 func (s *StateStore) GetAllocation(id string) (*proto.Allocation, error) {
-	txn := s.db.Txn(false)
+	txn := s.memDb.Txn(false)
 	defer txn.Abort()
 
 	item, err := txn.First("allocations", "id", id)
@@ -37,7 +107,7 @@ func (s *StateStore) GetAllocation(id string) (*proto.Allocation, error) {
 }
 
 func (s *StateStore) AllocationList(ws memdb.WatchSet) ([]*proto.Allocation, error) {
-	txn := s.db.Txn(false)
+	txn := s.memDb.Txn(false)
 	defer txn.Abort()
 
 	iter, err := txn.Get("allocations", "id")
@@ -54,7 +124,7 @@ func (s *StateStore) AllocationList(ws memdb.WatchSet) ([]*proto.Allocation, err
 }
 
 func (s *StateStore) AllocationListByNodeId(nodeId string, ws memdb.WatchSet) ([]*proto.Allocation, error) {
-	txn := s.db.Txn(false)
+	txn := s.memDb.Txn(false)
 	defer txn.Abort()
 
 	iter, err := txn.Get("allocations", "nodeId", nodeId)
@@ -71,11 +141,11 @@ func (s *StateStore) AllocationListByNodeId(nodeId string, ws memdb.WatchSet) ([
 }
 
 func (s *StateStore) DestroyAllocation(id string) error {
-	txn := s.db.Txn(true)
-	defer txn.Abort()
+	memTxn := s.memDb.Txn(true)
+	defer memTxn.Abort()
 
 	// get the allocation
-	item, err := txn.First("allocations", "id", id)
+	item, err := memTxn.First("allocations", "id", id)
 	if err != nil {
 		return err
 	}
@@ -87,34 +157,62 @@ func (s *StateStore) DestroyAllocation(id string) error {
 	alloc.Sequence++
 	alloc.DesiredStatus = proto.Allocation_Stop
 
-	if err := txn.Insert("allocations", alloc); err != nil {
-		return err
+	err = s.db.Update(func(dbTxn *bolt.Tx) error {
+		return s.putAllocation(dbTxn, memTxn, alloc)
+	})
+	if err == nil {
+		memTxn.Commit()
 	}
 
-	txn.Commit()
 	return nil
 }
 
-func (s *StateStore) UpsertAllocation(t *proto.Allocation) error {
-	txn := s.db.Txn(true)
-	defer txn.Abort()
+func (s *StateStore) UpsertAllocation(alloc *proto.Allocation) error {
+	memTxn := s.memDb.Txn(true)
+	defer memTxn.Abort()
 
-	if err := txn.Insert("allocations", t); err != nil {
-		return err
+	err := s.db.Update(func(dbTxn *bolt.Tx) error {
+		return s.putAllocation(dbTxn, memTxn, alloc)
+	})
+	if err == nil {
+		memTxn.Commit()
 	}
 
-	txn.Commit()
+	return err
+}
+
+func (s *StateStore) putAllocation(dbTxn *bolt.Tx, memTxn *memdb.Txn, alloc *proto.Allocation) error {
+	bkt := dbTxn.Bucket(allocationBucket)
+
+	if err := dbPut(bkt, []byte(alloc.Id), alloc); err != nil {
+		return err
+	}
+	if err := memTxn.Insert("allocations", alloc); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (s *StateStore) UpsertCatalog(item *proto.Item) error {
-	txn := s.db.Txn(true)
-	defer txn.Abort()
-
-	if err := txn.Insert("item", item); err != nil {
+func dbPut(b *bolt.Bucket, id []byte, msg gproto.Message) error {
+	enc, err := gproto.Marshal(msg)
+	if err != nil {
 		return err
 	}
 
-	txn.Commit()
+	if err := b.Put(id, enc); err != nil {
+		return err
+	}
+	return nil
+}
+
+func dbGet(b *bolt.Bucket, id []byte, msg gproto.Message) error {
+	raw := b.Get(id)
+	if raw == nil {
+		return fmt.Errorf("record not found")
+	}
+
+	if err := gproto.Unmarshal(raw, msg); err != nil {
+		return fmt.Errorf("failed to decode data: %v", err)
+	}
 	return nil
 }

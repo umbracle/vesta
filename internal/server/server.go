@@ -36,9 +36,14 @@ type Server struct {
 }
 
 func NewServer(logger hclog.Logger, config *Config) (*Server, error) {
+	state, err := state.NewStateStore("server.db")
+	if err != nil {
+		return nil, err
+	}
+
 	srv := &Server{
 		logger: logger,
-		state:  state.NewStateStore(),
+		state:  state,
 	}
 
 	if err := srv.setupGRPCServer(config.GrpcAddr); err != nil {
@@ -144,9 +149,6 @@ func (s *Server) Pull(nodeId string, ws memdb.WatchSet) ([]*proto.Allocation, er
 }
 
 func (s *Server) UpdateAlloc(alloc *proto.Allocation) error {
-	// TODO: Persistence
-	return nil
-
 	// merge alloc types
 	realAlloc, err := s.state.GetAllocation(alloc.Id)
 	if err != nil {

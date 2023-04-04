@@ -39,9 +39,6 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 		collector: newCollector(),
 	}
 
-	go c.startCollectorPrometheusServer(&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 5555})
-
-	go c.handle()
 	c.logger.Info("agent started")
 
 	rConfig := &runner.Config{
@@ -56,6 +53,10 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 		return nil, err
 	}
 	c.runner = r
+
+	go c.handle()
+
+	go c.startCollectorPrometheusServer(&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 5555})
 
 	return c, nil
 }
