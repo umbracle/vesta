@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -16,6 +17,14 @@ var (
 func (d *Docker) CreateNetwork(allocID string, hostname string) (*structs.NetworkSpec, bool, error) {
 	if err := d.createImage(networkInfraImage); err != nil {
 		return nil, false, err
+	}
+
+	nets, err := d.client.NetworkList(context.Background(), types.NetworkListOptions{})
+	if err != nil {
+		panic(err)
+	}
+	for _, net := range nets {
+		fmt.Println(net.Name, net.ID, net.Created)
 	}
 
 	opts := &createContainerOptions{
