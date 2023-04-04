@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -14,6 +15,8 @@ import (
 	"github.com/umbracle/vesta/internal/client/runner/driver"
 	proto "github.com/umbracle/vesta/internal/client/runner/structs"
 )
+
+var netCreateOnce sync.Once
 
 var _ driver.Driver = &Docker{}
 
@@ -52,6 +55,7 @@ func NewDockerDriver(logger hclog.Logger) (*Docker, error) {
 		}
 	}
 	if !found {
+		fmt.Println("CREATE NETWORK")
 		if _, err := client.NetworkCreate(context.Background(), networkName, types.NetworkCreate{CheckDuplicate: true}); err != nil {
 			return nil, err
 		}
