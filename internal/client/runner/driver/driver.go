@@ -16,7 +16,6 @@ type Driver interface {
 	CreateNetwork(allocID string, hostname string) (*proto.NetworkSpec, bool, error)
 	DestroyNetwork(spec *proto.NetworkSpec) error
 	ExecTask(taskID string, cmd []string) (*ExecTaskResult, error)
-	CreateVolume(voluemID string) (bool, error)
 }
 
 type Task struct {

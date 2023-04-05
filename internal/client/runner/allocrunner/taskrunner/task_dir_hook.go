@@ -1,13 +1,13 @@
 package taskrunner
 
 import (
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/umbracle/vesta/internal/client/runner/allocrunner/allocdir"
 	"github.com/umbracle/vesta/internal/client/runner/driver"
 	"github.com/umbracle/vesta/internal/client/runner/hooks"
 	proto "github.com/umbracle/vesta/internal/client/runner/structs"
@@ -23,13 +23,15 @@ type taskDirHook struct {
 	alloc       *proto.Allocation
 	mountSetter mountSetter
 	done        bool
+	taskDir     *allocdir.TaskDir
 }
 
-func newTaskDirHook(logger hclog.Logger, alloc *proto.Allocation, task *proto.Task, mountSetter mountSetter) *taskDirHook {
+func newTaskDirHook(logger hclog.Logger, alloc *proto.Allocation, taskDir *allocdir.TaskDir, task *proto.Task, mountSetter mountSetter) *taskDirHook {
 	h := &taskDirHook{
 		task:        task,
 		mountSetter: mountSetter,
 		alloc:       alloc,
+		taskDir:     taskDir,
 	}
 	h.logger = logger.Named(h.Name())
 	return h
@@ -70,12 +72,17 @@ func (t *taskDirHook) Prestart(ctx chan struct{}, req *hooks.TaskPrestartHookReq
 	}
 
 	for name, volume := range t.task.Volumes {
-		volName := fmt.Sprintf("%s-%s-%s", t.alloc.Deployment.Name, t.task.Name, name)
+		mountPath := t.taskDir.CreateVolume(name)
 
 		t.mountSetter.setMount(&driver.MountConfig{
-			HostPath: volName,
+			HostPath: mountPath,
 			TaskPath: volume.Path,
 		})
+	}
+
+	// build the task directory
+	if err := t.taskDir.Build(); err != nil {
+		return err
 	}
 
 	t.done = true

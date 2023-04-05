@@ -47,6 +47,7 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 	rConfig := &runner.Config{
 		Logger:            logger,
 		AllocStateUpdated: c,
+		Volume:            (*runner.HostVolume)(config.Volume),
 		Hooks: []hooks.TaskHookFactory{
 			c.collector.hookFactory,
 		},

@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/umbracle/vesta/internal/client/runner/allocrunner/allocdir"
 	"github.com/umbracle/vesta/internal/client/runner/docker"
 	"github.com/umbracle/vesta/internal/client/runner/state"
 	proto "github.com/umbracle/vesta/internal/client/runner/structs"
@@ -63,6 +64,11 @@ func setupTaskRunner(t *testing.T, task *proto.Task) *Config {
 
 	assert.NoError(t, state.PutAllocation(alloc))
 
+	allocdir := allocdir.NewAllocDir(t.TempDir(), "alloc")
+	require.NoError(t, allocdir.Build())
+
+	taskDir := allocdir.NewTaskDir("task")
+
 	t.Cleanup(func() {
 		os.RemoveAll(tmpDir)
 	})
@@ -73,6 +79,7 @@ func setupTaskRunner(t *testing.T, task *proto.Task) *Config {
 		Allocation:       alloc,
 		Driver:           driver,
 		State:            state,
+		TaskDir:          taskDir,
 		TaskStateUpdated: func() {},
 	}
 
@@ -227,4 +234,38 @@ func TestTaskRunner_MountData(t *testing.T) {
 		require.Zero(t, res.ExitCode)
 		require.Equal(t, content, string(res.Stdout))
 	}
+}
+
+func TestTaskRunner_Volumes(t *testing.T) {
+	// we can create a task with mount data and deploy it
+	tt := &proto.Task{
+		Image: "busybox",
+		Tag:   "1.29.3",
+		Args:  []string{"sleep", "6"},
+		Volumes: map[string]*proto.Task_Volume{
+			"a": {
+				Path: "/data",
+			},
+		},
+	}
+	cfg := setupTaskRunner(t, tt)
+
+	// create and build the task runner volumes here? We need to move
+	// this out of alloc runner and into the task runner itself
+
+	cfg.TaskDir.CreateVolume("a")
+	require.NoError(t, cfg.TaskDir.Build())
+
+	// create a file
+	content := []byte("content")
+	require.NoError(t, os.WriteFile(filepath.Join(cfg.TaskDir.GetVolume("a"), "file.txt"), content, 0655))
+
+	runner := NewTaskRunner(cfg)
+	go runner.Run()
+
+	testWaitForTaskToStart(t, runner)
+
+	res, err := cfg.Driver.ExecTask(runner.handle.Id, []string{"cat", "/data/file.txt"})
+	require.NoError(t, err)
+	require.Equal(t, content, res.Stdout)
 }
