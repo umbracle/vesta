@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/umbracle/vesta/internal/client/runner/allocrunner/allocdir"
 	"github.com/umbracle/vesta/internal/client/runner/docker"
 	"github.com/umbracle/vesta/internal/client/runner/state"
 	proto "github.com/umbracle/vesta/internal/client/runner/structs"
@@ -227,4 +228,43 @@ func TestTaskRunner_MountData(t *testing.T) {
 		require.Zero(t, res.ExitCode)
 		require.Equal(t, content, string(res.Stdout))
 	}
+}
+
+func TestTaskRunner_Volumes(t *testing.T) {
+	// we can create a task with mount data and deploy it
+	tt := &proto.Task{
+		Image: "busybox",
+		Tag:   "1.29.3",
+		Args:  []string{"sleep", "6"},
+		Volumes: map[string]*proto.Task_Volume{
+			"a": {
+				Path: "/data",
+			},
+		},
+	}
+	cfg := setupTaskRunner(t, tt)
+
+	// create and build the task runner volumes here? We need to move
+	// this out of alloc runner and into the task runner itself
+
+	allocdir := allocdir.NewAllocDir(t.TempDir(), "alloc")
+	taskDir := allocdir.NewTaskDir("task")
+	taskDir.CreateVolume("a")
+	require.NoError(t, allocdir.Build())
+	require.NoError(t, taskDir.Build())
+
+	// create a file
+	content := []byte("content")
+	require.NoError(t, os.WriteFile(filepath.Join(taskDir.GetVolume("a"), "file.txt"), content, 0655))
+
+	cfg.TaskDir = taskDir
+
+	runner := NewTaskRunner(cfg)
+	go runner.Run()
+
+	testWaitForTaskToStart(t, runner)
+
+	res, err := cfg.Driver.ExecTask(runner.handle.Id, []string{"cat", "/data/file.txt"})
+	require.NoError(t, err)
+	require.Equal(t, content, res.Stdout)
 }

@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"io/ioutil"
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
@@ -36,6 +37,19 @@ func NewRunner(config *Config) (*Runner, error) {
 	logger := config.Logger
 	if logger == nil {
 		logger = hclog.NewNullLogger()
+	}
+
+	if config.Volume == nil {
+		tmpDir, err := ioutil.TempDir("/tmp", "vesta-")
+		if err != nil {
+			return nil, err
+		}
+		config.Volume = &HostVolume{
+			Path: tmpDir,
+		}
+		logger.Info("volume not set, using temporal location", "path", tmpDir)
+	} else {
+		logger.Info("volume path set", "path", config.Volume.Path)
 	}
 
 	driver, err := docker.NewDockerDriver(logger, "vesta")
@@ -74,15 +88,13 @@ func (r *Runner) initState() error {
 	}
 	for _, alloc := range allocs {
 		config := &allocrunner.Config{
-			Alloc:        alloc,
-			Logger:       r.logger,
-			State:        r.state,
-			StateUpdater: r.config.AllocStateUpdated,
-			Driver:       r.driver,
-			Hooks:        r.hooks,
-		}
-		if r.config.Volume != nil {
-			config.Volume = r.config.Volume.Path
+			Alloc:           alloc,
+			Logger:          r.logger,
+			State:           r.state,
+			StateUpdater:    r.config.AllocStateUpdated,
+			Driver:          r.driver,
+			Hooks:           r.hooks,
+			ClientVolumeDir: r.config.Volume.Path,
 		}
 
 		handle, err := allocrunner.NewAllocRunner(config)
@@ -127,16 +139,15 @@ func (r *Runner) UpsertDeployment(deployment *proto.Deployment) {
 		}
 
 		config := &allocrunner.Config{
-			Alloc:        alloc,
-			Logger:       r.logger,
-			State:        r.state,
-			StateUpdater: r.config.AllocStateUpdated,
-			Driver:       r.driver,
-			Hooks:        r.hooks,
+			Alloc:           alloc,
+			Logger:          r.logger,
+			State:           r.state,
+			StateUpdater:    r.config.AllocStateUpdated,
+			Driver:          r.driver,
+			Hooks:           r.hooks,
+			ClientVolumeDir: r.config.Volume.Path,
 		}
-		if r.config.Volume != nil {
-			config.Volume = r.config.Volume.Path
-		}
+
 		var err error
 		if handle, err = allocrunner.NewAllocRunner(config); err != nil {
 			panic(err)

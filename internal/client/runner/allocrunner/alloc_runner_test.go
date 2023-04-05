@@ -39,16 +39,21 @@ func testAllocRunnerConfig(t *testing.T, alloc *proto.Allocation) *Config {
 
 	assert.NoError(t, state.PutAllocation(alloc))
 
+	volumeDir, err := ioutil.TempDir("/tmp", "task-runner-volume-dir")
+	require.NoError(t, err)
+
 	t.Cleanup(func() {
 		os.RemoveAll(tmpDir)
+		os.RemoveAll(volumeDir)
 	})
 
 	cfg := &Config{
-		Logger:       logger,
-		Driver:       driver,
-		Alloc:        alloc,
-		State:        state,
-		StateUpdater: &mockUpdater{},
+		Logger:          logger,
+		Driver:          driver,
+		Alloc:           alloc,
+		State:           state,
+		StateUpdater:    &mockUpdater{},
+		ClientVolumeDir: volumeDir,
 	}
 
 	return cfg

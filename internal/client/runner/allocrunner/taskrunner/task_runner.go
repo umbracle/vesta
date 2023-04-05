@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/umbracle/vesta/internal/client/runner/allocrunner/allocdir"
 	"github.com/umbracle/vesta/internal/client/runner/driver"
 	"github.com/umbracle/vesta/internal/client/runner/hooks"
 	"github.com/umbracle/vesta/internal/client/runner/state"
@@ -26,6 +27,7 @@ type TaskRunner struct {
 	shutdownCh       chan struct{}
 	killCh           chan struct{}
 	state            state.State
+	taskDir          *allocdir.TaskDir
 	taskStateUpdated func()
 	killErr          error
 	killed           bool
@@ -41,7 +43,7 @@ type Config struct {
 	Logger           hclog.Logger
 	Driver           driver.Driver
 	Allocation       *proto.Allocation
-	AllocDir         string
+	TaskDir          *allocdir.TaskDir
 	Task             *proto.Task
 	State            state.State
 	TaskStateUpdated func()
@@ -64,6 +66,7 @@ func NewTaskRunner(config *Config) *TaskRunner {
 		taskStateUpdated: config.TaskStateUpdated,
 		mounts:           []*driver.MountConfig{},
 		runnerHooks:      []hooks.TaskHook{},
+		taskDir:          config.TaskDir,
 	}
 
 	// generate a unique id for this execution

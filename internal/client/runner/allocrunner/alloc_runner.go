@@ -1,11 +1,10 @@
 package allocrunner
 
 import (
-	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/umbracle/vesta/internal/client/runner/allocrunner/allocdir"
 	"github.com/umbracle/vesta/internal/client/runner/allocrunner/taskrunner"
 	"github.com/umbracle/vesta/internal/client/runner/driver"
 	"github.com/umbracle/vesta/internal/client/runner/hooks"
@@ -18,13 +17,13 @@ type StateUpdater interface {
 }
 
 type Config struct {
-	Logger       hclog.Logger
-	Alloc        *proto.Allocation
-	State        state.State
-	StateUpdater StateUpdater
-	Driver       driver.Driver
-	Volume       string
-	Hooks        []hooks.TaskHookFactory
+	Logger          hclog.Logger
+	Alloc           *proto.Allocation
+	State           state.State
+	StateUpdater    StateUpdater
+	Driver          driver.Driver
+	ClientVolumeDir string
+	Hooks           []hooks.TaskHookFactory
 }
 
 type AllocRunner struct {
@@ -43,6 +42,7 @@ type AllocRunner struct {
 	shutdownCh      chan struct{}
 	destroyCh       chan struct{}
 	wg              sync.WaitGroup
+	allocDir        *allocdir.AllocDir
 	runnerHooks     []hooks.RunnerHook
 }
 
@@ -59,12 +59,13 @@ func NewAllocRunner(c *Config) (*AllocRunner, error) {
 		taskUpdated:     make(chan struct{}),
 		stateUpdater:    c.StateUpdater,
 		state:           c.State,
-		volume:          c.Volume,
+		volume:          c.ClientVolumeDir,
 		shutdownStarted: make(chan struct{}),
 		shutdownCh:      make(chan struct{}),
 		destroyCh:       make(chan struct{}),
 		allocUpdatedCh:  make(chan *proto.Allocation, 1),
 		runnerHooks:     []hooks.RunnerHook{},
+		allocDir:        allocdir.NewAllocDir(c.ClientVolumeDir, c.Alloc.Deployment.Name),
 	}
 
 	if err := runner.initHooks(); err != nil {
@@ -233,16 +234,7 @@ func (a *AllocRunner) newTaskRunner(task *proto.Task) *taskrunner.TaskRunner {
 		State:            a.config.State,
 		TaskStateUpdated: a.TaskStateUpdated,
 		Hooks:            a.config.Hooks,
-	}
-
-	if a.volume != "" {
-		// create an alloc dir
-		taskAllocDir := filepath.Join(a.volume, a.alloc.Deployment.Name, task.Name)
-		if err := os.MkdirAll(taskAllocDir, 0755); err != nil {
-			// TODO
-			panic(err)
-		}
-		config.AllocDir = taskAllocDir
+		TaskDir:          a.allocDir.NewTaskDir(task.Name),
 	}
 
 	return taskrunner.NewTaskRunner(config)
