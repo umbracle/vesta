@@ -301,6 +301,8 @@ github.com/stretchr/testify v1.8.1 h1:w7B6lhMri9wdJUVmEZPGGhZzrYTPvgJArz7wNPgYKs
 github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/umbracle/babel v0.0.0-20221126103920-c3eb8d4de5b5 h1:cRdvpnEhMNyCIzKG/paGxCvW5aY5WPis4l9xHHWNQc8=
 github.com/umbracle/babel v0.0.0-20221126103920-c3eb8d4de5b5/go.mod h1:Afvr2Pzv3AdP5AE6n3Vv+5vIQrpLLFQwcyNzS7XciN8=
+github.com/umbracle/babel v0.0.0-20230406115234-5745396c5313 h1:bHe68RBXThh5RMRulOWw/K78YET/8/Mzf1q/3D4ntyo=
+github.com/umbracle/babel v0.0.0-20230406115234-5745396c5313/go.mod h1:Afvr2Pzv3AdP5AE6n3Vv+5vIQrpLLFQwcyNzS7XciN8=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=

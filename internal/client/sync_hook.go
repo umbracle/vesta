@@ -13,20 +13,26 @@ import (
 	"google.golang.org/grpc"
 )
 
+type syncStateUpdater interface {
+	UpdateSyncState(alloc, task string, status babel.SyncStatus)
+}
+
 var _ hooks.TaskHook = &syncHook{}
 var _ hooks.TaskPoststartHook = &syncHook{}
 
 type syncHook struct {
-	logger  hclog.Logger
-	task    *proto.Task
-	closeCh chan struct{}
-	ip      string
+	logger           hclog.Logger
+	task             *proto.Task
+	closeCh          chan struct{}
+	ip               string
+	syncStateUpdater syncStateUpdater
 }
 
-func newSyncHook(logger hclog.Logger, task *proto.Task) *syncHook {
+func newSyncHook(logger hclog.Logger, task *proto.Task, syncStateUpdater syncStateUpdater) *syncHook {
 	h := &syncHook{
-		closeCh: make(chan struct{}),
-		task:    task,
+		closeCh:          make(chan struct{}),
+		task:             task,
+		syncStateUpdater: syncStateUpdater,
 	}
 	h.logger = logger.Named(h.Name())
 	return h

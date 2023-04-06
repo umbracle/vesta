@@ -8,6 +8,7 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-memdb"
+	babel "github.com/umbracle/babel/sdk"
 	"github.com/umbracle/vesta/internal/client/runner"
 	"github.com/umbracle/vesta/internal/client/runner/hooks"
 	"github.com/umbracle/vesta/internal/client/runner/state"
@@ -76,8 +77,12 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 	return c, nil
 }
 
+func (c *Client) UpdateSyncState(alloc, task string, status babel.SyncStatus) {
+	fmt.Println(alloc, task, status)
+}
+
 func (c *Client) syncHookFactory(logger hclog.Logger, task *cproto.Task) hooks.TaskHook {
-	return newSyncHook(logger, task)
+	return newSyncHook(logger, task, c)
 }
 
 func (c *Client) handle() {
