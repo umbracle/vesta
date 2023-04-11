@@ -21,11 +21,9 @@ func (t *Teku) Generate(config *framework.Config) map[string]*proto.Task {
 
 	tt := &proto.Task{
 		Image: "consensys/teku",
-		Tag:   "22.8.0",
+		Tag:   "23.3.0",
 		Args: []string{
 			"--data-base-path", "/data",
-			"--network", "goerli",
-
 			"--ee-endpoint",
 			"http://" + cc.ExecutionNode + ":8551",
 			"--ee-jwt-secret-file",
@@ -44,6 +42,16 @@ func (t *Teku) Generate(config *framework.Config) map[string]*proto.Task {
 				Path: "/data",
 			},
 		},
+	}
+
+	if config.Chain == sepoliaChain {
+		tt.Args = append(tt.Args, "--network", "--sepolia")
+	} else if config.Chain == goerliChain {
+		tt.Args = append(tt.Args, "--network", "--goerli")
+	} else if config.Chain != mainnetChain {
+		// mainnet is enabled by default, if the result is not
+		// that, we have an incorrect network name
+		panic("BAD chain")
 	}
 
 	if config.Metrics {
