@@ -3,7 +3,7 @@ package catalog
 import "github.com/umbracle/vesta/internal/framework"
 
 var Catalog = map[string]framework.Framework{
-	"lightouse":  &Lighthouse{},
+	"lighthouse": &Lighthouse{},
 	"prysm":      &Prysm{},
 	"teku":       &Teku{},
 	"besu":       &Besu{},
@@ -18,3 +18,10 @@ var (
 	sepoliaChain = "sepolia"
 	mainnetChain = "mainnet"
 )
+
+func newTestingFramework(chain string) *framework.TestingFramework {
+	fr := &framework.TestingFramework{
+		F: Catalog[chain],
+	}
+	return fr
+}
