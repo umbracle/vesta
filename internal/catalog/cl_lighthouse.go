@@ -28,39 +28,29 @@ func (l *Lighthouse) Generate(config *framework.Config) map[string]*proto.Task {
 		network = "mainnet"
 	}
 
-	t := &proto.Task{
-		Image: "sigp/lighthouse",
-		Tag:   "v4.0.1",
-		Args: []string{
-			"lighthouse",
-			"bn",
-			"--network", network,
-			"--datadir", "/data",
-			"--http",
-			"--http-address", "0.0.0.0",
-			"--http-port", "5052",
-			"--execution-jwt", "/var/lib/jwtsecret/jwt.hex",
-			"--execution-endpoint", "http://" + cc.ExecutionNode + ":8551",
-			"--metrics-address", "0.0.0.0",
-			"--metrics-port", "8008",
-		},
-		Data: map[string]string{
-			"/var/lib/jwtsecret/jwt.hex": jwtToken,
-		},
-		Volumes: map[string]*proto.Task_Volume{
-			"data": {
-				Path: "/data",
-			},
-		},
+	cmd := []string{
+		"lighthouse",
+		"bn",
+		"--network", network,
+		"--datadir", "/data",
+		"--http",
+		"--http-address", "0.0.0.0",
+		"--http-port", "5052",
+		"--execution-jwt", "/var/lib/jwtsecret/jwt.hex",
+		"--execution-endpoint", "http://" + cc.ExecutionNode + ":8551",
+		"--metrics-address", "0.0.0.0",
+		"--metrics-port", "8008",
 	}
 
-	if config.Metrics {
-		t.Args = append(t.Args, "--metrics")
+	t := proto.NewTask()
+	t.WithImage("sigp/lighthouse").
+		WithTag("v4.0.1").
+		WithCmd(cmd...).
+		WithFile("/var/lib/jwtsecret/jwt.hex", jwtToken).
+		WithVolume("data", "/data")
 
-		t.Telemetry = &proto.Task_Telemetry{
-			Port: 8008,
-			Path: "metrics",
-		}
+	if config.Metrics {
+		t.WithCmd("--metrics").WithTelemetry(8080, "metrics")
 	}
 
 	return map[string]*proto.Task{
