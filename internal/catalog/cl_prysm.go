@@ -21,9 +21,8 @@ func (p *Prysm) Generate(config *framework.Config) map[string]*proto.Task {
 
 	t := &proto.Task{
 		Image: "gcr.io/prysmaticlabs/prysm/beacon-chain",
-		Tag:   "v3.1.2",
+		Tag:   "v4.0.0",
 		Args: []string{
-			"--goerli",
 			"--datadir", "/data",
 			"--execution-endpoint", "http://" + cc.ExecutionNode + ":8551",
 			"--jwt-secret", "/var/lib/jwtsecret/jwt.hex",
@@ -41,6 +40,16 @@ func (p *Prysm) Generate(config *framework.Config) map[string]*proto.Task {
 				Path: "/data",
 			},
 		},
+	}
+
+	if config.Chain == sepoliaChain {
+		t.Args = append(t.Args, "--sepolia")
+	} else if config.Chain == goerliChain {
+		t.Args = append(t.Args, "--goerli")
+	} else if config.Chain != mainnetChain {
+		// mainnet is enabled by default, if the result is not
+		// that, we have an incorrect network name
+		panic("BAD chain")
 	}
 
 	if config.Metrics {

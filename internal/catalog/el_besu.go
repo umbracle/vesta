@@ -23,7 +23,6 @@ func (b *Besu) Generate(config *framework.Config) map[string]*proto.Task {
 		Args: []string{
 			"--data-path",
 			"/data",
-			"--network", "goerli",
 
 			"--rpc-http-enabled",
 			"--rpc-http-host", "0.0.0.0",
@@ -46,6 +45,14 @@ func (b *Besu) Generate(config *framework.Config) map[string]*proto.Task {
 				Path: "/data",
 			},
 		},
+	}
+
+	if config.Chain == sepoliaChain {
+		tt.Args = append(tt.Args, "--network", "sepolia")
+	} else if config.Chain == goerliChain {
+		tt.Args = append(tt.Args, "--network", "goerli")
+	} else if config.Chain != mainnetChain {
+		tt.Args = append(tt.Args, "--network", "mainnet")
 	}
 
 	if config.Metrics {

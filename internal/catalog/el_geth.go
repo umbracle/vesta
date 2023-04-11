@@ -19,10 +19,9 @@ func (g *Geth) Config() interface{} {
 func (g *Geth) Generate(config *framework.Config) map[string]*proto.Task {
 	tt := &proto.Task{
 		Image: "ethereum/client-go",
-		Tag:   "v1.10.21",
+		Tag:   "v1.11.5",
 		Args: []string{
 			"--datadir", "/data",
-			"--goerli",
 			// Http api
 			"--http.addr", "0.0.0.0",
 			"--http", "--http.port", "8545",
@@ -44,6 +43,16 @@ func (g *Geth) Generate(config *framework.Config) map[string]*proto.Task {
 				Path: "/data",
 			},
 		},
+	}
+
+	if config.Chain == sepoliaChain {
+		tt.Args = append(tt.Args, "--sepolia")
+	} else if config.Chain == goerliChain {
+		tt.Args = append(tt.Args, "--goerli")
+	} else if config.Chain != mainnetChain {
+		// mainnet is enabled by default, if the result is not
+		// that, we have an incorrect network name
+		panic("BAD chain")
 	}
 
 	if config.Metrics {

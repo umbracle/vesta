@@ -12,3 +12,9 @@ var Catalog = map[string]framework.Framework{
 }
 
 var jwtToken = "04592280e1778419b7aa954d43871cb2cfb2ebda754fb735e8adeb293a88f9bf"
+
+var (
+	goerliChain  = "goerli"
+	sepoliaChain = "sepolia"
+	mainnetChain = "mainnet"
+)
