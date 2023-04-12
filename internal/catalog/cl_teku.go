@@ -1,6 +1,8 @@
 package catalog
 
 import (
+	"fmt"
+
 	"github.com/umbracle/vesta/internal/framework"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
@@ -14,6 +16,14 @@ type tekuConfig struct {
 
 func (t *Teku) Config() interface{} {
 	return &tekuConfig{}
+}
+
+func (t *Teku) Chains() []string {
+	return []string{
+		"mainnet",
+		"goerli",
+		"sepolia",
+	}
 }
 
 func (t *Teku) Generate(config *framework.Config) map[string]*proto.Task {
@@ -44,14 +54,8 @@ func (t *Teku) Generate(config *framework.Config) map[string]*proto.Task {
 		},
 	}
 
-	if config.Chain == sepoliaChain {
-		tt.Args = append(tt.Args, "--network", "--sepolia")
-	} else if config.Chain == goerliChain {
-		tt.Args = append(tt.Args, "--network", "--goerli")
-	} else if config.Chain != mainnetChain {
-		// mainnet is enabled by default, if the result is not
-		// that, we have an incorrect network name
-		panic("BAD chain")
+	if config.Chain != mainnetChain {
+		tt.Args = append(tt.Args, "--network", fmt.Sprintf("--%s", config.Chain))
 	}
 
 	if config.Metrics {

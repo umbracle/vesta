@@ -16,23 +16,22 @@ func (n *Netermind) Config() interface{} {
 	return &nethermindConfig{}
 }
 
-func (n *Netermind) Generate(config *framework.Config) map[string]*proto.Task {
-	var network string
-	if config.Chain == sepoliaChain {
-		network = "sepolia"
-	} else if config.Chain == goerliChain {
-		network = "goerli"
-	} else if config.Chain == mainnetChain {
-		network = "mainnet"
+func (n *Netermind) Chains() []string {
+	return []string{
+		"mainnet",
+		"goerli",
+		"sepolia",
 	}
+}
 
+func (n *Netermind) Generate(config *framework.Config) map[string]*proto.Task {
 	tt := &proto.Task{
 		Image: "nethermind/nethermind",
 		Tag:   "1.17.3",
 		Args: []string{
 			"--datadir",
 			"/data",
-			"--config", network,
+			"--config", config.Chain,
 			"--JsonRpc.Enabled", "true",
 			"--JsonRpc.Host", "0.0.0.0",
 			"--JsonRpc.Port", "8545",

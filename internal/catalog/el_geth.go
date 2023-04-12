@@ -1,6 +1,8 @@
 package catalog
 
 import (
+	"fmt"
+
 	"github.com/umbracle/vesta/internal/framework"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
@@ -14,6 +16,14 @@ type gethConfig struct {
 
 func (g *Geth) Config() interface{} {
 	return &gethConfig{}
+}
+
+func (g *Geth) Chains() []string {
+	return []string{
+		"mainnet",
+		"goerli",
+		"sepolia",
+	}
 }
 
 func (g *Geth) Generate(config *framework.Config) map[string]*proto.Task {
@@ -45,14 +55,9 @@ func (g *Geth) Generate(config *framework.Config) map[string]*proto.Task {
 		},
 	}
 
-	if config.Chain == sepoliaChain {
-		tt.Args = append(tt.Args, "--sepolia")
-	} else if config.Chain == goerliChain {
-		tt.Args = append(tt.Args, "--goerli")
-	} else if config.Chain != mainnetChain {
-		// mainnet is enabled by default, if the result is not
-		// that, we have an incorrect network name
-		panic("BAD chain")
+	if config.Chain != mainnetChain {
+		// add '--sepolia' or '--goerli'
+		tt.Args = append(tt.Args, fmt.Sprintf("--%s", config.Chain))
 	}
 
 	if config.Metrics {

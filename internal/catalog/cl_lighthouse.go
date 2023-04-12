@@ -16,17 +16,16 @@ func (l *Lighthouse) Config() interface{} {
 	return &lighthouseConfig{}
 }
 
+func (l *Lighthouse) Chains() []string {
+	return []string{
+		"mainnet",
+		"goerli",
+		"sepolia",
+	}
+}
+
 func (l *Lighthouse) Generate(config *framework.Config) map[string]*proto.Task {
 	cc := config.Custom.(*lighthouseConfig)
-
-	var network string
-	if config.Chain == sepoliaChain {
-		network = "sepolia"
-	} else if config.Chain == goerliChain {
-		network = "goerli"
-	} else if config.Chain == mainnetChain {
-		network = "mainnet"
-	}
 
 	t := &proto.Task{
 		Image: "sigp/lighthouse",
@@ -34,7 +33,7 @@ func (l *Lighthouse) Generate(config *framework.Config) map[string]*proto.Task {
 		Args: []string{
 			"lighthouse",
 			"bn",
-			"--network", network,
+			"--network", config.Chain,
 			"--datadir", "/data",
 			"--http",
 			"--http-address", "0.0.0.0",

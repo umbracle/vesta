@@ -74,6 +74,8 @@ message Item {
     string name = 1;
     
     repeated string input = 2;
+
+    repeated string chains = 3;
 }
 
 // Node1 is a node that can allocate resources
