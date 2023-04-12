@@ -35,6 +35,7 @@ func (g *Geth) Generate(config *framework.Config) map[string]*proto.Task {
 			// Http api
 			"--http.addr", "0.0.0.0",
 			"--http", "--http.port", "8545",
+			"--http.api", "web3,eth,net",
 			"--http.vhosts", "*",
 			"--http.corsdomain", "*",
 			// Engine api
