@@ -2,17 +2,12 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/boltdb/bolt"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-memdb"
-	"github.com/mitchellh/mapstructure"
-	"github.com/umbracle/vesta/internal/catalog"
-	"github.com/umbracle/vesta/internal/framework"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/server/state"
 	"github.com/umbracle/vesta/internal/uuid"
@@ -35,10 +30,10 @@ type Server struct {
 	logger     hclog.Logger
 	grpcServer *grpc.Server
 	state      *state.StateStore
+	catalog    Catalog
 }
 
 func NewServer(logger hclog.Logger, config *Config) (*Server, error) {
-
 	var statedb *state.StateStore
 
 	if config.PersistentDB != nil {
@@ -57,8 +52,9 @@ func NewServer(logger hclog.Logger, config *Config) (*Server, error) {
 	}
 
 	srv := &Server{
-		logger: logger,
-		state:  statedb,
+		logger:  logger,
+		state:   statedb,
+		catalog: &localCatalog{},
 	}
 
 	if err := srv.setupGRPCServer(config.GrpcAddr); err != nil {
@@ -105,23 +101,10 @@ func (s *Server) Stop() {
 }
 
 func (s *Server) Create(req *proto.ApplyRequest, input map[string]interface{}) (string, error) {
-	cc, ok := catalog.Catalog[strings.ToLower(req.Action)]
-	if !ok {
-		return "", fmt.Errorf("not found plugin: %s", req.Action)
+	deployableTasks, err := s.catalog.Build(req, input)
+	if err != nil {
+		return "", err
 	}
-
-	customConfig := cc.Config()
-	if err := mapstructure.WeakDecode(input, &customConfig); err != nil {
-		panic(err)
-	}
-
-	config := &framework.Config{
-		Metrics: req.Metrics,
-		Chain:   req.Chain,
-		Custom:  customConfig,
-	}
-
-	deployableTasks := cc.Generate(config)
 
 	allocId := req.AllocationId
 
