@@ -23,6 +23,18 @@ func (l *localCatalog) Build(req *proto.ApplyRequest, input map[string]interface
 		return nil, fmt.Errorf("not found plugin: %s", req.Action)
 	}
 
+	// validate that the plugin can run this chain
+	var found bool
+	for _, c := range cc.Chains() {
+		if c == req.Chain {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("cannot run chain '%s'", req.Chain)
+	}
+
 	customConfig := cc.Config()
 	if err := mapstructure.WeakDecode(input, &customConfig); err != nil {
 		return nil, err

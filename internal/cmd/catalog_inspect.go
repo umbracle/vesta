@@ -75,5 +75,19 @@ func formatItem(item *proto.Item) string {
 	base += "\n\n[bold]Input fields[reset]\n"
 	base += formatList(taskRows)
 
+	chainRows := make([]string, len(item.Chains)+1)
+	chainRows[0] = "Name"
+
+	i = 1
+	for _, name := range item.Chains {
+		chainRows[i] = fmt.Sprintf("%s",
+			name,
+		)
+		i += 1
+	}
+
+	base += "\n\n[bold]Available chains[reset]\n"
+	base += formatList(chainRows)
+
 	return base
 }

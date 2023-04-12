@@ -99,8 +99,9 @@ func (s *service) CatalogInspect(ctx context.Context, req *proto.CatalogInspectR
 
 	resp := &proto.CatalogInspectResponse{
 		Item: &proto.Item{
-			Name:  req.Name,
-			Input: inputNames,
+			Name:   req.Name,
+			Input:  inputNames,
+			Chains: pl.Chains(),
 		},
 	}
 

@@ -1,6 +1,8 @@
 package catalog
 
 import (
+	"fmt"
+
 	"github.com/umbracle/vesta/internal/framework"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
@@ -14,6 +16,14 @@ type prysmConfig struct {
 
 func (p *Prysm) Config() interface{} {
 	return &prysmConfig{}
+}
+
+func (p *Prysm) Chains() []string {
+	return []string{
+		"mainnet",
+		"goerli",
+		"sepolia",
+	}
 }
 
 func (p *Prysm) Generate(config *framework.Config) map[string]*proto.Task {
@@ -42,14 +52,9 @@ func (p *Prysm) Generate(config *framework.Config) map[string]*proto.Task {
 		},
 	}
 
-	if config.Chain == sepoliaChain {
-		t.Args = append(t.Args, "--sepolia")
-	} else if config.Chain == goerliChain {
-		t.Args = append(t.Args, "--goerli")
-	} else if config.Chain != mainnetChain {
-		// mainnet is enabled by default, if the result is not
-		// that, we have an incorrect network name
-		panic("BAD chain")
+	if config.Chain != mainnetChain {
+		// add '--sepolia' or '--goerli'
+		t.Args = append(t.Args, fmt.Sprintf("--%s", config.Chain))
 	}
 
 	if config.Metrics {

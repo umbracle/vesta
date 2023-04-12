@@ -16,6 +16,14 @@ func (b *Besu) Config() interface{} {
 	return &besuConfig{}
 }
 
+func (b *Besu) Chains() []string {
+	return []string{
+		"mainnet",
+		"goerli",
+		"sepolia",
+	}
+}
+
 func (b *Besu) Generate(config *framework.Config) map[string]*proto.Task {
 	tt := &proto.Task{
 		Image: "hyperledger/besu",
@@ -23,7 +31,7 @@ func (b *Besu) Generate(config *framework.Config) map[string]*proto.Task {
 		Args: []string{
 			"--data-path",
 			"/data",
-
+			"--network", config.Chain,
 			"--rpc-http-enabled",
 			"--rpc-http-host", "0.0.0.0",
 			"--rpc-http-port", "8545",
@@ -45,14 +53,6 @@ func (b *Besu) Generate(config *framework.Config) map[string]*proto.Task {
 				Path: "/data",
 			},
 		},
-	}
-
-	if config.Chain == sepoliaChain {
-		tt.Args = append(tt.Args, "--network", "sepolia")
-	} else if config.Chain == goerliChain {
-		tt.Args = append(tt.Args, "--network", "goerli")
-	} else if config.Chain != mainnetChain {
-		tt.Args = append(tt.Args, "--network", "mainnet")
 	}
 
 	if config.Metrics {

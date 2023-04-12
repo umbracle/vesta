@@ -4,6 +4,7 @@ import "github.com/umbracle/vesta/internal/server/proto"
 
 type Framework interface {
 	Config() interface{}
+	Chains() []string
 	Generate(config *Config) map[string]*proto.Task
 }
 

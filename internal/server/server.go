@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"time"
 
@@ -103,7 +104,7 @@ func (s *Server) Stop() {
 func (s *Server) Create(req *proto.ApplyRequest, input map[string]interface{}) (string, error) {
 	deployableTasks, err := s.catalog.Build(req, input)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to run plugin '%s': %v", req.Action, err)
 	}
 
 	allocId := req.AllocationId

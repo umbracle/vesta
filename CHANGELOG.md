@@ -1,5 +1,6 @@
 # 0.1.1 (Unreleased)
 
+- feat: List available chains in the plugin [[GH-48](https://github.com/umbracle/eth2-validator/issues/48)]
 - feat: Add state persistence [[GH-8](https://github.com/umbracle/eth2-validator/issues/8)]
 - feat: Add cli `catalog list` and `catalog inspect` commands [[GH-6](https://github.com/umbracle/eth2-validator/issues/6)]
 - feat: Add cue scripts for `Nethermind` and `Besu` [[GH-32](https://github.com/umbracle/eth2-validator/issues/32)]
