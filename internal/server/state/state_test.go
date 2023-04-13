@@ -93,3 +93,23 @@ func TestState_Allocation_Persistence(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, alloc1)
 }
+
+func TestStateStore_AllocationByIDPrefix(t *testing.T) {
+	state := NewInmemStore(t)
+
+	alloc0 := &proto.Allocation{
+		Id:     "ab",
+		NodeId: "local",
+	}
+	alloc1 := &proto.Allocation{
+		Id:     "ac",
+		NodeId: "local",
+	}
+
+	require.NoError(t, state.UpsertAllocation(alloc0))
+	require.NoError(t, state.UpsertAllocation(alloc1))
+
+	allocs, err := state.AllocationsByIDPrefix("a")
+	require.NoError(t, err)
+	require.Len(t, allocs, 2)
+}
