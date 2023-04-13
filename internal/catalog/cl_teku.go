@@ -10,12 +10,14 @@ import (
 type Teku struct {
 }
 
-type tekuConfig struct {
-	ExecutionNode string `mapstructure:"execution_node"`
-}
-
-func (t *Teku) Config() interface{} {
-	return &tekuConfig{}
+func (t *Teku) Config() map[string]*framework.Field {
+	return map[string]*framework.Field{
+		"execution_node": {
+			Required:    true,
+			Type:        framework.TypeString,
+			Description: "Endpoint of the execution node",
+		},
+	}
 }
 
 func (t *Teku) Chains() []string {
@@ -27,7 +29,6 @@ func (t *Teku) Chains() []string {
 }
 
 func (t *Teku) Generate(config *framework.Config) map[string]*proto.Task {
-	cc := config.Custom.(*tekuConfig)
 
 	tt := &proto.Task{
 		Image: "consensys/teku",
@@ -35,7 +36,7 @@ func (t *Teku) Generate(config *framework.Config) map[string]*proto.Task {
 		Args: []string{
 			"--data-base-path", "/data",
 			"--ee-endpoint",
-			"http://" + cc.ExecutionNode + ":8551",
+			"http://" + config.Data.GetString("execution_node") + ":8551",
 			"--ee-jwt-secret-file",
 			"/var/lib/jwtsecret/jwt.hex",
 

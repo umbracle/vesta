@@ -8,12 +8,8 @@ import (
 type Netermind struct {
 }
 
-type nethermindConfig struct {
-	A uint64
-}
-
-func (n *Netermind) Config() interface{} {
-	return &nethermindConfig{}
+func (n *Netermind) Config() map[string]*framework.Field {
+	return map[string]*framework.Field{}
 }
 
 func (n *Netermind) Chains() []string {

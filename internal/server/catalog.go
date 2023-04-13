@@ -1,23 +1,28 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
-	"github.com/mitchellh/mapstructure"
 	"github.com/umbracle/vesta/internal/catalog"
 	"github.com/umbracle/vesta/internal/framework"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
 type Catalog interface {
-	Build(req *proto.ApplyRequest, input map[string]interface{}) (map[string]*proto.Task, error)
+	Build(req *proto.ApplyRequest) (map[string]*proto.Task, error)
 }
 
 type localCatalog struct {
 }
 
-func (l *localCatalog) Build(req *proto.ApplyRequest, input map[string]interface{}) (map[string]*proto.Task, error) {
+func (l *localCatalog) Build(req *proto.ApplyRequest) (map[string]*proto.Task, error) {
+	var rawInput map[string]interface{}
+	if err := json.Unmarshal(req.Input, &rawInput); err != nil {
+		return nil, err
+	}
+
 	cc, ok := catalog.Catalog[strings.ToLower(req.Action)]
 	if !ok {
 		return nil, fmt.Errorf("not found plugin: %s", req.Action)
@@ -35,15 +40,18 @@ func (l *localCatalog) Build(req *proto.ApplyRequest, input map[string]interface
 		return nil, fmt.Errorf("cannot run chain '%s'", req.Chain)
 	}
 
-	customConfig := cc.Config()
-	if err := mapstructure.WeakDecode(input, &customConfig); err != nil {
-		return nil, err
+	data := &framework.FieldData{
+		Raw:    rawInput,
+		Schema: cc.Config(),
+	}
+	if err := data.Validate(); err != nil {
+		return nil, fmt.Errorf("failed to validate input: %v", err)
 	}
 
 	config := &framework.Config{
 		Metrics: req.Metrics,
 		Chain:   req.Chain,
-		Custom:  customConfig,
+		Data:    data,
 	}
 
 	deployableTasks := cc.Generate(config)

@@ -12,15 +12,17 @@ type TestingFramework struct {
 }
 
 // ImageTest tests that the images are correct and exist in the framework
-func (tf *TestingFramework) ImageExists(t *testing.T) {
+func (tf *TestingFramework) ImageExists(t *testing.T, data map[string]interface{}) {
 	client, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	cfg := &Config{
-		Chain:  "mainnet",
-		Custom: tf.F.Config(),
+		Chain: "mainnet",
+		Data: &FieldData{
+			Schema: tf.F.Config(),
+		},
 	}
 
 	tasks := tf.F.Generate(cfg)
