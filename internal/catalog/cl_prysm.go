@@ -10,12 +10,14 @@ import (
 type Prysm struct {
 }
 
-type prysmConfig struct {
-	ExecutionNode string `mapstructure:"execution_node"`
-}
-
-func (p *Prysm) Config() interface{} {
-	return &prysmConfig{}
+func (p *Prysm) Config() map[string]*framework.Field {
+	return map[string]*framework.Field{
+		"execution_node": {
+			Required:    true,
+			Type:        framework.TypeString,
+			Description: "Endpoint of the execution node",
+		},
+	}
 }
 
 func (p *Prysm) Chains() []string {
@@ -27,14 +29,12 @@ func (p *Prysm) Chains() []string {
 }
 
 func (p *Prysm) Generate(config *framework.Config) map[string]*proto.Task {
-	cc := config.Custom.(*prysmConfig)
-
 	t := &proto.Task{
 		Image: "gcr.io/prysmaticlabs/prysm/beacon-chain",
 		Tag:   "v4.0.0",
 		Args: []string{
 			"--datadir", "/data",
-			"--execution-endpoint", "http://" + cc.ExecutionNode + ":8551",
+			"--execution-endpoint", "http://" + config.Data.GetString("execution_node") + ":8551",
 			"--jwt-secret", "/var/lib/jwtsecret/jwt.hex",
 			"--grpc-gateway-host", "0.0.0.0",
 			"--grpc-gateway-port", "5052",

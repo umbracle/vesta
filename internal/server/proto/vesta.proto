@@ -73,9 +73,17 @@ message ApplyResponse {
 message Item {
     string name = 1;
     
-    repeated string input = 2;
+    repeated Field fields = 2;
 
     repeated string chains = 3;
+
+    message Field {
+        string name = 1;
+        string type = 2;
+        string description = 3;
+        string default = 4;
+        bool required = 5;
+    }
 }
 
 // Node1 is a node that can allocate resources

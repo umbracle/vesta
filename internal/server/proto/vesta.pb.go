@@ -750,9 +750,9 @@ type Item struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name   string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Input  []string `protobuf:"bytes,2,rep,name=input,proto3" json:"input,omitempty"`
-	Chains []string `protobuf:"bytes,3,rep,name=chains,proto3" json:"chains,omitempty"`
+	Name   string        `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Fields []*Item_Field `protobuf:"bytes,2,rep,name=fields,proto3" json:"fields,omitempty"`
+	Chains []string      `protobuf:"bytes,3,rep,name=chains,proto3" json:"chains,omitempty"`
 }
 
 func (x *Item) Reset() {
@@ -794,9 +794,9 @@ func (x *Item) GetName() string {
 	return ""
 }
 
-func (x *Item) GetInput() []string {
+func (x *Item) GetFields() []*Item_Field {
 	if x != nil {
-		return x.Input
+		return x.Fields
 	}
 	return nil
 }
@@ -1175,6 +1175,85 @@ func (x *TaskState) GetKilling() bool {
 	return false
 }
 
+type Item_Field struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Name        string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Type        string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Default     string `protobuf:"bytes,4,opt,name=default,proto3" json:"default,omitempty"`
+	Required    bool   `protobuf:"varint,5,opt,name=required,proto3" json:"required,omitempty"`
+}
+
+func (x *Item_Field) Reset() {
+	*x = Item_Field{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_internal_server_proto_vesta_proto_msgTypes[17]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Item_Field) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Item_Field) ProtoMessage() {}
+
+func (x *Item_Field) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_server_proto_vesta_proto_msgTypes[17]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Item_Field.ProtoReflect.Descriptor instead.
+func (*Item_Field) Descriptor() ([]byte, []int) {
+	return file_internal_server_proto_vesta_proto_rawDescGZIP(), []int{12, 0}
+}
+
+func (x *Item_Field) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Item_Field) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *Item_Field) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *Item_Field) GetDefault() string {
+	if x != nil {
+		return x.Default
+	}
+	return ""
+}
+
+func (x *Item_Field) GetRequired() bool {
+	if x != nil {
+		return x.Required
+	}
+	return false
+}
+
 type Task_Volume struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1186,7 +1265,7 @@ type Task_Volume struct {
 func (x *Task_Volume) Reset() {
 	*x = Task_Volume{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_server_proto_vesta_proto_msgTypes[21]
+		mi := &file_internal_server_proto_vesta_proto_msgTypes[22]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1199,7 +1278,7 @@ func (x *Task_Volume) String() string {
 func (*Task_Volume) ProtoMessage() {}
 
 func (x *Task_Volume) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_server_proto_vesta_proto_msgTypes[21]
+	mi := &file_internal_server_proto_vesta_proto_msgTypes[22]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1234,7 +1313,7 @@ type Task_Telemetry struct {
 func (x *Task_Telemetry) Reset() {
 	*x = Task_Telemetry{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_server_proto_vesta_proto_msgTypes[22]
+		mi := &file_internal_server_proto_vesta_proto_msgTypes[23]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1247,7 +1326,7 @@ func (x *Task_Telemetry) String() string {
 func (*Task_Telemetry) ProtoMessage() {}
 
 func (x *Task_Telemetry) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_server_proto_vesta_proto_msgTypes[22]
+	mi := &file_internal_server_proto_vesta_proto_msgTypes[23]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1322,11 +1401,21 @@ var file_internal_server_proto_vesta_proto_rawDesc = []byte{
 	0x05, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x63, 0x68,
 	0x61, 0x69, 0x6e, 0x22, 0x1f, 0x0a, 0x0d, 0x41, 0x70, 0x70, 0x6c, 0x79, 0x52, 0x65, 0x73, 0x70,
 	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
-	0x52, 0x02, 0x69, 0x64, 0x22, 0x48, 0x0a, 0x04, 0x49, 0x74, 0x65, 0x6d, 0x12, 0x12, 0x0a, 0x04,
-	0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65,
-	0x12, 0x14, 0x0a, 0x05, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x18, 0x02, 0x20, 0x03, 0x28, 0x09, 0x52,
-	0x05, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x12, 0x16, 0x0a, 0x06, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x73,
-	0x18, 0x03, 0x20, 0x03, 0x28, 0x09, 0x52, 0x06, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x73, 0x22, 0x4a,
+	0x52, 0x02, 0x69, 0x64, 0x22, 0xe7, 0x01, 0x0a, 0x04, 0x49, 0x74, 0x65, 0x6d, 0x12, 0x12, 0x0a,
+	0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d,
+	0x65, 0x12, 0x29, 0x0a, 0x06, 0x66, 0x69, 0x65, 0x6c, 0x64, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28,
+	0x0b, 0x32, 0x11, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x49, 0x74, 0x65, 0x6d, 0x2e, 0x46,
+	0x69, 0x65, 0x6c, 0x64, 0x52, 0x06, 0x66, 0x69, 0x65, 0x6c, 0x64, 0x73, 0x12, 0x16, 0x0a, 0x06,
+	0x63, 0x68, 0x61, 0x69, 0x6e, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x09, 0x52, 0x06, 0x63, 0x68,
+	0x61, 0x69, 0x6e, 0x73, 0x1a, 0x87, 0x01, 0x0a, 0x05, 0x46, 0x69, 0x65, 0x6c, 0x64, 0x12, 0x12,
+	0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61,
+	0x6d, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x12, 0x20, 0x0a, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69,
+	0x70, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x64, 0x65, 0x73,
+	0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x18, 0x0a, 0x07, 0x64, 0x65, 0x66, 0x61,
+	0x75, 0x6c, 0x74, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x64, 0x65, 0x66, 0x61, 0x75,
+	0x6c, 0x74, 0x12, 0x1a, 0x0a, 0x08, 0x72, 0x65, 0x71, 0x75, 0x69, 0x72, 0x65, 0x64, 0x18, 0x05,
+	0x20, 0x01, 0x28, 0x08, 0x52, 0x08, 0x72, 0x65, 0x71, 0x75, 0x69, 0x72, 0x65, 0x64, 0x22, 0x4a,
 	0x0a, 0x04, 0x4e, 0x6f, 0x64, 0x65, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01,
 	0x28, 0x09, 0x52, 0x02, 0x69, 0x64, 0x12, 0x1e, 0x0a, 0x0a, 0x64, 0x61, 0x74, 0x61, 0x63, 0x65,
 	0x6e, 0x74, 0x65, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0a, 0x64, 0x61, 0x74, 0x61,
@@ -1469,7 +1558,7 @@ func file_internal_server_proto_vesta_proto_rawDescGZIP() []byte {
 }
 
 var file_internal_server_proto_vesta_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_internal_server_proto_vesta_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
+var file_internal_server_proto_vesta_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_internal_server_proto_vesta_proto_goTypes = []interface{}{
 	(Allocation_Status)(0),           // 0: proto.Allocation.Status
 	(Allocation_DesiredStatus)(0),    // 1: proto.Allocation.DesiredStatus
@@ -1491,49 +1580,51 @@ var file_internal_server_proto_vesta_proto_goTypes = []interface{}{
 	(*Task)(nil),                     // 17: proto.Task
 	(*Allocation)(nil),               // 18: proto.Allocation
 	(*TaskState)(nil),                // 19: proto.TaskState
-	nil,                              // 20: proto.Task.EnvEntry
-	nil,                              // 21: proto.Task.LabelsEntry
-	nil,                              // 22: proto.Task.DataEntry
-	nil,                              // 23: proto.Task.VolumesEntry
-	(*Task_Volume)(nil),              // 24: proto.Task.Volume
-	(*Task_Telemetry)(nil),           // 25: proto.Task.Telemetry
-	nil,                              // 26: proto.Allocation.TasksEntry
-	nil,                              // 27: proto.Allocation.TaskStatesEntry
+	(*Item_Field)(nil),               // 20: proto.Item.Field
+	nil,                              // 21: proto.Task.EnvEntry
+	nil,                              // 22: proto.Task.LabelsEntry
+	nil,                              // 23: proto.Task.DataEntry
+	nil,                              // 24: proto.Task.VolumesEntry
+	(*Task_Volume)(nil),              // 25: proto.Task.Volume
+	(*Task_Telemetry)(nil),           // 26: proto.Task.Telemetry
+	nil,                              // 27: proto.Allocation.TasksEntry
+	nil,                              // 28: proto.Allocation.TaskStatesEntry
 }
 var file_internal_server_proto_vesta_proto_depIdxs = []int32{
 	15, // 0: proto.CatalogInspectResponse.item:type_name -> proto.Item
 	18, // 1: proto.DeploymentStatusResponse.allocation:type_name -> proto.Allocation
 	18, // 2: proto.ListDeploymentResponse.allocations:type_name -> proto.Allocation
-	20, // 3: proto.Task.env:type_name -> proto.Task.EnvEntry
-	21, // 4: proto.Task.labels:type_name -> proto.Task.LabelsEntry
-	22, // 5: proto.Task.data:type_name -> proto.Task.DataEntry
-	23, // 6: proto.Task.volumes:type_name -> proto.Task.VolumesEntry
-	25, // 7: proto.Task.telemetry:type_name -> proto.Task.Telemetry
-	26, // 8: proto.Allocation.tasks:type_name -> proto.Allocation.TasksEntry
-	27, // 9: proto.Allocation.taskStates:type_name -> proto.Allocation.TaskStatesEntry
-	0,  // 10: proto.Allocation.status:type_name -> proto.Allocation.Status
-	1,  // 11: proto.Allocation.desiredStatus:type_name -> proto.Allocation.DesiredStatus
-	2,  // 12: proto.TaskState.state:type_name -> proto.TaskState.State
-	24, // 13: proto.Task.VolumesEntry.value:type_name -> proto.Task.Volume
-	17, // 14: proto.Allocation.TasksEntry.value:type_name -> proto.Task
-	19, // 15: proto.Allocation.TaskStatesEntry.value:type_name -> proto.TaskState
-	13, // 16: proto.VestaService.Apply:input_type -> proto.ApplyRequest
-	7,  // 17: proto.VestaService.Destroy:input_type -> proto.DestroyRequest
-	11, // 18: proto.VestaService.DeploymentList:input_type -> proto.ListDeploymentRequest
-	9,  // 19: proto.VestaService.DeploymentStatus:input_type -> proto.DeploymentStatusRequest
-	3,  // 20: proto.VestaService.CatalogList:input_type -> proto.CatalogListRequest
-	5,  // 21: proto.VestaService.CatalogInspect:input_type -> proto.CatalogInspectRequest
-	14, // 22: proto.VestaService.Apply:output_type -> proto.ApplyResponse
-	8,  // 23: proto.VestaService.Destroy:output_type -> proto.DestroyResponse
-	12, // 24: proto.VestaService.DeploymentList:output_type -> proto.ListDeploymentResponse
-	10, // 25: proto.VestaService.DeploymentStatus:output_type -> proto.DeploymentStatusResponse
-	4,  // 26: proto.VestaService.CatalogList:output_type -> proto.CatalogListResponse
-	6,  // 27: proto.VestaService.CatalogInspect:output_type -> proto.CatalogInspectResponse
-	22, // [22:28] is the sub-list for method output_type
-	16, // [16:22] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	20, // 3: proto.Item.fields:type_name -> proto.Item.Field
+	21, // 4: proto.Task.env:type_name -> proto.Task.EnvEntry
+	22, // 5: proto.Task.labels:type_name -> proto.Task.LabelsEntry
+	23, // 6: proto.Task.data:type_name -> proto.Task.DataEntry
+	24, // 7: proto.Task.volumes:type_name -> proto.Task.VolumesEntry
+	26, // 8: proto.Task.telemetry:type_name -> proto.Task.Telemetry
+	27, // 9: proto.Allocation.tasks:type_name -> proto.Allocation.TasksEntry
+	28, // 10: proto.Allocation.taskStates:type_name -> proto.Allocation.TaskStatesEntry
+	0,  // 11: proto.Allocation.status:type_name -> proto.Allocation.Status
+	1,  // 12: proto.Allocation.desiredStatus:type_name -> proto.Allocation.DesiredStatus
+	2,  // 13: proto.TaskState.state:type_name -> proto.TaskState.State
+	25, // 14: proto.Task.VolumesEntry.value:type_name -> proto.Task.Volume
+	17, // 15: proto.Allocation.TasksEntry.value:type_name -> proto.Task
+	19, // 16: proto.Allocation.TaskStatesEntry.value:type_name -> proto.TaskState
+	13, // 17: proto.VestaService.Apply:input_type -> proto.ApplyRequest
+	7,  // 18: proto.VestaService.Destroy:input_type -> proto.DestroyRequest
+	11, // 19: proto.VestaService.DeploymentList:input_type -> proto.ListDeploymentRequest
+	9,  // 20: proto.VestaService.DeploymentStatus:input_type -> proto.DeploymentStatusRequest
+	3,  // 21: proto.VestaService.CatalogList:input_type -> proto.CatalogListRequest
+	5,  // 22: proto.VestaService.CatalogInspect:input_type -> proto.CatalogInspectRequest
+	14, // 23: proto.VestaService.Apply:output_type -> proto.ApplyResponse
+	8,  // 24: proto.VestaService.Destroy:output_type -> proto.DestroyResponse
+	12, // 25: proto.VestaService.DeploymentList:output_type -> proto.ListDeploymentResponse
+	10, // 26: proto.VestaService.DeploymentStatus:output_type -> proto.DeploymentStatusResponse
+	4,  // 27: proto.VestaService.CatalogList:output_type -> proto.CatalogListResponse
+	6,  // 28: proto.VestaService.CatalogInspect:output_type -> proto.CatalogInspectResponse
+	23, // [23:29] is the sub-list for method output_type
+	17, // [17:23] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_internal_server_proto_vesta_proto_init() }
@@ -1746,8 +1837,8 @@ func file_internal_server_proto_vesta_proto_init() {
 				return nil
 			}
 		}
-		file_internal_server_proto_vesta_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Task_Volume); i {
+		file_internal_server_proto_vesta_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Item_Field); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1759,6 +1850,18 @@ func file_internal_server_proto_vesta_proto_init() {
 			}
 		}
 		file_internal_server_proto_vesta_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Task_Volume); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_internal_server_proto_vesta_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Task_Telemetry); i {
 			case 0:
 				return &v.state
@@ -1777,7 +1880,7 @@ func file_internal_server_proto_vesta_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_internal_server_proto_vesta_proto_rawDesc,
 			NumEnums:      3,
-			NumMessages:   25,
+			NumMessages:   26,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

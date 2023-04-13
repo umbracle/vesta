@@ -61,13 +61,16 @@ func formatItem(item *proto.Item) string {
 		fmt.Sprintf("Name|%s", item.Name),
 	})
 
-	taskRows := make([]string, len(item.Input)+1)
-	taskRows[0] = "Name"
+	taskRows := make([]string, len(item.Fields)+1)
+	taskRows[0] = "Name|Type|Required|Description"
 
 	i := 1
-	for _, name := range item.Input {
-		taskRows[i] = fmt.Sprintf("%s",
-			name,
+	for _, field := range item.Fields {
+		taskRows[i] = fmt.Sprintf("%s|%s|%v|%s",
+			field.Name,
+			field.Type,
+			field.Required,
+			field.Description,
 		)
 		i += 1
 	}

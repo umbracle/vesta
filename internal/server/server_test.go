@@ -14,7 +14,7 @@ type dummyCatalog struct {
 	createTask *proto.Task
 }
 
-func (d *dummyCatalog) Build(req *proto.ApplyRequest, input map[string]interface{}) (map[string]*proto.Task, error) {
+func (d *dummyCatalog) Build(req *proto.ApplyRequest) (map[string]*proto.Task, error) {
 	// this is enough to generate an allocation
 	return map[string]*proto.Task{"task": d.createTask}, nil
 }
@@ -36,7 +36,7 @@ func TestCreate(t *testing.T) {
 		Args: []string{"a"},
 	}
 
-	allocid, err := srv.Create(&proto.ApplyRequest{}, nil)
+	allocid, err := srv.Create(&proto.ApplyRequest{})
 	require.NoError(t, err)
 
 	// the allocation should be on the state with sequence=0
@@ -51,7 +51,7 @@ func TestCreate(t *testing.T) {
 		Args: []string{"b"},
 	}
 
-	allocid2, err := srv.Create(&proto.ApplyRequest{AllocationId: allocid}, nil)
+	allocid2, err := srv.Create(&proto.ApplyRequest{AllocationId: allocid})
 	require.NoError(t, err)
 	require.Equal(t, allocid, allocid2)
 

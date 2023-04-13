@@ -10,12 +10,8 @@ import (
 type Geth struct {
 }
 
-type gethConfig struct {
-	A uint64
-}
-
-func (g *Geth) Config() interface{} {
-	return &gethConfig{}
+func (g *Geth) Config() map[string]*framework.Field {
+	return map[string]*framework.Field{}
 }
 
 func (g *Geth) Chains() []string {

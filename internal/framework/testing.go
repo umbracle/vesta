@@ -19,8 +19,11 @@ func (tf *TestingFramework) ImageExists(t *testing.T) {
 	}
 
 	cfg := &Config{
-		Chain:  "mainnet",
-		Custom: tf.F.Config(),
+		// since we do not run validate, it does not need any input data
+		Chain: "mainnet",
+		Data: &FieldData{
+			Schema: tf.F.Config(),
+		},
 	}
 
 	tasks := tf.F.Generate(cfg)

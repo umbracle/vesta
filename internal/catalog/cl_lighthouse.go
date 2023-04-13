@@ -8,12 +8,14 @@ import (
 type Lighthouse struct {
 }
 
-type lighthouseConfig struct {
-	ExecutionNode string `mapstructure:"execution_node"`
-}
-
-func (l *Lighthouse) Config() interface{} {
-	return &lighthouseConfig{}
+func (l *Lighthouse) Config() map[string]*framework.Field {
+	return map[string]*framework.Field{
+		"execution_node": {
+			Required:    true,
+			Type:        framework.TypeString,
+			Description: "Endpoint of the execution node",
+		},
+	}
 }
 
 func (l *Lighthouse) Chains() []string {
@@ -25,8 +27,6 @@ func (l *Lighthouse) Chains() []string {
 }
 
 func (l *Lighthouse) Generate(config *framework.Config) map[string]*proto.Task {
-	cc := config.Custom.(*lighthouseConfig)
-
 	t := &proto.Task{
 		Image: "sigp/lighthouse",
 		Tag:   "v4.0.1",
@@ -39,7 +39,7 @@ func (l *Lighthouse) Generate(config *framework.Config) map[string]*proto.Task {
 			"--http-address", "0.0.0.0",
 			"--http-port", "5052",
 			"--execution-jwt", "/var/lib/jwtsecret/jwt.hex",
-			"--execution-endpoint", "http://" + cc.ExecutionNode + ":8551",
+			"--execution-endpoint", "http://" + config.Data.GetString("execution_node") + ":8551",
 			"--metrics-address", "0.0.0.0",
 			"--metrics-port", "8008",
 		},

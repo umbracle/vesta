@@ -101,8 +101,8 @@ func (s *Server) Stop() {
 	s.grpcServer.Stop()
 }
 
-func (s *Server) Create(req *proto.ApplyRequest, input map[string]interface{}) (string, error) {
-	deployableTasks, err := s.catalog.Build(req, input)
+func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
+	deployableTasks, err := s.catalog.Build(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to run plugin '%s': %v", req.Action, err)
 	}

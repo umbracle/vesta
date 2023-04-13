@@ -8,12 +8,8 @@ import (
 type Besu struct {
 }
 
-type besuConfig struct {
-	A uint64
-}
-
-func (b *Besu) Config() interface{} {
-	return &besuConfig{}
+func (b *Besu) Config() map[string]*framework.Field {
+	return map[string]*framework.Field{}
 }
 
 func (b *Besu) Chains() []string {
