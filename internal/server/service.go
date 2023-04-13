@@ -47,15 +47,18 @@ func (s *service) DeploymentList(ctx context.Context, req *proto.ListDeploymentR
 }
 
 func (s *service) DeploymentStatus(ctx context.Context, req *proto.DeploymentStatusRequest) (*proto.DeploymentStatusResponse, error) {
-	allocation, err := s.srv.state.GetAllocation(req.Id)
+	allocations, err := s.srv.state.AllocationsByIDPrefix(req.Id)
 	if err != nil {
 		return nil, err
 	}
-	if allocation == nil {
-		return nil, fmt.Errorf("not found")
+	if len(allocations) == 0 {
+		return nil, fmt.Errorf("no allocations found with id or prefix '%s'", req.Id)
+	}
+	if len(allocations) != 1 {
+		return nil, fmt.Errorf("more than one allocation found with prefix")
 	}
 	resp := &proto.DeploymentStatusResponse{
-		Allocation: allocation,
+		Allocation: allocations[0],
 	}
 	return resp, nil
 }

@@ -110,6 +110,22 @@ func (s *StateStore) GetAllocation(id string) (*proto.Allocation, error) {
 	return item.(*proto.Allocation), nil
 }
 
+func (s *StateStore) AllocationsByIDPrefix(prefix string) ([]*proto.Allocation, error) {
+	txn := s.memDb.Txn(false)
+	defer txn.Abort()
+
+	iter, err := txn.Get("allocations", "id_prefix", prefix)
+	if err != nil {
+		return nil, err
+	}
+
+	allocs := []*proto.Allocation{}
+	for obj := iter.Next(); obj != nil; obj = iter.Next() {
+		allocs = append(allocs, obj.(*proto.Allocation))
+	}
+	return allocs, nil
+}
+
 func (s *StateStore) AllocationList(ws memdb.WatchSet) ([]*proto.Allocation, error) {
 	txn := s.memDb.Txn(false)
 	defer txn.Abort()
