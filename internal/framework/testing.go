@@ -21,6 +21,7 @@ func (tf *TestingFramework) ImageExists(t *testing.T, data map[string]interface{
 	cfg := &Config{
 		Chain: "mainnet",
 		Data: &FieldData{
+			Raw:    data,
 			Schema: tf.F.Config(),
 		},
 	}
