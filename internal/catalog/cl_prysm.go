@@ -17,6 +17,10 @@ func (p *Prysm) Config() map[string]*framework.Field {
 			Type:        framework.TypeString,
 			Description: "Endpoint of the execution node",
 		},
+		"use-checkpoint": {
+			Type:        framework.TypeBool,
+			Description: "Whether to use checkpoint initial sync",
+		},
 	}
 }
 
@@ -50,6 +54,11 @@ func (p *Prysm) Generate(config *framework.Config) map[string]*proto.Task {
 				Path: "/data",
 			},
 		},
+	}
+
+	if config.Data.Get("use-checkpoint").(bool) {
+		url := getBeaconCheckpoint(config.Chain)
+		t.Args = append(t.Args, "--checkpoint-sync-url", url, "--genesis-beacon-api-url", url)
 	}
 
 	if config.Chain != mainnetChain {
