@@ -12,16 +12,16 @@ type TestingFramework struct {
 }
 
 // ImageTest tests that the images are correct and exist in the framework
-func (tf *TestingFramework) ImageExists(t *testing.T, data map[string]interface{}) {
+func (tf *TestingFramework) ImageExists(t *testing.T) {
 	client, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	cfg := &Config{
+		// since we do not run validate, it does not need any input data
 		Chain: "mainnet",
 		Data: &FieldData{
-			Raw:    data,
 			Schema: tf.F.Config(),
 		},
 	}

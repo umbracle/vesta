@@ -6,7 +6,5 @@ import (
 
 func TestLighthouse(t *testing.T) {
 	tr := newTestingFramework("lighthouse")
-	tr.ImageExists(t, map[string]interface{}{
-		"execution_node": "",
-	})
+	tr.ImageExists(t)
 }
