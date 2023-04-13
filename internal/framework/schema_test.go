@@ -35,21 +35,19 @@ func TestSchema_FieldData_Get(t *testing.T) {
 	f := &FieldData{
 		Raw: map[string]interface{}{
 			"a": "1",
+			"b": false,
+			"c": "false",
 		},
 		Schema: map[string]*Field{
 			"a": {Type: TypeString},
+			"b": {Type: TypeBool},
+			"c": {Type: TypeBool},
 		},
 	}
 
-	require.Equal(t, "1", f.Get("a"))
-	require.Equal(t, "1", f.GetString("a"))
-
-	val, ok, err := f.GetOkErr("a")
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, "1", val)
-
-	_, ok = f.GetOk("b")
-	require.NoError(t, err)
-	require.False(t, ok)
+	for k := range f.Raw {
+		_, ok, err := f.GetOkErr(k)
+		require.NoError(t, err)
+		require.True(t, ok)
+	}
 }

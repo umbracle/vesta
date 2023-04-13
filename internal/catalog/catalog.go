@@ -25,3 +25,14 @@ func newTestingFramework(chain string) *framework.TestingFramework {
 	}
 	return fr
 }
+
+func getBeaconCheckpoint(chain string) string {
+	if chain == mainnetChain {
+		return "https://beaconstate.info"
+	} else if chain == goerliChain {
+		return "https://goerli.beaconstate.info"
+	} else if chain == sepoliaChain {
+		return "https://sepolia.beaconstate.info"
+	}
+	return ""
+}
