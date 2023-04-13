@@ -130,6 +130,8 @@ message Allocation {
     // status of the allocation
     Status status = 5;
 
+    map<string, SyncStatus> syncStatus = 6;
+
     // desired status of the allocation
     DesiredStatus desiredStatus = 7;
 
@@ -141,6 +143,13 @@ message Allocation {
         Running = 1;
         Complete = 2;
         Failed = 3;
+    }
+
+    message SyncStatus {
+        bool isSynced = 1;
+        uint64 currentBlock = 2;
+        uint64 highestBlock = 3;
+        uint64 numPeers = 4;
     }
 
     enum DesiredStatus {

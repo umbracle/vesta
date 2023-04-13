@@ -54,6 +54,8 @@ func (a *allocReconciler) Compute() *allocResults {
 		depTasks[task.Name] = task
 	}
 
+	fmt.Println("-- current --", len(a.tasks), "-- expected --", len(a.alloc.Deployment.Tasks))
+
 	// remove tasks that:
 	// 1. are not part of the deployment anymore.
 	// 2. have been updated.

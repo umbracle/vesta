@@ -11,12 +11,12 @@ import (
 )
 
 type dummyCatalog struct {
-	createTask *proto.Task
+	tasks map[string]*proto.Task
 }
 
 func (d *dummyCatalog) Build(req *proto.ApplyRequest, input map[string]interface{}) (map[string]*proto.Task, error) {
 	// this is enough to generate an allocation
-	return map[string]*proto.Task{"task": d.createTask}, nil
+	return d.tasks, nil
 }
 
 func TestCreate(t *testing.T) {
@@ -32,7 +32,8 @@ func TestCreate(t *testing.T) {
 	srv, _ := NewServer(hclog.NewNullLogger(), cfg)
 	srv.catalog = catalog
 
-	catalog.createTask = &proto.Task{
+	catalog.tasks = map[string]*proto.Task{}
+	catalog.tasks["a"] = &proto.Task{
 		Args: []string{"a"},
 	}
 
@@ -44,10 +45,10 @@ func TestCreate(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, alloc.Id, allocid)
 	require.Equal(t, alloc.Sequence, int64(0))
-	require.Equal(t, alloc.Tasks["task"].Args, []string{"a"})
+	require.Len(t, alloc.Tasks, 1)
 
 	// update the allocation
-	catalog.createTask = &proto.Task{
+	catalog.tasks["b"] = &proto.Task{
 		Args: []string{"b"},
 	}
 
@@ -59,5 +60,5 @@ func TestCreate(t *testing.T) {
 	alloc, err = srv.state.GetAllocation(allocid)
 	require.NoError(t, err)
 	require.Equal(t, alloc.Sequence, int64(1))
-	require.Equal(t, alloc.Tasks["task"].Args, []string{"b"})
+	require.Len(t, alloc.Tasks, 2)
 }

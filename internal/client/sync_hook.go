@@ -14,7 +14,7 @@ import (
 )
 
 type syncStateUpdater interface {
-	UpdateSyncState(alloc, task string, status babel.SyncStatus)
+	UpdateSyncState(alloc, task string, status *babel.SyncStatus)
 }
 
 var _ hooks.TaskHook = &syncHook{}
@@ -23,15 +23,17 @@ var _ hooks.TaskPoststartHook = &syncHook{}
 type syncHook struct {
 	logger           hclog.Logger
 	task             *proto.Task
+	alloc            string
 	closeCh          chan struct{}
 	ip               string
 	syncStateUpdater syncStateUpdater
 }
 
-func newSyncHook(logger hclog.Logger, task *proto.Task, syncStateUpdater syncStateUpdater) *syncHook {
+func newSyncHook(logger hclog.Logger, alloc string, task *proto.Task, syncStateUpdater syncStateUpdater) *syncHook {
 	h := &syncHook{
 		closeCh:          make(chan struct{}),
 		task:             task,
+		alloc:            alloc,
 		syncStateUpdater: syncStateUpdater,
 	}
 	h.logger = logger.Named(h.Name())
@@ -70,8 +72,7 @@ func (m *syncHook) collectMetrics() {
 		if err != nil {
 			m.logger.Error("failed to get sync status", "err", err)
 		} else {
-			fmt.Println("-- resp --")
-			fmt.Println(resp)
+			m.syncStateUpdater.UpdateSyncState(m.alloc, m.task.Name, resp)
 		}
 
 		select {

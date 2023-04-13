@@ -23,7 +23,7 @@ func newCollector() *collector {
 	return &collector{lock: sync.Mutex{}, metrics: map[string][]*dto.MetricFamily{}}
 }
 
-func (c *collector) hookFactory(logger hclog.Logger, task *proto.Task) hooks.TaskHook {
+func (c *collector) hookFactory(logger hclog.Logger, alloc *proto.Allocation, task *proto.Task) hooks.TaskHook {
 	return newMetricsHook(logger, task, c)
 }
 

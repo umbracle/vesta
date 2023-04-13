@@ -77,12 +77,14 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) UpdateSyncState(alloc, task string, status babel.SyncStatus) {
-	fmt.Println(alloc, task, status)
+func (c *Client) UpdateSyncState(alloc, task string, status *babel.SyncStatus) {
+	if err := c.config.ControlPlane.UpdateSyncStatus(alloc, task, status); err != nil {
+		c.logger.Error("failed to update sync state", "error", err)
+	}
 }
 
-func (c *Client) syncHookFactory(logger hclog.Logger, task *cproto.Task) hooks.TaskHook {
-	return newSyncHook(logger, task, c)
+func (c *Client) syncHookFactory(logger hclog.Logger, alloc *cproto.Allocation, task *cproto.Task) hooks.TaskHook {
+	return newSyncHook(logger, alloc.Deployment.Name, task, c)
 }
 
 func (c *Client) handle() {

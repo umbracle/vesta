@@ -25,3 +25,7 @@ func newTestingFramework(chain string) *framework.TestingFramework {
 	}
 	return fr
 }
+
+func getCheckpointURL(chain string) string {
+	return "https://" + chain + ".checkpoint-sync.ethpandaops.io"
+}

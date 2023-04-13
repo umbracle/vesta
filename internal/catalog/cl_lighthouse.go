@@ -42,6 +42,7 @@ func (l *Lighthouse) Generate(config *framework.Config) map[string]*proto.Task {
 			"--execution-endpoint", "http://" + cc.ExecutionNode + ":8551",
 			"--metrics-address", "0.0.0.0",
 			"--metrics-port", "8008",
+			"--checkpoint-sync-url", getCheckpointURL(config.Chain),
 		},
 		Data: map[string]string{
 			"/var/lib/jwtsecret/jwt.hex": jwtToken,
@@ -62,7 +63,16 @@ func (l *Lighthouse) Generate(config *framework.Config) map[string]*proto.Task {
 		}
 	}
 
+	babel := &proto.Task{
+		Image: "babel",
+		Tag:   "dev",
+		Args: []string{
+			"--plugin", "ethereum_cl", "server", "url=http://0.0.0.0:5052",
+		},
+	}
+
 	return map[string]*proto.Task{
 		"lighthouse": t,
+		"babel":      babel,
 	}
 }
