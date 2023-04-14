@@ -5,14 +5,27 @@ import (
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
-type Netermind struct {
+type nethermind struct {
+	*framework.Backend
 }
 
-func (n *Netermind) Config() map[string]*framework.Field {
+func newNethermind() framework.Framework {
+	var b nethermind
+
+	b.Backend = &framework.Backend{
+		Fields:     b.ConfigFields(),
+		ListChains: b.GetChains(),
+		GenerateFn: b.GenerateFn2,
+	}
+
+	return &b
+}
+
+func (n *nethermind) ConfigFields() map[string]*framework.Field {
 	return map[string]*framework.Field{}
 }
 
-func (n *Netermind) Chains() []string {
+func (n *nethermind) GetChains() []string {
 	return []string{
 		"mainnet",
 		"goerli",
@@ -20,7 +33,7 @@ func (n *Netermind) Chains() []string {
 	}
 }
 
-func (n *Netermind) Generate(config *framework.Config) map[string]*proto.Task {
+func (n *nethermind) GenerateFn2(config *framework.Config) map[string]*proto.Task {
 	tt := &proto.Task{
 		Image: "nethermind/nethermind",
 		Tag:   "1.17.3",

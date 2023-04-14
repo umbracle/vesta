@@ -5,14 +5,27 @@ import (
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
-type Besu struct {
+type besu struct {
+	*framework.Backend
 }
 
-func (b *Besu) Config() map[string]*framework.Field {
+func newBesu() framework.Framework {
+	var b besu
+
+	b.Backend = &framework.Backend{
+		Fields:     b.ConfigFields(),
+		ListChains: b.GetChains(),
+		GenerateFn: b.GenerateFn2,
+	}
+
+	return &b
+}
+
+func (b *besu) ConfigFields() map[string]*framework.Field {
 	return map[string]*framework.Field{}
 }
 
-func (b *Besu) Chains() []string {
+func (b *besu) GetChains() []string {
 	return []string{
 		"mainnet",
 		"goerli",
@@ -20,7 +33,7 @@ func (b *Besu) Chains() []string {
 	}
 }
 
-func (b *Besu) Generate(config *framework.Config) map[string]*proto.Task {
+func (b *besu) GenerateFn2(config *framework.Config) map[string]*proto.Task {
 	tt := &proto.Task{
 		Image: "hyperledger/besu",
 		Tag:   "latest",

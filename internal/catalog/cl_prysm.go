@@ -7,10 +7,23 @@ import (
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
-type Prysm struct {
+type prysm struct {
+	*framework.Backend
 }
 
-func (p *Prysm) Config() map[string]*framework.Field {
+func newPrysm() framework.Framework {
+	var b prysm
+
+	b.Backend = &framework.Backend{
+		Fields:     b.ConfigFields(),
+		ListChains: b.GetChains(),
+		GenerateFn: b.GenerateFn2,
+	}
+
+	return &b
+}
+
+func (p *prysm) ConfigFields() map[string]*framework.Field {
 	return map[string]*framework.Field{
 		"execution_node": {
 			Required:    true,
@@ -24,7 +37,7 @@ func (p *Prysm) Config() map[string]*framework.Field {
 	}
 }
 
-func (p *Prysm) Chains() []string {
+func (p *prysm) GetChains() []string {
 	return []string{
 		"mainnet",
 		"goerli",
@@ -32,7 +45,7 @@ func (p *Prysm) Chains() []string {
 	}
 }
 
-func (p *Prysm) Generate(config *framework.Config) map[string]*proto.Task {
+func (p *prysm) GenerateFn2(config *framework.Config) map[string]*proto.Task {
 	t := &proto.Task{
 		Image: "gcr.io/prysmaticlabs/prysm/beacon-chain",
 		Tag:   "v4.0.0",

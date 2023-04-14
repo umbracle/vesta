@@ -7,10 +7,23 @@ import (
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
-type Geth struct {
+type geth struct {
+	*framework.Backend
 }
 
-func (g *Geth) Config() map[string]*framework.Field {
+func newGeth() framework.Framework {
+	var b geth
+
+	b.Backend = &framework.Backend{
+		Fields:     b.ConfigFields(),
+		ListChains: b.GetChains(),
+		GenerateFn: b.GenerateFn2,
+	}
+
+	return &b
+}
+
+func (g *geth) ConfigFields() map[string]*framework.Field {
 	return map[string]*framework.Field{
 		"dbengine": {
 			Type:          framework.TypeString,
@@ -22,7 +35,7 @@ func (g *Geth) Config() map[string]*framework.Field {
 	}
 }
 
-func (g *Geth) Chains() []string {
+func (g *geth) GetChains() []string {
 	return []string{
 		"mainnet",
 		"goerli",
@@ -30,7 +43,7 @@ func (g *Geth) Chains() []string {
 	}
 }
 
-func (g *Geth) Generate(config *framework.Config) map[string]*proto.Task {
+func (g *geth) GenerateFn2(config *framework.Config) map[string]*proto.Task {
 	tt := &proto.Task{
 		Image: "ethereum/client-go",
 		Tag:   "v1.11.5",

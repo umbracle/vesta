@@ -7,10 +7,23 @@ import (
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
-type Teku struct {
+type teku struct {
+	*framework.Backend
 }
 
-func (t *Teku) Config() map[string]*framework.Field {
+func newTeku() framework.Framework {
+	var b teku
+
+	b.Backend = &framework.Backend{
+		Fields:     b.ConfigFields(),
+		ListChains: b.GetChains(),
+		GenerateFn: b.GenerateFn2,
+	}
+
+	return &b
+}
+
+func (t *teku) ConfigFields() map[string]*framework.Field {
 	return map[string]*framework.Field{
 		"execution_node": {
 			Required:    true,
@@ -20,7 +33,7 @@ func (t *Teku) Config() map[string]*framework.Field {
 	}
 }
 
-func (t *Teku) Chains() []string {
+func (t *teku) GetChains() []string {
 	return []string{
 		"mainnet",
 		"goerli",
@@ -28,7 +41,7 @@ func (t *Teku) Chains() []string {
 	}
 }
 
-func (t *Teku) Generate(config *framework.Config) map[string]*proto.Task {
+func (t *teku) GenerateFn2(config *framework.Config) map[string]*proto.Task {
 
 	tt := &proto.Task{
 		Image: "consensys/teku",

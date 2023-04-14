@@ -5,10 +5,23 @@ import (
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
-type Lighthouse struct {
+type lighthouse struct {
+	*framework.Backend
 }
 
-func (l *Lighthouse) Config() map[string]*framework.Field {
+func newLighthouse() framework.Framework {
+	var b lighthouse
+
+	b.Backend = &framework.Backend{
+		Fields:     b.ConfigFields(),
+		ListChains: b.GetChains(),
+		GenerateFn: b.GenerateFn2,
+	}
+
+	return &b
+}
+
+func (l *lighthouse) ConfigFields() map[string]*framework.Field {
 	return map[string]*framework.Field{
 		"execution_node": {
 			Required:    true,
@@ -18,7 +31,7 @@ func (l *Lighthouse) Config() map[string]*framework.Field {
 	}
 }
 
-func (l *Lighthouse) Chains() []string {
+func (l *lighthouse) GetChains() []string {
 	return []string{
 		"mainnet",
 		"goerli",
@@ -26,7 +39,7 @@ func (l *Lighthouse) Chains() []string {
 	}
 }
 
-func (l *Lighthouse) Generate(config *framework.Config) map[string]*proto.Task {
+func (l *lighthouse) GenerateFn2(config *framework.Config) map[string]*proto.Task {
 	t := &proto.Task{
 		Image: "sigp/lighthouse",
 		Tag:   "v4.0.1",
