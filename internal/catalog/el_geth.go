@@ -11,7 +11,15 @@ type Geth struct {
 }
 
 func (g *Geth) Config() map[string]*framework.Field {
-	return map[string]*framework.Field{}
+	return map[string]*framework.Field{
+		"dbengine": {
+			Type:          framework.TypeString,
+			Description:   "Database engine to use (leveldb, pebble)",
+			AllowedValues: []interface{}{"leveldb", "pebble"},
+			ForceNew:      true,
+			Default:       "leveldb",
+		},
+	}
 }
 
 func (g *Geth) Chains() []string {
@@ -49,6 +57,11 @@ func (g *Geth) Generate(config *framework.Config) map[string]*proto.Task {
 				Path: "/data",
 			},
 		},
+	}
+
+	if engine := config.Data.GetString("dbengine"); engine == "pebble" {
+		// use the pebble database
+		tt.Args = append(tt.Args, "--db.engine", "pebble")
 	}
 
 	if config.Chain != mainnetChain {

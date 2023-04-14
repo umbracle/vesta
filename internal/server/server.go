@@ -102,23 +102,32 @@ func (s *Server) Stop() {
 }
 
 func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
-	deployableTasks, err := s.catalog.Build(req)
+	allocId := req.AllocationId
+
+	var alloc *proto.Allocation
+	var prevState []byte
+
+	if allocId != "" {
+		// load allocation from the state
+		var err error
+
+		if alloc, err = s.state.GetAllocation(allocId); err != nil {
+			return "", err
+		}
+		prevState = alloc.InputState
+	}
+
+	state, deployableTasks, err := s.catalog.Build(prevState, req)
 	if err != nil {
 		return "", fmt.Errorf("failed to run plugin '%s': %v", req.Action, err)
 	}
 
-	allocId := req.AllocationId
-
-	if allocId != "" {
+	if alloc != nil {
 		// update the deployment
-		alloc, err := s.state.GetAllocation(allocId)
-		if err != nil {
-			return "", err
-		}
-
 		alloc = alloc.Copy()
 		alloc.Sequence++
 		alloc.Tasks = deployableTasks
+		alloc.InputState = state
 
 		if err := s.state.UpsertAllocation(alloc); err != nil {
 			return "", err
@@ -127,9 +136,10 @@ func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
 		allocId = uuid.Generate()
 
 		alloc := &proto.Allocation{
-			Id:     allocId,
-			NodeId: "local",
-			Tasks:  deployableTasks,
+			Id:         allocId,
+			NodeId:     "local",
+			Tasks:      deployableTasks,
+			InputState: state,
 		}
 		if err := s.state.UpsertAllocation(alloc); err != nil {
 			return "", err
