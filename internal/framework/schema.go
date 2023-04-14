@@ -16,6 +16,9 @@ type Field struct {
 	// Default value for the field
 	Default interface{}
 
+	// ForceNew signals whether a change in this field requires a restart
+	ForceNew bool
+
 	// Description of the field
 	Description string
 
@@ -170,5 +173,13 @@ func (d *FieldData) Validate() error {
 			}
 		}
 	}
+
+	// check if there is any value in Raw that is not part of the schema
+	for k := range d.Raw {
+		if _, ok := d.Schema[k]; !ok {
+			return fmt.Errorf("field not found '%s'", k)
+		}
+	}
+
 	return nil
 }

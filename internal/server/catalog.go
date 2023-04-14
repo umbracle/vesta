@@ -11,21 +11,16 @@ import (
 )
 
 type Catalog interface {
-	Build(req *proto.ApplyRequest) (map[string]*proto.Task, error)
+	Build(prev []byte, req *proto.ApplyRequest) ([]byte, map[string]*proto.Task, error)
 }
 
 type localCatalog struct {
 }
 
-func (l *localCatalog) Build(req *proto.ApplyRequest) (map[string]*proto.Task, error) {
-	var rawInput map[string]interface{}
-	if err := json.Unmarshal(req.Input, &rawInput); err != nil {
-		return nil, err
-	}
-
+func (l *localCatalog) Build(prev []byte, req *proto.ApplyRequest) ([]byte, map[string]*proto.Task, error) {
 	cc, ok := catalog.Catalog[strings.ToLower(req.Action)]
 	if !ok {
-		return nil, fmt.Errorf("not found plugin: %s", req.Action)
+		return nil, nil, fmt.Errorf("not found plugin: %s", req.Action)
 	}
 
 	// validate that the plugin can run this chain
@@ -37,15 +32,25 @@ func (l *localCatalog) Build(req *proto.ApplyRequest) (map[string]*proto.Task, e
 		}
 	}
 	if !found {
-		return nil, fmt.Errorf("cannot run chain '%s'", req.Chain)
+		return nil, nil, fmt.Errorf("cannot run chain '%s'", req.Chain)
 	}
 
-	data := &framework.FieldData{
-		Raw:    rawInput,
-		Schema: cc.Config(),
+	var prevMap map[string]interface{}
+	if prev != nil {
+		if err := json.Unmarshal(prev, &prevMap); err != nil {
+			return nil, nil, err
+		}
 	}
-	if err := data.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate input: %v", err)
+
+	var inputMap map[string]interface{}
+	if err := json.Unmarshal(req.Input, &inputMap); err != nil {
+		return nil, nil, err
+	}
+
+	// validate the input and the state
+	state, data, err := processInput(cc.Config(), prevMap, inputMap)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	config := &framework.Config{
@@ -55,5 +60,59 @@ func (l *localCatalog) Build(req *proto.ApplyRequest) (map[string]*proto.Task, e
 	}
 
 	deployableTasks := cc.Generate(config)
-	return deployableTasks, nil
+
+	rawState, err := json.Marshal(state)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return rawState, deployableTasks, nil
+}
+
+func processInput(fields map[string]*framework.Field, state map[string]interface{}, input map[string]interface{}) (map[string]interface{}, *framework.FieldData, error) {
+	// validate that the input matches the schema
+	inputData := &framework.FieldData{
+		Raw:    input,
+		Schema: fields,
+	}
+	if err := inputData.Validate(); err != nil {
+		return nil, nil, fmt.Errorf("failed to validate input: %v", err)
+	}
+
+	if state != nil {
+		// validate that any new value is not a forceNew field
+		stateData := &framework.FieldData{
+			Raw:    state,
+			Schema: fields,
+		}
+		for k := range input {
+			if fields[k].ForceNew {
+				oldVal := stateData.Get(k)
+				newVal := inputData.Get(k)
+
+				if newVal != oldVal {
+					return nil, nil, fmt.Errorf("force new value '%s' has changed", k)
+				}
+			}
+		}
+
+		// merge the input values into the state
+		for k, v := range input {
+			state[k] = v
+		}
+
+	} else {
+		// new deployment, take as state the current input
+		state = input
+	}
+
+	data := &framework.FieldData{
+		Raw:    state,
+		Schema: fields,
+	}
+	if err := data.Validate(); err != nil {
+		return nil, nil, fmt.Errorf("failed to validate input: %v", err)
+	}
+
+	return state, data, nil
 }

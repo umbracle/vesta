@@ -144,6 +144,8 @@ message Allocation {
     // modify index sequence number
     int64 sequence = 8;
 
+    bytes inputState = 9;
+
     enum Status {
         Pending = 0;
         Running = 1;
