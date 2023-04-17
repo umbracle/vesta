@@ -23,6 +23,7 @@ func (tf *TestingFramework) ImageExists(t *testing.T) {
 		Chain: "mainnet",
 		Data: &FieldData{
 			Schema: tf.F.Config(),
+			Raw:    map[string]interface{}{},
 		},
 	}
 
