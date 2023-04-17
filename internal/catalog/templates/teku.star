@@ -17,28 +17,21 @@ def config():
 
 def generate(obj):
     t = {
-        "image": "sigp/lighthouse",
-        "tag": "v4.0.1",
+        "image": "nethermind/nethermind",
+        "tag": "1.17.3",
         "args": [
-            "lighthouse",
-            "bn",
-            "--network",
-            obj["chain"],
-            "--datadir",
+            "--data-base-path",
             "/data",
-            "--http",
-            "--http-address",
-            "0.0.0.0",
-            "--http-port",
-            "5052",
-            "--execution-jwt",
-            "/var/lib/jwtsecret/jwt.hex",
-            "--execution-endpoint",
+            "--ee-endpoint",
             "http://" + obj["execution_node"] + ":8551",
-            "--metrics-address",
-            "0.0.0.0",
+            "--ee-jwt-secret-file",
+            "/var/lib/jwtsecret/jwt.hex",
+            "--metrics-host-allowlist",
+            "*",
             "--metrics-port",
             "8008",
+            "--metrics-interface",
+            "0.0.0.0",
         ],
         "data": {
             "/var/lib/jwtsecret/jwt.hex": "04592280e1778419b7aa954d43871cb2cfb2ebda754fb735e8adeb293a88f9bf"
@@ -46,8 +39,11 @@ def generate(obj):
         "volumes": {"data": {"path": "/data"}},
     }
 
+    if obj["chain"] != "mainnet":
+        t["args"].extend(["--network", "--" + obj["chain"]])
+
     if obj["metrics"]:
-        t["args"].extend(["--metrics"])
+        t["args"].extend(["--metrics-enabled"])
         t["telemetry"] = {"port": 8008, "path": "metrics"}
 
     return {"node": t}

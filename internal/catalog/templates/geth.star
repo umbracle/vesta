@@ -44,7 +44,9 @@ def generate(obj):
             "--metrics.addr",
             "0.0.0.0",
         ],
-        "data": {"/var/lib/jwtsecret/jwt.hex": ""},
+        "data": {
+            "/var/lib/jwtsecret/jwt.hex": "04592280e1778419b7aa954d43871cb2cfb2ebda754fb735e8adeb293a88f9bf"
+        },
         "volumes": {"data": {"path": "/data"}},
     }
 

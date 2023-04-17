@@ -15,11 +15,11 @@ var content embed.FS
 
 var Catalog = map[string]framework.Framework{
 	"lighthouse": newBackend("lighthouse"),
-	"prysm":      &Prysm{},
-	"teku":       &Teku{},
-	"besu":       &Besu{},
+	"prysm":      newBackend("prysm"),
+	"teku":       newBackend("teku"),
+	"besu":       newBackend("besu"),
 	"geth":       newBackend("geth"),
-	"nethermind": &Netermind{},
+	"nethermind": newBackend("nethermind"),
 }
 
 var jwtToken = "04592280e1778419b7aa954d43871cb2cfb2ebda754fb735e8adeb293a88f9bf"
@@ -56,13 +56,13 @@ type backend struct {
 func newBackend(name string) framework.Framework {
 	content, err := content.ReadFile("templates/" + name + ".star")
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("failed to load '%s': %v", name, err))
 	}
 
 	thread := &starlark.Thread{Name: "my thread"}
 	globals, err := starlark.ExecFile(thread, "", content, nil)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("failed to exec '%s': %v", name, err))
 	}
 
 	b := &backend{
@@ -179,6 +179,13 @@ func toGoValue(v starlark.Value) interface{} {
 			res[string(k.(starlark.String))] = toGoValue(val)
 		}
 		return res
+
+	case starlark.Int:
+		val, ok := obj.Uint64()
+		if !ok {
+			panic(fmt.Errorf("cannot convert uint64"))
+		}
+		return val
 
 	case starlark.String:
 		return string(obj)
