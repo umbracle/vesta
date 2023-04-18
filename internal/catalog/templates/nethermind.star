@@ -1,12 +1,8 @@
 version = "0.0.1"
 
+chains = ["mainnet", "goerli", "sepolia"]
 
-def chains():
-    return ["mainnet", "goerli", "sepolia"]
-
-
-def config():
-    return {}
+config = {}
 
 
 def generate(obj):

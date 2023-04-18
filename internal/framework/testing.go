@@ -18,6 +18,9 @@ func (tf *TestingFramework) ImageExists(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// make sure chains does not fail either
+	tf.F.Chains()
+
 	cfg := &Config{
 		// since we do not run validate, it does not need any input data
 		Chain:   "mainnet",

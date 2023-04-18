@@ -1,18 +1,14 @@
 version = "0.0.1"
 
+chains = ["mainnet", "goerli", "sepolia"]
 
-def chains():
-    return ["mainnet", "goerli", "sepolia"]
-
-
-def config():
-    return {
-        "execution_node": {
-            "type": "string",
-            "required": True,
-            "description": "Endpoint of the execution node",
-        }
+config = {
+    "execution_node": {
+        "type": "string",
+        "required": True,
+        "description": "Endpoint of the execution node",
     }
+}
 
 
 def generate(obj):

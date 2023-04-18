@@ -1,22 +1,18 @@
 version = "0.0.1"
 
+chains = ["mainnet", "goerli", "sepolia"]
 
-def chains():
-    return ["mainnet", "goerli", "sepolia"]
-
-
-def config():
-    return {
-        "execution_node": {
-            "type": "string",
-            "required": True,
-            "description": "Endpoint of the execution node",
-        },
-        "use_checkpoint": {
-            "type": "bool",
-            "description": "Whether to use checkpoint initial sync",
-        },
-    }
+config = {
+    "execution_node": {
+        "type": "string",
+        "required": True,
+        "description": "Endpoint of the execution node",
+    },
+    "use_checkpoint": {
+        "type": "bool",
+        "description": "Whether to use checkpoint initial sync",
+    },
+}
 
 
 def generate(obj):
@@ -48,6 +44,7 @@ def generate(obj):
 
     if obj["use_checkpoint"]:
         url = getBeaconCheckpoint(obj["chain"])
+
         t["args"].extend(
             ["--checkpoint-sync-url", url, "--genesis-beacon-api-url", url]
         )

@@ -1,20 +1,16 @@
 version = "0.0.1"
 
+chains = ["mainnet", "goerli", "sepolia"]
 
-def chains():
-    return ["mainnet", "goerli", "sepolia"]
-
-
-def config():
-    return {
-        "dbengine": {
-            "type": "string",
-            "description": "Database engine to use (leveldb, pebble)",
-            "allowed_values": ["leveldb", "pebble"],
-            "force_new": True,
-            "default": "leveldb",
-        }
+config = {
+    "dbengine": {
+        "type": "string",
+        "description": "Database engine to use (leveldb, pebble)",
+        "allowed_values": ["leveldb", "pebble"],
+        "force_new": True,
+        "default": "leveldb",
     }
+}
 
 
 def generate(obj):

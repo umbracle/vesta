@@ -51,6 +51,8 @@ func getBeaconCheckpoint(chain string) string {
 type backend struct {
 	thread  *starlark.Thread
 	globals starlark.StringDict
+	fields  map[string]*framework.Field
+	chains  []string
 }
 
 func newBackend(name string) framework.Framework {
@@ -69,6 +71,11 @@ func newBackend(name string) framework.Framework {
 		thread:  thread,
 		globals: globals,
 	}
+
+	if err := b.generateStaticConfig(); err != nil {
+		panic(fmt.Errorf("failed to generate static config: %v", err))
+	}
+
 	return b
 }
 
@@ -99,35 +106,32 @@ func (f *field) ToType() *framework.Field {
 	return res
 }
 
+func (b *backend) generateStaticConfig() error {
+	configValue := b.globals["config"]
+
+	var configResult map[string]*field
+	if err := mapstructure.Decode(toGoValue(configValue), &configResult); err != nil {
+		return err
+	}
+
+	b.fields = map[string]*framework.Field{}
+	for name, res := range configResult {
+		b.fields[name] = res.ToType()
+	}
+
+	chainsValue := b.globals["chains"]
+	if err := mapstructure.Decode(toGoValue(chainsValue), &b.chains); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (b *backend) Config() map[string]*framework.Field {
-	v, err := starlark.Call(b.thread, b.globals["config"], starlark.Tuple{}, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	var result map[string]*field
-	if err := mapstructure.Decode(toGoValue(v), &result); err != nil {
-		panic(err)
-	}
-
-	types := map[string]*framework.Field{}
-	for name, res := range result {
-		types[name] = res.ToType()
-	}
-	return types
+	return b.fields
 }
 
 func (b *backend) Chains() []string {
-	v, err := starlark.Call(b.thread, b.globals["chains"], starlark.Tuple{}, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	var result []string
-	if err := mapstructure.Decode(toGoValue(v), &result); err != nil {
-		panic(err)
-	}
-	return result
+	return b.chains
 }
 
 func (b *backend) Generate(config *framework.Config) map[string]*proto.Task {
