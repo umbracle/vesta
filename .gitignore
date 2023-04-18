@@ -1,2 +1,5 @@
 *.db
 test-config.json
+
+/bin
+/pkg
