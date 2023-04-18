@@ -1,4 +1,4 @@
-# 0.1.1 (Unreleased)
+# 0.1.1 (18 April, 2023)
 
 - feat: Use Id or Prefix in `deployment status` [[GH-22](https://github.com/umbracle/eth2-validator/issues/22)]
 - feat: List available chains in the plugin [[GH-48](https://github.com/umbracle/eth2-validator/issues/48)]
