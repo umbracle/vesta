@@ -22,6 +22,6 @@ The Control plane is a statically compiled binary written in Golang. It is the m
 - Define the input parameters for the client (i.e. max number of peers).
 - Declare how to translate the input parameters into a `Deployment` object. The `Deployment` defines the set of `Tasks` to run as part of the client. Each `Task` represents an executable `Docker` container. The `Task` also define some extra information (i.e. Prometheus endpoint) that help the `Control plane` manage all the blockchain nodes in an integrated way.
 
-You can find the list of available plugins and their parameters in the [`Plugins`](/plugins) section.
+You can find the list of available plugins and their parameters in the [`Plugins`](/docs/plugins/overview) section.
 
 As of now, the full catalog of Plugins is released under the same binary as the Control plane. In the future, these two components will be separated entities and the Control plane will be able to fetch the catalog from external sources.
