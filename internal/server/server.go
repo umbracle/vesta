@@ -140,6 +140,7 @@ func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
 			NodeId:     "local",
 			Tasks:      deployableTasks,
 			InputState: state,
+			Alias:      req.Alias,
 		}
 		if err := s.state.UpsertAllocation(alloc); err != nil {
 			return "", err

@@ -128,6 +128,30 @@ func (s *StateStore) allocationByAliasImpl(txn *memdb.Txn, alias string) (*proto
 	return val.(*proto.Allocation), nil
 }
 
+func (s *StateStore) AllocationByAliasOrIDOrPrefix(id string) (*proto.Allocation, error) {
+	// try to resolve first by alias
+	obj, err := s.AllocationByAlias(id)
+	if err != nil {
+		return nil, err
+	}
+	if obj != nil {
+		return obj, nil
+	}
+
+	// try to resolve by id or prefix
+	allocs, err := s.AllocationsByIDPrefix(id)
+	if err != nil {
+		return nil, err
+	}
+	if len(allocs) == 0 {
+		return nil, fmt.Errorf("no allocations found with id or prefix '%s'", id)
+	}
+	if len(allocs) != 1 {
+		return nil, fmt.Errorf("more than one allocation found with prefix")
+	}
+	return allocs[0], nil
+}
+
 func (s *StateStore) AllocationsByIDPrefix(prefix string) ([]*proto.Allocation, error) {
 	txn := s.memDb.Txn(false)
 	defer txn.Abort()

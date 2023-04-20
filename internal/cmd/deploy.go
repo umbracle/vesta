@@ -23,6 +23,8 @@ type DeployCommand struct {
 	params string
 
 	metrics bool
+
+	alias string
 }
 
 // Help implements the cli.Command interface
@@ -45,6 +47,7 @@ func (c *DeployCommand) Run(args []string) int {
 	flags.StringVar(&c.allocId, "alloc", "", "")
 	flags.StringVar(&c.params, "params", "", "")
 	flags.BoolVar(&c.metrics, "metrics", true, "")
+	flags.StringVar(&c.alias, "alias", "", "")
 
 	if err := flags.Parse(args); err != nil {
 		c.UI.Error(err.Error())
@@ -92,6 +95,7 @@ func (c *DeployCommand) Run(args []string) int {
 		AllocationId: c.allocId,
 		Chain:        c.chain,
 		Metrics:      c.metrics,
+		Alias:        c.alias,
 	}
 	resp, err := clt.Apply(context.Background(), req)
 	if err != nil {
