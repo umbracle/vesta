@@ -47,6 +47,11 @@ func (l *localCatalog) Build(prev []byte, req *proto.ApplyRequest) ([]byte, map[
 		return nil, nil, err
 	}
 
+	// add to input the typed parameters from the request
+	if req.LogLevel != "" {
+		inputMap["log_level"] = req.LogLevel
+	}
+
 	// validate the input and the state
 	state, data, err := processInput(cc.Config(), prevMap, inputMap)
 	if err != nil {

@@ -25,6 +25,8 @@ type DeployCommand struct {
 	metrics bool
 
 	alias string
+
+	logLevel string
 }
 
 // Help implements the cli.Command interface
@@ -48,6 +50,7 @@ func (c *DeployCommand) Run(args []string) int {
 	flags.StringVar(&c.params, "params", "", "")
 	flags.BoolVar(&c.metrics, "metrics", true, "")
 	flags.StringVar(&c.alias, "alias", "", "")
+	flags.StringVar(&c.logLevel, "log-level", "info", "")
 
 	if err := flags.Parse(args); err != nil {
 		c.UI.Error(err.Error())
@@ -96,6 +99,7 @@ func (c *DeployCommand) Run(args []string) int {
 		Chain:        c.chain,
 		Metrics:      c.metrics,
 		Alias:        c.alias,
+		LogLevel:     c.logLevel,
 	}
 	resp, err := clt.Apply(context.Background(), req)
 	if err != nil {

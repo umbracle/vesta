@@ -65,6 +65,8 @@ message ApplyRequest {
     string chain = 5;
 
     string alias = 6;
+
+    string logLevel = 7;
 }
 
 message ApplyResponse {

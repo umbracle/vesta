@@ -119,11 +119,25 @@ func (b *backend) generateStaticConfig() error {
 		b.fields[name] = res.ToType()
 	}
 
+	// append the default configuration fields
+	for name, res := range defaultConfiguration {
+		b.fields[name] = res
+	}
+
 	chainsValue := b.globals["chains"]
 	if err := mapstructure.Decode(toGoValue(chainsValue), &b.chains); err != nil {
 		return err
 	}
 	return nil
+}
+
+var defaultConfiguration = map[string]*framework.Field{
+	"log_level": {
+		Type:          framework.TypeString,
+		Default:       "info",
+		Description:   "Log level for the logs emitted by the client",
+		AllowedValues: []interface{}{"all", "debug", "info", "warn", "error", "silent"},
+	},
 }
 
 func (b *backend) Config() map[string]*framework.Field {
