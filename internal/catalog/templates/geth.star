@@ -12,8 +12,12 @@ config = {
     }
 }
 
+verbosity_levels = {"debug": "4", "info": "3", "warn": "2", "error": "1", "silent": "0"}
+
 
 def generate(obj):
+    verbosity = verbosity_levels[obj["log_level"]]
+
     t = {
         "image": "ethereum/client-go",
         "tag": "v1.11.5",
@@ -39,6 +43,8 @@ def generate(obj):
             "/var/lib/jwtsecret/jwt.hex",
             "--metrics.addr",
             "0.0.0.0",
+            "--verbosity",
+            verbosity,
         ],
         "data": {
             "/var/lib/jwtsecret/jwt.hex": "04592280e1778419b7aa954d43871cb2cfb2ebda754fb735e8adeb293a88f9bf"

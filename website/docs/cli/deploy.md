@@ -16,6 +16,8 @@ $ vesta deploy [params] [options]
 - `chain`: (string): The chain you want to deploy. The plugin will filter if the chain name is correct.
 - `alloc`: (string): The allocation if we are performing an update.
 - `metrics`: (bool: true): Whether the node tracks metrics or not.
+- `alias`: (string): The alias of the node. If set, you can use this name instead of the deployment id to refer to this node.
+- `log-level`: (string): Logging level for the output log of the nodes. Available options: (`all`, `debug`, `info`, `warn`, `error`, `silent`). It defaults to `info`.
 
 Each plugin also defines custom parameters that can be queried with the `catalog inspect` command. Those specific fields are passed as values to the cli but without a flag, for example `param=val` instead of `--param=val`.
 
