@@ -37,7 +37,7 @@ func (n *networkHook) Name() string {
 }
 
 func (n *networkHook) Prerun() error {
-	spec, created, err := n.driver.CreateNetwork(n.alloc.Deployment.Name, n.alloc.Deployment.Name)
+	spec, created, err := n.driver.CreateNetwork(n.alloc.Deployment.Name, []string{n.alloc.Deployment.Alias}, n.alloc.Deployment.Name)
 	if err != nil {
 		return err
 	}

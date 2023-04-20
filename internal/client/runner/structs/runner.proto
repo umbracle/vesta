@@ -17,6 +17,7 @@ message Deployment {
     string name = 1;
     repeated Task tasks = 2;
     int64 sequence = 3;
+    string alias = 4;
 }
 
 message Task {
