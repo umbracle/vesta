@@ -13,9 +13,21 @@ var (
 	networkInfraImage = "gcr.io/google_containers/pause-amd64:3.1"
 )
 
-func (d *Docker) CreateNetwork(allocID string, hostname string) (*structs.NetworkSpec, bool, error) {
+func (d *Docker) CreateNetwork(allocID string, dnsAlias []string, hostname string) (*structs.NetworkSpec, bool, error) {
 	if err := d.createImage(networkInfraImage); err != nil {
 		return nil, false, err
+	}
+
+	// if the dns alias does not include the allocID, add it
+	found := false
+	for _, a := range dnsAlias {
+		if a == allocID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		dnsAlias = append(dnsAlias, allocID)
 	}
 
 	opts := &createContainerOptions{
@@ -30,9 +42,7 @@ func (d *Docker) CreateNetwork(allocID string, hostname string) (*structs.Networ
 		network: &network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
 				d.networkName: {
-					Aliases: []string{
-						allocID,
-					},
+					Aliases: dnsAlias,
 				},
 			},
 		},

@@ -63,6 +63,8 @@ message ApplyRequest {
     bool metrics = 4;
 
     string chain = 5;
+
+    string alias = 6;
 }
 
 message ApplyResponse {
@@ -145,6 +147,8 @@ message Allocation {
     int64 sequence = 8;
 
     bytes inputState = 9;
+
+    string alias = 10;
 
     enum Status {
         Pending = 0;

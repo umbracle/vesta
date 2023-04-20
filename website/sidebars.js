@@ -52,6 +52,13 @@ const sidebars = {
         'plugins/teku',
       ],
     },
+    {
+      type: 'category',
+      label: 'Tutorials',
+      items: [
+        'tutorials/ethereum_mainnet',
+      ]
+    }
   ],
 };
 

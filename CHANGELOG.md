@@ -1,3 +1,9 @@
+# 0.1.2 (Unreleased)
+
+IMPROVEMENTS:
+
+- core: Add an alias for the deployment [[GH-23](https://github.com/umbracle/eth2-validator/issues/23)]
+
 # 0.1.1 (18 April, 2023)
 
 - feat: Use Id or Prefix in `deployment status` [[GH-22](https://github.com/umbracle/eth2-validator/issues/22)]

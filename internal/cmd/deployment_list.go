@@ -54,11 +54,12 @@ func formatNodes(allocs []*proto.Allocation) string {
 	}
 
 	rows := make([]string, len(allocs)+1)
-	rows[0] = "Name|Status"
+	rows[0] = "ID|Status|Alias"
 	for i, d := range allocs {
-		rows[i+1] = fmt.Sprintf("%s|%s",
+		rows[i+1] = fmt.Sprintf("%s|%s|%s",
 			d.Id,
 			d.Status.String(),
+			d.Alias,
 		)
 	}
 	return formatList(rows)
