@@ -110,6 +110,24 @@ func (s *StateStore) GetAllocation(id string) (*proto.Allocation, error) {
 	return item.(*proto.Allocation), nil
 }
 
+func (s *StateStore) AllocationByAlias(alias string) (*proto.Allocation, error) {
+	txn := s.memDb.Txn(false)
+	defer txn.Abort()
+
+	return s.allocationByAliasImpl(txn, alias)
+}
+
+func (s *StateStore) allocationByAliasImpl(txn *memdb.Txn, alias string) (*proto.Allocation, error) {
+	val, err := txn.First("allocations", "alias", alias)
+	if err != nil {
+		return nil, err
+	}
+	if val == nil {
+		return nil, nil
+	}
+	return val.(*proto.Allocation), nil
+}
+
 func (s *StateStore) AllocationsByIDPrefix(prefix string) ([]*proto.Allocation, error) {
 	txn := s.memDb.Txn(false)
 	defer txn.Abort()
@@ -190,6 +208,17 @@ func (s *StateStore) DestroyAllocation(id string) error {
 func (s *StateStore) UpsertAllocation(alloc *proto.Allocation) error {
 	memTxn := s.memDb.Txn(true)
 	defer memTxn.Abort()
+
+	// validate that if the alloc is being updated, the alias is available
+	if alloc.Alias != "" {
+		obj, err := s.allocationByAliasImpl(memTxn, alloc.Alias)
+		if err != nil {
+			return err
+		}
+		if obj != nil && obj.Id != alloc.Id {
+			return fmt.Errorf("alias already in use")
+		}
+	}
 
 	err := s.db.Update(func(dbTxn *bolt.Tx) error {
 		return s.putAllocation(dbTxn, memTxn, alloc)

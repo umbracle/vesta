@@ -26,6 +26,12 @@ var schema = &memdb.DBSchema{
 					Name:    "nodeId",
 					Indexer: &memdb.StringFieldIndex{Field: "NodeId"},
 				},
+				"alias": {
+					Name:         "alias",
+					AllowMissing: true,
+					Unique:       true,
+					Indexer:      &memdb.StringFieldIndex{Field: "Alias"},
+				},
 			},
 		},
 		"data": {
