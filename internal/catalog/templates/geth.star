@@ -14,6 +14,17 @@ config = {
 
 verbosity_levels = {"debug": "4", "info": "3", "warn": "2", "error": "1", "silent": "0"}
 
+babel = {
+    "image": "babel",
+    "tag": "dev",
+    "args": [
+        "--plugin",
+        "ethereum_el",
+        "server",
+        "url=http://0.0.0.0:8545",
+    ],
+}
+
 
 def generate(obj):
     verbosity = verbosity_levels[obj["log_level"]]
@@ -62,4 +73,4 @@ def generate(obj):
     if obj["dbengine"] == "pebble":
         t["args"].extend(["--db.engine", "pebble"])
 
-    return {"node": t}
+    return {"node": t, "babel": babel}
