@@ -93,3 +93,51 @@ func TestState_Allocation_Persistence(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, alloc1)
 }
+
+func TestStateStore_AllocationByIDPrefix(t *testing.T) {
+	state := NewInmemStore(t)
+
+	alloc0 := &proto.Allocation{
+		Id:     "ab",
+		NodeId: "local",
+	}
+	alloc1 := &proto.Allocation{
+		Id:     "ac",
+		NodeId: "local",
+	}
+
+	require.NoError(t, state.UpsertAllocation(alloc0))
+	require.NoError(t, state.UpsertAllocation(alloc1))
+
+	allocs, err := state.AllocationsByIDPrefix("a")
+	require.NoError(t, err)
+	require.Len(t, allocs, 2)
+}
+
+func TestStateStore_InsertWithAlias(t *testing.T) {
+	state := NewInmemStore(t)
+
+	// cannot get an empty alias
+	obj, err := state.AllocationByAlias("a")
+	require.NoError(t, err)
+	require.Empty(t, obj)
+
+	// multiple allocations can have an empty alias
+	alloc0 := &proto.Allocation{Id: "ab", NodeId: "b"}
+	alloc1 := &proto.Allocation{Id: "ac", NodeId: "b"}
+
+	require.NoError(t, state.UpsertAllocation(alloc0))
+	require.NoError(t, state.UpsertAllocation(alloc1))
+
+	// update the alias of the allocation
+	alloc0.Alias = "a"
+	require.NoError(t, state.UpsertAllocation(alloc0))
+
+	obj, err = state.AllocationByAlias("a")
+	require.NoError(t, err)
+	require.Equal(t, obj.Id, "ab")
+
+	// cannot be two allocations with the same alias
+	alloc1.Alias = "a"
+	require.Error(t, state.UpsertAllocation(alloc1))
+}

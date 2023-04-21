@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -19,13 +18,8 @@ type service struct {
 }
 
 func (s *service) Apply(ctx context.Context, req *proto.ApplyRequest) (*proto.ApplyResponse, error) {
-	var input map[string]interface{}
-	if err := json.Unmarshal(req.Input, &input); err != nil {
-		return nil, err
-	}
-
 	// create
-	id, err := s.srv.Create(req, input)
+	id, err := s.srv.Create(req)
 	if err != nil {
 		return nil, err
 	}
@@ -47,15 +41,12 @@ func (s *service) DeploymentList(ctx context.Context, req *proto.ListDeploymentR
 }
 
 func (s *service) DeploymentStatus(ctx context.Context, req *proto.DeploymentStatusRequest) (*proto.DeploymentStatusResponse, error) {
-	allocation, err := s.srv.state.GetAllocation(req.Id)
+	alloc, err := s.srv.state.AllocationByAliasOrIDOrPrefix(req.Id)
 	if err != nil {
 		return nil, err
 	}
-	if allocation == nil {
-		return nil, fmt.Errorf("not found")
-	}
 	resp := &proto.DeploymentStatusResponse{
-		Allocation: allocation,
+		Allocation: alloc,
 	}
 	return resp, nil
 }
@@ -97,12 +88,22 @@ func (s *service) CatalogInspect(ctx context.Context, req *proto.CatalogInspectR
 		inputNames = append(inputNames, name)
 	}
 
+	item := &proto.Item{
+		Name:   req.Name,
+		Fields: []*proto.Item_Field{},
+		Chains: pl.Chains(),
+	}
+	for name, field := range cfg {
+		item.Fields = append(item.Fields, &proto.Item_Field{
+			Name:        name,
+			Type:        field.Type.String(),
+			Description: field.Description,
+			Required:    field.Required,
+		})
+	}
+
 	resp := &proto.CatalogInspectResponse{
-		Item: &proto.Item{
-			Name:   req.Name,
-			Input:  inputNames,
-			Chains: pl.Chains(),
-		},
+		Item: item,
 	}
 
 	return resp, nil

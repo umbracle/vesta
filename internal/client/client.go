@@ -99,6 +99,7 @@ func (c *Client) handle() {
 				Name:     alloc.Id,
 				Tasks:    []*cproto.Task{},
 				Sequence: alloc.Sequence,
+				Alias:    alloc.Alias,
 			}
 			for name, tt := range alloc.Tasks {
 				ttt := &cproto.Task{

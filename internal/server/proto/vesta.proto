@@ -63,6 +63,10 @@ message ApplyRequest {
     bool metrics = 4;
 
     string chain = 5;
+
+    string alias = 6;
+
+    string logLevel = 7;
 }
 
 message ApplyResponse {
@@ -73,9 +77,17 @@ message ApplyResponse {
 message Item {
     string name = 1;
     
-    repeated string input = 2;
+    repeated Field fields = 2;
 
     repeated string chains = 3;
+
+    message Field {
+        string name = 1;
+        string type = 2;
+        string description = 3;
+        string default = 4;
+        bool required = 5;
+    }
 }
 
 // Node1 is a node that can allocate resources
@@ -137,6 +149,10 @@ message Allocation {
 
     // modify index sequence number
     int64 sequence = 8;
+
+    bytes inputState = 9;
+
+    string alias = 10;
 
     enum Status {
         Pending = 0;

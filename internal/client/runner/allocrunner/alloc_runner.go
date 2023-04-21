@@ -378,5 +378,5 @@ func getClientStatus(taskStates map[string]*proto.TaskState) proto.Allocation_St
 		return proto.Allocation_Complete
 	}
 
-	panic("X")
+	return proto.Allocation_Complete
 }

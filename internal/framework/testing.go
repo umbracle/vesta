@@ -18,9 +18,17 @@ func (tf *TestingFramework) ImageExists(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// make sure chains does not fail either
+	tf.F.Chains()
+
 	cfg := &Config{
-		Chain:  "mainnet",
-		Custom: tf.F.Config(),
+		// since we do not run validate, it does not need any input data
+		Chain:   "mainnet",
+		Metrics: true,
+		Data: &FieldData{
+			Schema: tf.F.Config(),
+			Raw:    map[string]interface{}{},
+		},
 	}
 
 	tasks := tf.F.Generate(cfg)

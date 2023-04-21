@@ -3,7 +3,7 @@ package framework
 import "github.com/umbracle/vesta/internal/server/proto"
 
 type Framework interface {
-	Config() interface{}
+	Config() map[string]*Field
 	Chains() []string
 	Generate(config *Config) map[string]*proto.Task
 }
@@ -11,5 +11,5 @@ type Framework interface {
 type Config struct {
 	Metrics bool
 	Chain   string
-	Custom  interface{}
+	Data    *FieldData
 }

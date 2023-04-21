@@ -63,6 +63,7 @@ func formatNodeStatus(r *proto.DeploymentStatusResponse) string {
 		fmt.Sprintf("ID|%s", node.Id),
 		fmt.Sprintf("Status|%s", node.Status),
 		fmt.Sprintf("Sequence|%d", node.Sequence),
+		fmt.Sprintf("Name|%s", node.Alias),
 	})
 
 	taskRows := make([]string, len(node.Tasks)+1)
