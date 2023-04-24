@@ -2,6 +2,7 @@ package framework
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -54,18 +55,35 @@ func (tf *TestingFramework) OnStartup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// make sure chains does not fail either
-	tf.F.Chains()
+	fields := tf.F.Config()
+
+	possibleFields := map[string][]interface{}{
+		"metrics": {true, false},
+	}
+	for name, field := range fields {
+		if field.AllowedValues != nil {
+			possibleFields[name] = field.AllowedValues
+		}
+	}
+	chains := []interface{}{}
+	for _, c := range tf.F.Chains() {
+		chains = append(chains, c)
+	}
+	possibleFields["chain"] = chains
+
+	fmt.Println("-- possible fields --")
+	fmt.Println(possibleFields)
+	fmt.Println(generateMinimumCombinations(possibleFields))
 
 	data := &FieldData{
-		Schema: tf.F.Config(),
+		Schema: fields,
 		Raw:    map[string]interface{}{},
 	}
 
 	// fill in the `execution_node` field which is required in the
 	// beacon node clients. Later on, we will now that this field is a reference
 	// to another node and create a dummy entry here.
-	if _, ok := data.Schema["execution_node"]; ok {
+	if _, ok := fields["execution_node"]; ok {
 		data.Raw["execution_node"] = "localhost"
 	}
 
@@ -159,4 +177,42 @@ func (tf *TestingFramework) OnStartup(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+}
+
+func generateMinimumCombinations(vals map[string][]interface{}) []map[string]interface{} {
+	// count up to which value for 'vals' we have use already
+	// for each key
+	keys := map[string]int{}
+	for key := range vals {
+		keys[key] = 0
+	}
+
+	combinations := []map[string]interface{}{}
+
+	for {
+		res := map[string]interface{}{}
+
+		isEmpty := true
+
+		// for each value in vals, figure out which entry we are going to use
+		// incrementally
+		for key, count := range keys {
+			val := vals[key][count]
+			res[key] = val
+
+			if len(vals[key])-1 > count {
+				isEmpty = false
+				// increase to use the next value
+				keys[key] += 1
+			}
+		}
+
+		combinations = append(combinations, res)
+
+		if isEmpty {
+			break
+		}
+	}
+
+	return combinations
 }
