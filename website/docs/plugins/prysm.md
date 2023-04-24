@@ -6,7 +6,7 @@ title: Prysm
 
 ## Chains
 
-`Prysm` is available for `mainnet`, `goerli` and `sepolia`.
+`Prysm` is available for `mainnet`.
 
 ## Parameters
 

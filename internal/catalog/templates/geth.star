@@ -12,7 +12,14 @@ config = {
     }
 }
 
-verbosity_levels = {"debug": "4", "info": "3", "warn": "2", "error": "1", "silent": "0"}
+verbosity_levels = {
+    "all": "5",
+    "debug": "4",
+    "info": "3",
+    "warn": "2",
+    "error": "1",
+    "silent": "0",
+}
 
 babel = {
     "image": "ghcr.io/umbracle/babel",

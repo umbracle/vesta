@@ -1,6 +1,6 @@
 version = "0.0.1"
 
-chains = ["mainnet", "goerli", "sepolia"]
+chains = ["mainnet"]
 
 config = {
     "execution_node": {
@@ -61,6 +61,7 @@ def generate(obj):
         )
 
     if obj["chain"] != "mainnet":
+        # It requires to download artifacts (TODO)
         # add '--sepolia' or '--goerli' (it defaults to mainnet)
         t["args"].extend(["--" + obj["chain"]])
 
