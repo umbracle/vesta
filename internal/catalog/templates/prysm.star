@@ -15,8 +15,8 @@ config = {
 }
 
 babel = {
-    "image": "babel",
-    "tag": "dev",
+    "image": "ghcr.io/umbracle/babel",
+    "tag": "v0.0.1",
     "args": [
         "--plugin",
         "ethereum_cl",
