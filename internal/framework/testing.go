@@ -2,6 +2,7 @@ package framework
 
 import (
 	"context"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -87,6 +88,21 @@ func (tf *TestingFramework) OnStartup(t *testing.T) {
 	for name, task := range tasks {
 		if name == "babel" {
 			continue
+		}
+
+		imageName := task.Image + ":" + task.Tag
+
+		// pull image if it does not exists
+		_, _, err := client.ImageInspectWithRaw(context.Background(), imageName)
+		if err != nil {
+			reader, err := client.ImagePull(context.Background(), imageName, types.ImagePullOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = io.Copy(ioutil.Discard, reader)
+			if err != nil {
+				t.Fatal(err)
+			}
 		}
 
 		tmpDir, err := os.MkdirTemp("/tmp", "on-startup-test-")

@@ -15,8 +15,6 @@ func TestImages(t *testing.T) {
 func TestStartup(t *testing.T) {
 	for name := range Catalog {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
 			tr := newTestingFramework(name)
 			tr.OnStartup(t)
 		})
