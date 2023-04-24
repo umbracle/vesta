@@ -49,35 +49,17 @@ func (tf *TestingFramework) ImageExists(t *testing.T) {
 	}
 }
 
-func (tf *TestingFramework) OnStartup(t *testing.T) {
+func (tf *TestingFramework) validateInput(input map[string]interface{}) error {
 	client, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
 
 	fields := tf.F.Config()
 
-	possibleFields := map[string][]interface{}{
-		"metrics": {true, false},
-	}
-	for name, field := range fields {
-		if field.AllowedValues != nil {
-			possibleFields[name] = field.AllowedValues
-		}
-	}
-	chains := []interface{}{}
-	for _, c := range tf.F.Chains() {
-		chains = append(chains, c)
-	}
-	possibleFields["chain"] = chains
-
-	fmt.Println("-- possible fields --")
-	fmt.Println(possibleFields)
-	fmt.Println(generateMinimumCombinations(possibleFields))
-
 	data := &FieldData{
 		Schema: fields,
-		Raw:    map[string]interface{}{},
+		Raw:    input,
 	}
 
 	// fill in the `execution_node` field which is required in the
@@ -89,13 +71,16 @@ func (tf *TestingFramework) OnStartup(t *testing.T) {
 
 	cfg := &Config{
 		// since we do not run validate, it does not need any input data
-		Chain:   "mainnet",
-		Metrics: true,
+		Chain:   input["chain"].(string),
+		Metrics: input["metrics"].(bool),
 		Data:    data,
 	}
 
+	delete(input, "chain")
+	delete(input, "metrics")
+
 	if err := cfg.Data.Validate(); err != nil {
-		t.Fatal(err)
+		return err
 	}
 
 	tasks := tf.F.Generate(cfg)
@@ -115,17 +100,17 @@ func (tf *TestingFramework) OnStartup(t *testing.T) {
 		if err != nil {
 			reader, err := client.ImagePull(context.Background(), imageName, types.ImagePullOptions{})
 			if err != nil {
-				t.Fatal(err)
+				return err
 			}
 			_, err = io.Copy(ioutil.Discard, reader)
 			if err != nil {
-				t.Fatal(err)
+				return err
 			}
 		}
 
 		tmpDir, err := os.MkdirTemp("/tmp", "on-startup-test-")
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
 		config := &container.Config{
@@ -146,34 +131,75 @@ func (tf *TestingFramework) OnStartup(t *testing.T) {
 		for path, content := range task.Data {
 			localPath := filepath.Join(tmpDir, filepath.Base(path))
 			if err := ioutil.WriteFile(localPath, []byte(content), 0755); err != nil {
-				t.Fatal(err)
+				return err
 			}
 
 			host.Binds = append(host.Binds, localPath+":"+path)
 		}
 
+		/*
+			dockerCmd := "docker run "
+			if len(host.Binds) != 0 {
+				dockerCmd += "-v " + strings.Join(host.Binds, " -v ") + " "
+			}
+			dockerCmd += imageName + " " + strings.Join(task.Args, " ")
+		*/
+
 		body, err := client.ContainerCreate(context.Background(), config, host, &network.NetworkingConfig{}, nil, "")
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
 		if err := client.ContainerStart(context.Background(), body.ID, types.ContainerStartOptions{}); err != nil {
-			t.Fatal(err)
+			return err
 		}
 
-		// wait at leas 2 seconds
+		// wait at least 2 seconds
 		statusCh, errCh := client.ContainerWait(context.Background(), body.ID, container.WaitConditionNotRunning)
+		var execErr error
 
 		select {
 		case status := <-statusCh:
-			t.Fatalf("exited with status %d", status.StatusCode)
-		case err := <-errCh:
-			t.Fatalf("failed: %v", err)
+			execErr = fmt.Errorf("exited with status %d", status.StatusCode)
+
+		case subErr := <-errCh:
+			execErr = fmt.Errorf("failed: %v", subErr)
+
 		case <-time.After(2 * time.Second):
+		}
+
+		if execErr != nil {
+			return execErr
 		}
 
 		// destroy (and remove) the container
 		if err := client.ContainerRemove(context.Background(), body.ID, types.ContainerRemoveOptions{Force: true}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (tf *TestingFramework) OnStartup(t *testing.T) {
+	fields := tf.F.Config()
+
+	possibleFields := map[string][]interface{}{
+		"metrics": {true, false},
+	}
+	for name, field := range fields {
+		if field.AllowedValues != nil {
+			possibleFields[name] = field.AllowedValues
+		}
+	}
+	chains := []interface{}{}
+	for _, c := range tf.F.Chains() {
+		chains = append(chains, c)
+	}
+	possibleFields["chain"] = chains
+
+	for _, input := range generateMinimumCombinations(possibleFields) {
+		if err := tf.validateInput(input); err != nil {
 			t.Fatal(err)
 		}
 	}
