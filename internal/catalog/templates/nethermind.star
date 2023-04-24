@@ -4,6 +4,17 @@ chains = ["mainnet", "goerli", "sepolia"]
 
 config = {}
 
+babel = {
+    "image": "ghcr.io/umbracle/babel",
+    "tag": "v0.0.1",
+    "args": [
+        "--plugin",
+        "ethereum_el",
+        "server",
+        "url=http://0.0.0.0:8545",
+    ],
+}
+
 
 def generate(obj):
     t = {
@@ -39,4 +50,4 @@ def generate(obj):
         t["args"].extend(["--Metrics.Enabled", "true"])
         t["telemetry"] = {"port": 6060, "path": "metrics"}
 
-    return {"node": t}
+    return {"node": t, "babel": babel}

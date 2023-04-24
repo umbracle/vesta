@@ -9,7 +9,7 @@ type TaskHook interface {
 	Name() string
 }
 
-type TaskHookFactory func(logger hclog.Logger, task *proto.Task) TaskHook
+type TaskHookFactory func(logger hclog.Logger, alloc *proto.Allocation, task *proto.Task) TaskHook
 
 type TaskPoststartHookRequest struct {
 	Spec *proto.TaskHandle_Network

@@ -2,6 +2,7 @@
 
 IMPROVEMENTS:
 
+- core: Add sync tracker with babel [[GH-41](https://github.com/umbracle/eth2-validator/issues/41)]
 - catalog: Add logging field in catalog [[GH-62](https://github.com/umbracle/eth2-validator/issues/62)]
 - core: Add an alias for the deployment [[GH-23](https://github.com/umbracle/eth2-validator/issues/23)]
 

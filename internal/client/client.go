@@ -8,6 +8,7 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-memdb"
+	babel "github.com/umbracle/babel/sdk"
 	"github.com/umbracle/vesta/internal/client/runner"
 	"github.com/umbracle/vesta/internal/client/runner/hooks"
 	"github.com/umbracle/vesta/internal/client/runner/state"
@@ -50,6 +51,7 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 		Volume:            (*runner.HostVolume)(config.Volume),
 		Hooks: []hooks.TaskHookFactory{
 			c.collector.hookFactory,
+			c.syncHookFactory,
 		},
 	}
 
@@ -73,6 +75,16 @@ func NewClient(logger hclog.Logger, config *Config) (*Client, error) {
 	go c.startCollectorPrometheusServer(&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 5555})
 
 	return c, nil
+}
+
+func (c *Client) UpdateSyncState(alloc, task string, status *babel.SyncStatus) {
+	if err := c.config.ControlPlane.UpdateSyncStatus(alloc, task, status); err != nil {
+		c.logger.Error("failed to update sync state", "error", err)
+	}
+}
+
+func (c *Client) syncHookFactory(logger hclog.Logger, alloc *cproto.Allocation, task *cproto.Task) hooks.TaskHook {
+	return newSyncHook(logger, alloc.Deployment.Name, task, c)
 }
 
 func (c *Client) handle() {

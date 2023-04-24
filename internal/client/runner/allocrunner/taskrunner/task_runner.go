@@ -75,7 +75,7 @@ func NewTaskRunner(config *Config) *TaskRunner {
 	tr.status.Id = id
 
 	for _, hookF := range config.Hooks {
-		tr.runnerHooks = append(tr.runnerHooks, hookF(logger, config.Task))
+		tr.runnerHooks = append(tr.runnerHooks, hookF(logger, config.Allocation, config.Task))
 	}
 
 	tr.initHooks()

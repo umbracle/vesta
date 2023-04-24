@@ -9,6 +9,7 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-memdb"
+	babel "github.com/umbracle/babel/sdk"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/server/state"
 	"github.com/umbracle/vesta/internal/uuid"
@@ -158,13 +159,44 @@ func (s *Server) Pull(nodeId string, ws memdb.WatchSet) ([]*proto.Allocation, er
 	return tasks, nil
 }
 
+func (s *Server) UpdateSyncStatus(alloc, task string, status *babel.SyncStatus) error {
+	realAlloc, err := s.state.GetAllocation(alloc)
+	if err != nil {
+		return err
+	}
+	if realAlloc == nil {
+		return fmt.Errorf("alloc not found: %s", alloc)
+	}
+
+	realAlloc = realAlloc.Copy()
+	if realAlloc.SyncStatus == nil {
+		realAlloc.SyncStatus = map[string]*proto.Allocation_SyncStatus{}
+	}
+
+	realAlloc.SyncStatus[task] = &proto.Allocation_SyncStatus{
+		IsSynced:     status.IsSynced,
+		HighestBlock: status.HighestBlock,
+		CurrentBlock: status.CurrentBlock,
+		NumPeers:     status.NumPeers,
+	}
+
+	if err := s.state.UpsertAllocation(realAlloc); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *Server) UpdateAlloc(alloc *proto.Allocation) error {
 	// merge alloc types
 	realAlloc, err := s.state.GetAllocation(alloc.Id)
 	if err != nil {
 		return err
 	}
+	if realAlloc == nil {
+		return fmt.Errorf("alloc not found: %s", alloc)
+	}
 
+	realAlloc = realAlloc.Copy()
 	realAlloc.Status = alloc.Status
 	realAlloc.TaskStates = alloc.TaskStates
 

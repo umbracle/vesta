@@ -67,19 +67,20 @@ func formatNodeStatus(r *proto.DeploymentStatusResponse) string {
 	})
 
 	taskRows := make([]string, len(node.Tasks)+1)
-	taskRows[0] = "ID|Name|Image|Tag|State"
+	taskRows[0] = "ID|Name|Image|State"
 
 	i := 1
 	for name, d := range node.Tasks {
-		var state string
+		var state, id string
 		if taskState, ok := node.TaskStates[name]; ok {
 			state = taskState.State.String()
+			id = taskState.Id
 		}
 
 		taskRows[i] = fmt.Sprintf("%s|%s|%s|%s",
+			id,
 			name,
 			d.Image,
-			d.Tag,
 			state,
 		)
 		i += 1
@@ -87,6 +88,18 @@ func formatNodeStatus(r *proto.DeploymentStatusResponse) string {
 
 	base += "\n\n[bold]Tasks[reset]\n"
 	base += formatList(taskRows)
+
+	if len(node.SyncStatus) == 1 {
+		for _, syncStatus := range node.SyncStatus {
+			base += "\n\n[bold]Sync status[reset]\n"
+			base += formatKV([]string{
+				fmt.Sprintf("Peers|%d", syncStatus.NumPeers),
+				fmt.Sprintf("Highest block|%d", syncStatus.HighestBlock),
+				fmt.Sprintf("Current block|%d", syncStatus.CurrentBlock),
+				fmt.Sprintf("Synced|%v", syncStatus.IsSynced),
+			})
+		}
+	}
 
 	return base
 }

@@ -10,6 +10,17 @@ config = {
     }
 }
 
+babel = {
+    "image": "ghcr.io/umbracle/babel",
+    "tag": "v0.0.1",
+    "args": [
+        "--plugin",
+        "ethereum_cl",
+        "server",
+        "url=http://0.0.0.0:5052",
+    ],
+}
+
 
 def generate(obj):
     t = {
@@ -46,4 +57,4 @@ def generate(obj):
         t["args"].extend(["--metrics"])
         t["telemetry"] = {"port": 8008, "path": "metrics"}
 
-    return {"node": t}
+    return {"node": t, "babel": babel}
