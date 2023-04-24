@@ -17,6 +17,7 @@ const sidebars = {
     'getting-started',
     'installation',
     'alternatives',
+    'dependencies',
     {
       type: 'category',
       label: 'Concepts',
@@ -51,6 +52,14 @@ const sidebars = {
         'plugins/prysm',
         'plugins/teku',
       ],
+    },
+    {
+      type: "category",
+      label: "Use cases",
+      items: [
+        "use-cases/node-as-a-service",
+        "use-cases/validator-stack"
+      ]
     },
     {
       type: 'category',
