@@ -478,6 +478,7 @@ func TestAllocRunner_UpdateDestroyAllocation(t *testing.T) {
 	stopDeployment.DesiredStatus = proto.Deployment_Stop
 
 	allocRunner.Update(stopDeployment)
+	<-allocRunner.waitCh
 
 	// Wait for all tasks to stop
 	updater := cfg.StateUpdater.(*mockUpdater)
