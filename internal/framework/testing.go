@@ -1,12 +1,14 @@
 package framework
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 )
 
 type TestingFramework struct {
@@ -47,6 +50,19 @@ func (tf *TestingFramework) ImageExists(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+}
+
+type ErrorOutput struct {
+	Cmd  string
+	Logs string
+	Err  error
+}
+
+func (e *ErrorOutput) Error() string {
+	out := "\n"
+	out += "[docker cmd]\n" + e.Cmd
+	out += "\n[logs]\n" + e.Logs
+	return out
 }
 
 func (tf *TestingFramework) validateInput(input map[string]interface{}) error {
@@ -137,13 +153,20 @@ func (tf *TestingFramework) validateInput(input map[string]interface{}) error {
 			host.Binds = append(host.Binds, localPath+":"+path)
 		}
 
-		/*
-			dockerCmd := "docker run "
-			if len(host.Binds) != 0 {
-				dockerCmd += "-v " + strings.Join(host.Binds, " -v ") + " "
+		// in order to have a close enough system we also create tmp dir mount for the volume data
+		for _, path := range task.Volumes {
+			tmpDir, err := os.MkdirTemp("/tmp", "on-startup-test-volume-")
+			if err != nil {
+				return err
 			}
-			dockerCmd += imageName + " " + strings.Join(task.Args, " ")
-		*/
+			host.Binds = append(host.Binds, tmpDir+":"+path.Path)
+		}
+
+		dockerCmd := "docker run "
+		if len(host.Binds) != 0 {
+			dockerCmd += "-v " + strings.Join(host.Binds, " -v ") + " "
+		}
+		dockerCmd += imageName + " " + strings.Join(task.Args, " ")
 
 		body, err := client.ContainerCreate(context.Background(), config, host, &network.NetworkingConfig{}, nil, "")
 		if err != nil {
@@ -169,7 +192,17 @@ func (tf *TestingFramework) validateInput(input map[string]interface{}) error {
 		}
 
 		if execErr != nil {
-			return execErr
+			// gather the logs
+			out, err := client.ContainerLogs(context.Background(), body.ID, types.ContainerLogsOptions{ShowStdout: true, ShowStderr: true})
+			if err != nil {
+				return err
+			}
+			var w bytes.Buffer
+			if _, err := stdcopy.StdCopy(&w, &w, out); err != nil {
+				return err
+			}
+
+			return &ErrorOutput{Err: execErr, Logs: w.String(), Cmd: dockerCmd}
 		}
 
 		// destroy (and remove) the container
@@ -181,6 +214,13 @@ func (tf *TestingFramework) validateInput(input map[string]interface{}) error {
 	return nil
 }
 
+// hard code field that do not work for the automatic tests
+var skipFields = map[string]struct{}{
+	// prysm requires the network to be reachable to access the checkpoint
+	// at startup, otherwise the client fails.
+	"use_checkpoint": {},
+}
+
 func (tf *TestingFramework) OnStartup(t *testing.T) {
 	fields := tf.F.Config()
 
@@ -188,8 +228,17 @@ func (tf *TestingFramework) OnStartup(t *testing.T) {
 		"metrics": {true, false},
 	}
 	for name, field := range fields {
+		if _, ok := skipFields[name]; ok {
+			continue
+		}
 		if field.AllowedValues != nil {
 			possibleFields[name] = field.AllowedValues
+		} else {
+			// bool field type might not have allowed values
+			// but it can only have two (true, false). Add them.
+			if field.Type == TypeBool {
+				possibleFields[name] = []interface{}{true, false}
+			}
 		}
 	}
 	chains := []interface{}{}

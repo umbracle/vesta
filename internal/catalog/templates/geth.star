@@ -9,7 +9,17 @@ config = {
         "allowed_values": ["leveldb", "pebble"],
         "force_new": True,
         "default": "leveldb",
-    }
+    },
+    "max_peers": {
+        "type": "int",
+        "description": "Maximum number of network peers",
+        "default": 50,
+    },
+    "archive": {
+        "type": "bool",
+        "description": "Enables archival node mode",
+        "default": False,
+    },
 }
 
 verbosity_levels = {
@@ -63,12 +73,19 @@ def generate(obj):
             "0.0.0.0",
             "--verbosity",
             verbosity,
+            "--maxpeers",
+            str(obj["max_peers"]),
         ],
         "data": {
             "/var/lib/jwtsecret/jwt.hex": "04592280e1778419b7aa954d43871cb2cfb2ebda754fb735e8adeb293a88f9bf"
         },
         "volumes": {"data": {"path": "/data"}},
     }
+
+    if obj["archive"]:
+        t["args"].extend(["--syncmode", "full", "--gcmode", "archive"])
+    else:
+        t["args"].extend(["--syncmode", "snap"])
 
     if obj["chain"] != "mainnet":
         t["args"].extend(["--" + obj["chain"]])

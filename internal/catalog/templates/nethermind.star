@@ -2,7 +2,13 @@ version = "0.0.1"
 
 chains = ["mainnet", "goerli", "sepolia"]
 
-config = {}
+config = {
+    "archive": {
+        "type": "bool",
+        "description": "Enables archival node mode",
+        "default": False,
+    },
+}
 
 babel = {
     "image": "ghcr.io/umbracle/babel",
@@ -13,6 +19,15 @@ babel = {
         "server",
         "url=http://0.0.0.0:8545",
     ],
+}
+
+verbosity_levels = {
+    "all": "DEBUG",
+    "debug": "DEBUG",
+    "info": "INFO",
+    "warn": "WARN",
+    "error": "ERROR",
+    "silent": "ERROR",
 }
 
 
@@ -39,12 +54,36 @@ def generate(obj):
             "/var/lib/jwtsecret/jwt.hex",
             "--Metrics.ExposePort",
             "6060",
+            "--log",
+            verbosity_levels[obj["log_level"]],
         ],
         "data": {
             "/var/lib/jwtsecret/jwt.hex": "04592280e1778419b7aa954d43871cb2cfb2ebda754fb735e8adeb293a88f9bf"
         },
         "volumes": {"data": {"path": "/data"}},
     }
+
+    if obj["archive"]:
+        t["args"].extend(
+            [
+                "--Sync.DownloadBodiesInFastSync",
+                "false",
+                "--Sync.DownloadReceiptsInFastSync",
+                "false",
+                "--Sync.FastSync",
+                "false",
+                "--Sync.SnapSync",
+                "false",
+                "--Sync.FastBlocks",
+                "false",
+                "--Pruning.Mode",
+                "None",
+                "--Sync.PivotNumber",
+                "0",
+            ]
+        )
+    else:
+        t["args"].extend(["--Sync.SnapSync", "true"])
 
     if obj["metrics"]:
         t["args"].extend(["--Metrics.Enabled", "true"])
