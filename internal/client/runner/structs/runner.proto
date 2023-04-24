@@ -17,7 +17,15 @@ message Deployment {
     string name = 1;
     repeated Task tasks = 2;
     int64 sequence = 3;
+
+    DesiredStatus desiredStatus = 7;
+
     string alias = 4;
+
+    enum DesiredStatus {
+        Run = 0;
+        Stop = 1;
+    }
 }
 
 message Task {

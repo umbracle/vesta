@@ -458,6 +458,48 @@ func TestAllocRunner_Update_DestroyTask(t *testing.T) {
 	})
 }
 
+func TestAllocRunner_UpdateDestroyAllocation(t *testing.T) {
+	// if we update the desired status of the allocation to 'stop',
+	// the allocation and all the tasks should stop gracefully
+
+	alloc := mock.ServiceAlloc()
+	cfg := testAllocRunnerConfig(t, alloc)
+
+	allocRunner, err := NewAllocRunner(cfg)
+	require.NoError(t, err)
+
+	go allocRunner.Run()
+	// defer destroy(allocRunner)
+
+	// wait for the alloc to be running
+	waitForRunningAlloc(t, cfg)
+
+	stopDeployment := alloc.Copy().Deployment
+	stopDeployment.DesiredStatus = proto.Deployment_Stop
+
+	allocRunner.Update(stopDeployment)
+
+	// Wait for all tasks to stop
+	updater := cfg.StateUpdater.(*mockUpdater)
+	testutil.WaitForResult(func() (bool, error) {
+		last := updater.Last()
+
+		if last.Status != proto.Allocation_Complete {
+			return false, fmt.Errorf("alloc not completed")
+		}
+
+		for name, t := range last.TaskStates {
+			if t.State != proto.TaskState_Dead {
+				return false, fmt.Errorf("task '%s' is not dead", name)
+			}
+		}
+
+		return true, nil
+	}, func(err error) {
+		t.Fatalf("error waiting for initial state:\n%v", err)
+	})
+}
+
 func TestAllocRunner_PortConflict(t *testing.T) {
 	// if two tasks on the same deployment try to listen on
 	// the same port, one will fail since they share the

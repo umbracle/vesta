@@ -10,8 +10,6 @@ import (
 // DestroyCommand is the command to destroy an allocation
 type DestroyCommand struct {
 	*Meta
-
-	allocId string
 }
 
 // Help implements the cli.Command interface
@@ -29,10 +27,15 @@ func (c *DestroyCommand) Synopsis() string {
 // Run implements the cli.Command interface
 func (c *DestroyCommand) Run(args []string) int {
 	flags := c.FlagSet("destroy")
-	flags.StringVar(&c.allocId, "alloc", "", "")
 
 	if err := flags.Parse(args); err != nil {
 		c.UI.Error(err.Error())
+		return 1
+	}
+
+	args = flags.Args()
+	if len(args) != 1 {
+		c.UI.Error(fmt.Sprintf("one argument expected"))
 		return 1
 	}
 
@@ -43,7 +46,7 @@ func (c *DestroyCommand) Run(args []string) int {
 	}
 
 	req := &proto.DestroyRequest{
-		Id: c.allocId,
+		Id: args[0],
 	}
 	resp, err := clt.Destroy(context.Background(), req)
 	if err != nil {

@@ -52,7 +52,12 @@ func (s *service) DeploymentStatus(ctx context.Context, req *proto.DeploymentSta
 }
 
 func (s *service) Destroy(ctx context.Context, req *proto.DestroyRequest) (*proto.DestroyResponse, error) {
-	if err := s.srv.state.DestroyAllocation(req.Id); err != nil {
+	alloc, err := s.srv.state.AllocationByAliasOrIDOrPrefix(req.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.srv.state.DestroyAllocation(alloc.Id); err != nil {
 		return nil, err
 	}
 	return &proto.DestroyResponse{}, nil
