@@ -2,7 +2,6 @@ package docker
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/hashicorp/go-hclog"
@@ -22,7 +21,7 @@ func NewTestDockerDriver(t *testing.T) *Docker {
 	// destroy the network afterwards
 	t.Cleanup(func() {
 		if err := d.client.NetworkRemove(context.Background(), testingNetworkName); err != nil {
-			fmt.Printf("[ERROR]: failed to remove network: %s", testingNetworkName)
+			t.Logf("[ERROR]: failed to remove network: %s: %v", testingNetworkName, err)
 		}
 	})
 

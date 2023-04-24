@@ -96,10 +96,11 @@ func (c *Client) handle() {
 		}
 		for _, alloc := range allocations {
 			dep2 := &cproto.Deployment{
-				Name:     alloc.Id,
-				Tasks:    []*cproto.Task{},
-				Sequence: alloc.Sequence,
-				Alias:    alloc.Alias,
+				Name:          alloc.Id,
+				Tasks:         []*cproto.Task{},
+				Sequence:      alloc.Sequence,
+				Alias:         alloc.Alias,
+				DesiredStatus: cproto.Deployment_DesiredStatus(alloc.DesiredStatus),
 			}
 			for name, tt := range alloc.Tasks {
 				ttt := &cproto.Task{

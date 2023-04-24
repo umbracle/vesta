@@ -195,14 +195,30 @@ func (a *AllocRunner) handleAllocUpdates() {
 	for {
 		select {
 		case update := <-a.allocUpdatedCh:
-			a.alloc = update
-
-			// update the tasks
-			a.TaskStateUpdated()
+			a.handleAllocUpdate(update)
 
 		case <-a.waitCh:
 			return
 		}
+	}
+}
+
+func (a *AllocRunner) handleAllocUpdate(alloc *proto.Allocation) {
+	a.alloc = alloc
+
+	// update the tasks
+	a.TaskStateUpdated()
+
+	if alloc.Deployment.DesiredStatus == proto.Deployment_Stop {
+		close(a.shutdownStarted)
+
+		// destroy all tasks
+		for _, task := range a.tasks {
+			task.KillNoWait(proto.NewTaskEvent(""))
+		}
+
+		// wait for all the tasks to finish
+		<-a.waitCh
 	}
 }
 

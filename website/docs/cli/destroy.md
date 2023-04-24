@@ -8,7 +8,7 @@ The `destroy` command is used to stop a deployment. The scheduler will perform a
 ## Usage
 
 ```shell-session
-$ vesta destroy --alloc <id>
+$ vesta destroy <id>
 ```
 
 The `vesta destroy` command takes as an argument the exact id of the deployment to stop.

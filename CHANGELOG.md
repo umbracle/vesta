@@ -1,5 +1,9 @@
 # 0.1.2 (Unreleased)
 
+BUG FIXES:
+
+- scheduler: Handle destroy desired status updates [[GH-65](https://github.com/umbracle/eth2-validator/issues/65)]
+
 IMPROVEMENTS:
 
 - core: Add sync tracker with babel [[GH-41](https://github.com/umbracle/eth2-validator/issues/41)]
