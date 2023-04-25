@@ -64,6 +64,8 @@ def generate(obj):
             "0.0.0.0",
             "--rest-api-port",
             "5052",
+            "--log-destination",
+            "CONSOLE",
             "--logging",
             verbosity_levels[obj["log_level"]],
         ],
