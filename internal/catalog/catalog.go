@@ -3,6 +3,7 @@ package catalog
 import (
 	"embed"
 	"fmt"
+	"reflect"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/umbracle/vesta/internal/framework"
@@ -100,6 +101,8 @@ func (f *field) ToType() *framework.Field {
 		res.Type = framework.TypeString
 	} else if f.Type == "bool" {
 		res.Type = framework.TypeBool
+	} else if f.Type == "int" {
+		res.Type = framework.TypeInt
 	} else {
 		panic(fmt.Sprintf("type '%s' not found", f.Type))
 	}
@@ -159,6 +162,10 @@ func (b *backend) Generate(config *framework.Config) map[string]*proto.Task {
 			input.SetKey(starlark.String(name), starlark.String(str))
 		} else if bol, ok := val.(bool); ok {
 			input.SetKey(starlark.String(name), starlark.Bool(bol))
+		} else if num, ok := val.(uint64); ok {
+			input.SetKey(starlark.String(name), starlark.MakeInt(int(num)))
+		} else {
+			panic(fmt.Errorf("unknown type %s", reflect.TypeOf(val).Kind()))
 		}
 	}
 

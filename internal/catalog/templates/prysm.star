@@ -12,6 +12,11 @@ config = {
         "type": "bool",
         "description": "Whether to use checkpoint initial sync",
     },
+    "archive": {
+        "type": "bool",
+        "description": "Enables archival node mode",
+        "default": False,
+    },
 }
 
 babel = {
@@ -23,6 +28,15 @@ babel = {
         "server",
         "url=http://0.0.0.0:5052",
     ],
+}
+
+verbosity_levels = {
+    "all": "debug",
+    "debug": "debug",
+    "info": "info",
+    "warn": "warn",
+    "error": "error",
+    "silent": "error",
 }
 
 
@@ -46,12 +60,18 @@ def generate(obj):
             "0.0.0.0",
             "--monitoring-port",
             "8008",
+            "--verbosity",
+            verbosity_levels[obj["log_level"]],
         ],
         "data": {
             "/var/lib/jwtsecret/jwt.hex": "04592280e1778419b7aa954d43871cb2cfb2ebda754fb735e8adeb293a88f9bf"
         },
         "volumes": {"data": {"path": "/data"}},
     }
+
+    if obj["archive"]:
+        # https://docs.prylabs.network/docs/advanced/beacon_node_api
+        t["args"].extend(["--slots-per-archive-point", "32"])
 
     if obj["use_checkpoint"]:
         url = getBeaconCheckpoint(obj["chain"])

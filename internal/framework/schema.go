@@ -39,6 +39,7 @@ const (
 	TypeInvalid Type = iota
 	TypeString
 	TypeBool
+	TypeInt
 )
 
 func (t Type) Zero() interface{} {
@@ -47,6 +48,8 @@ func (t Type) Zero() interface{} {
 		return ""
 	case TypeBool:
 		return false
+	case TypeInt:
+		return 0
 	default:
 		panic("unknown type: " + t.String())
 	}
@@ -58,6 +61,8 @@ func (t Type) String() string {
 		return "string"
 	case TypeBool:
 		return "bool"
+	case TypeInt:
+		return "int"
 	default:
 		return "unknown type"
 	}
@@ -111,7 +116,7 @@ func (d *FieldData) GetOkErr(k string) (interface{}, bool, error) {
 	}
 
 	switch schema.Type {
-	case TypeString, TypeBool:
+	case TypeString, TypeBool, TypeInt:
 		return d.getPrimitive(k, schema)
 	default:
 		return nil, false,
@@ -135,6 +140,13 @@ func (d *FieldData) getPrimitive(k string, schema *Field) (interface{}, bool, er
 
 	case TypeBool:
 		var result bool
+		if err := mapstructure.WeakDecode(raw, &result); err != nil {
+			return nil, false, err
+		}
+		return result, true, nil
+
+	case TypeInt:
+		var result int
 		if err := mapstructure.WeakDecode(raw, &result); err != nil {
 			return nil, false, err
 		}
