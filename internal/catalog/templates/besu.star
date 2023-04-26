@@ -1,5 +1,7 @@
 version = "0.0.1"
 
+name = "besu"
+
 chains = ["mainnet", "goerli", "sepolia"]
 
 config = {

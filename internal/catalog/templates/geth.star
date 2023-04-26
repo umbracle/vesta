@@ -1,5 +1,7 @@
 version = "0.0.1"
 
+name = "geth"
+
 chains = ["mainnet", "goerli", "sepolia"]
 
 config = {
