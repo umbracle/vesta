@@ -3,7 +3,9 @@ package catalog
 import (
 	"embed"
 	"fmt"
+	"io/fs"
 	"reflect"
+	"strings"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/umbracle/vesta/internal/framework"
@@ -14,22 +16,32 @@ import (
 //go:embed templates/*
 var content embed.FS
 
-var Catalog = map[string]framework.Framework{
-	"lighthouse": newBackend("lighthouse"),
-	"prysm":      newBackend("prysm"),
-	"teku":       newBackend("teku"),
-	"besu":       newBackend("besu"),
-	"geth":       newBackend("geth"),
-	"nethermind": newBackend("nethermind"),
+func init() {
+	var starFiles []string
+	if err := fs.WalkDir(content, ".", func(path string, d fs.DirEntry, err error) error {
+		if d.IsDir() {
+			return nil
+		}
+		if strings.HasSuffix(path, ".star") {
+			starFiles = append(starFiles, path)
+		}
+		return nil
+	}); err != nil {
+		panic(err)
+	}
+
+	for _, starFile := range starFiles {
+		starContent, err := content.ReadFile(starFile)
+		if err != nil {
+			panic(err)
+		}
+
+		fr := newBackend(starContent).(*backend)
+		Catalog[fr.name] = fr
+	}
 }
 
-var jwtToken = "04592280e1778419b7aa954d43871cb2cfb2ebda754fb735e8adeb293a88f9bf"
-
-var (
-	goerliChain  = "goerli"
-	sepoliaChain = "sepolia"
-	mainnetChain = "mainnet"
-)
+var Catalog = map[string]framework.Framework{}
 
 func newTestingFramework(chain string) *framework.TestingFramework {
 	fr := &framework.TestingFramework{
@@ -38,34 +50,27 @@ func newTestingFramework(chain string) *framework.TestingFramework {
 	return fr
 }
 
-func getBeaconCheckpoint(chain string) string {
-	if chain == mainnetChain {
-		return "https://beaconstate.info"
-	} else if chain == goerliChain {
-		return "https://goerli.beaconstate.info"
-	} else if chain == sepoliaChain {
-		return "https://sepolia.beaconstate.info"
-	}
-	return ""
-}
-
 type backend struct {
 	thread  *starlark.Thread
 	globals starlark.StringDict
+	name    string
 	fields  map[string]*framework.Field
 	chains  []string
 }
 
-func newBackend(name string) framework.Framework {
-	content, err := content.ReadFile("templates/" + name + ".star")
+func newBackendFromFile(filename string) framework.Framework {
+	content, err := content.ReadFile("templates/" + filename + ".star")
 	if err != nil {
-		panic(fmt.Errorf("failed to load '%s': %v", name, err))
+		panic(fmt.Errorf("failed to load '%s': %v", filename, err))
 	}
+	return newBackend(content)
+}
 
+func newBackend(content []byte) framework.Framework {
 	thread := &starlark.Thread{Name: "my thread"}
 	globals, err := starlark.ExecFile(thread, "", content, nil)
 	if err != nil {
-		panic(fmt.Errorf("failed to exec '%s': %v", name, err))
+		panic(fmt.Errorf("failed to exec: %v", err))
 	}
 
 	b := &backend{
@@ -110,6 +115,11 @@ func (f *field) ToType() *framework.Field {
 }
 
 func (b *backend) generateStaticConfig() error {
+	nameValue := b.globals["name"]
+	if err := mapstructure.Decode(toGoValue(nameValue), &b.name); err != nil {
+		return err
+	}
+
 	configValue := b.globals["config"]
 
 	var configResult map[string]*field
