@@ -7,13 +7,11 @@ import (
 	"github.com/umbracle/vesta/internal/client/runner/hooks"
 )
 
-func (a *AllocRunner) initHooks() error {
+func (a *AllocRunner) initHooks() {
 	a.runnerHooks = []hooks.RunnerHook{
 		newNetworkHook(a.logger, a.driver, a.alloc, a),
 		newVolumeHook(a.logger, a.driver, a.allocDir, a.alloc),
 	}
-
-	return nil
 }
 
 // prerun is used to run the runners prerun hooks.

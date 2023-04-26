@@ -2,6 +2,7 @@ package runner
 
 import (
 	"io/ioutil"
+	"reflect"
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
@@ -9,6 +10,7 @@ import (
 	"github.com/umbracle/vesta/internal/client/runner/docker"
 	"github.com/umbracle/vesta/internal/client/runner/hooks"
 	"github.com/umbracle/vesta/internal/client/runner/state"
+	"github.com/umbracle/vesta/internal/client/runner/structs"
 	proto "github.com/umbracle/vesta/internal/client/runner/structs"
 )
 
@@ -25,12 +27,15 @@ type HostVolume struct {
 }
 
 type Runner struct {
-	config *Config
-	logger hclog.Logger
-	state  state.State
-	driver *docker.Docker
-	allocs map[string]*allocrunner.AllocRunner
-	hooks  []hooks.TaskHookFactory
+	config      *Config
+	logger      hclog.Logger
+	state       state.State
+	driver      *docker.Docker
+	allocs      map[string]*allocrunner.AllocRunner
+	deployments map[string]*structs.Deployment
+	hooks       []hooks.TaskHookFactory
+	closeCh     chan struct{}
+	reconcileCh chan struct{}
 }
 
 func NewRunner(config *Config) (*Runner, error) {
@@ -58,17 +63,32 @@ func NewRunner(config *Config) (*Runner, error) {
 	}
 
 	r := &Runner{
-		logger: logger,
-		config: config,
-		driver: driver,
-		allocs: map[string]*allocrunner.AllocRunner{},
-		hooks:  config.Hooks,
+		logger:      logger,
+		config:      config,
+		driver:      driver,
+		allocs:      map[string]*allocrunner.AllocRunner{},
+		hooks:       config.Hooks,
+		closeCh:     make(chan struct{}),
+		deployments: map[string]*proto.Deployment{},
+		reconcileCh: make(chan struct{}),
 	}
 
 	if err := r.initState(); err != nil {
 		return nil, err
 	}
+
+	go r.reconcile()
+
 	return r, nil
+}
+
+func (r *Runner) AllocStateUpdated(alloc *proto.Allocation) {
+	select {
+	case r.reconcileCh <- struct{}{}:
+	default:
+	}
+
+	r.config.AllocStateUpdated.AllocStateUpdated(alloc)
 }
 
 func (r *Runner) initState() error {
@@ -91,16 +111,13 @@ func (r *Runner) initState() error {
 			Alloc:           alloc,
 			Logger:          r.logger,
 			State:           r.state,
-			StateUpdater:    r.config.AllocStateUpdated,
+			StateUpdater:    r,
 			Driver:          r.driver,
 			Hooks:           r.hooks,
 			ClientVolumeDir: r.config.Volume.Path,
 		}
 
-		handle, err := allocrunner.NewAllocRunner(config)
-		if err != nil {
-			panic(err)
-		}
+		handle := allocrunner.NewAllocRunner(config)
 		r.allocs[alloc.Deployment.Name] = handle
 
 		if err := handle.Restore(); err != nil {
@@ -115,23 +132,64 @@ func (r *Runner) initState() error {
 	return nil
 }
 
-func (r *Runner) UpsertDeployment(deployment *proto.Deployment) {
-	handle, ok := r.allocs[deployment.Name]
-	if ok {
-		if deployment.Sequence > handle.Alloc().Deployment.Sequence {
-			// update
-			handle.Update(deployment)
+func (r *Runner) reconcile() {
+	for {
+		select {
+		case <-r.reconcileCh:
+		case <-r.closeCh:
+			return
 		}
 
-		// TODO: Save the allocation again (handle race)
-		if err := r.state.PutAllocation(handle.Alloc()); err != nil {
-			panic(err)
-		}
+		r.handleReconcile()
+	}
+}
 
-	} else {
-		// create
+func (r *Runner) handleReconcile() {
+	allocsByDep := map[string]*allocrunner.AllocRunner{}
+	for _, alloc := range r.allocs {
+		state := alloc.Status()
+
+		if state.Status != proto.Allocation_Complete {
+			// TODO: we should fail if there are two for the same deployment
+			allocsByDep[alloc.Deployment().Name] = alloc
+		}
+	}
+
+	create := []*proto.Deployment{}
+	remove := []*allocrunner.AllocRunner{}
+
+	// reconcile state
+	for _, dep := range r.deployments {
+		alloc, ok := allocsByDep[dep.Name]
+		if !ok {
+			// allocation not found, create it
+			if dep.DesiredStatus == proto.Deployment_Run {
+				create = append(create, dep)
+			}
+		} else {
+			allocDep := alloc.Deployment()
+
+			if dep.DesiredStatus == proto.Deployment_Stop {
+				if allocDep.DesiredStatus == proto.Deployment_Run {
+					remove = append(remove, alloc)
+				}
+			} else {
+				// alloc found, figure out if we need to update
+				if deploymentUpdated(dep, allocDep) {
+					// it requires an update, schedule for removal if its
+					// desired status is still running. Otherwise, it has been
+					// already scheduled for removal in a previous iteration.
+					if allocDep.DesiredStatus != proto.Deployment_Stop {
+						remove = append(remove, alloc)
+					}
+				}
+			}
+		}
+	}
+
+	for _, dep := range create {
 		alloc := &proto.Allocation{
-			Deployment: deployment,
+			Deployment: dep,
 		}
 
 		if err := r.state.PutAllocation(alloc); err != nil {
@@ -142,23 +200,45 @@ func (r *Runner) UpsertDeployment(deployment *proto.Deployment) {
 			Alloc:           alloc,
 			Logger:          r.logger,
 			State:           r.state,
-			StateUpdater:    r.config.AllocStateUpdated,
+			StateUpdater:    r,
 			Driver:          r.driver,
 			Hooks:           r.hooks,
 			ClientVolumeDir: r.config.Volume.Path,
 		}
 
-		var err error
-		if handle, err = allocrunner.NewAllocRunner(config); err != nil {
-			panic(err)
-		}
+		handle := allocrunner.NewAllocRunner(config)
 
 		r.allocs[alloc.Deployment.Name] = handle
 		go handle.Run()
 	}
+
+	for _, del := range remove {
+		deployment := del.Alloc().Copy().Deployment
+		deployment.DesiredStatus = proto.Deployment_Stop
+
+		del.Update(deployment)
+	}
+}
+
+func (r *Runner) UpsertDeployment(newDeployment *proto.Deployment) {
+	dep, ok := r.deployments[newDeployment.Name]
+	if ok {
+		if newDeployment.Sequence <= dep.Sequence {
+			return
+		}
+	}
+
+	r.deployments[newDeployment.Name] = newDeployment
+
+	select {
+	case r.reconcileCh <- struct{}{}:
+	default:
+	}
 }
 
 func (r *Runner) Shutdown() error {
+	close(r.closeCh)
+
 	wg := sync.WaitGroup{}
 	for _, tr := range r.allocs {
 		wg.Add(1)
@@ -174,4 +254,32 @@ func (r *Runner) Shutdown() error {
 		return err
 	}
 	return nil
+}
+
+func deploymentUpdated(newDep, oldDep *proto.Deployment) bool {
+	if len(newDep.Tasks) != len(oldDep.Tasks) {
+		return true
+	}
+
+	for indx, task0 := range newDep.Tasks {
+		task1 := oldDep.Tasks[indx]
+		if tasksUpdated(task0, task1) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func tasksUpdated(a, b *proto.Task) bool {
+	if !reflect.DeepEqual(a.Image, b.Image) {
+		return true
+	}
+	if !reflect.DeepEqual(a.Tag, b.Tag) {
+		return true
+	}
+	if !reflect.DeepEqual(a.Args, b.Args) {
+		return true
+	}
+	return false
 }

@@ -1,6 +1,7 @@
 package taskrunner
 
 import (
+	"context"
 	"io/ioutil"
 	"path/filepath"
 	"sort"
@@ -12,6 +13,9 @@ import (
 	"github.com/umbracle/vesta/internal/client/runner/hooks"
 	proto "github.com/umbracle/vesta/internal/client/runner/structs"
 )
+
+var _ hooks.TaskHook = &taskDirHook{}
+var _ hooks.TaskPrestartHook = &taskDirHook{}
 
 type mountSetter interface {
 	setMount(*driver.MountConfig)
@@ -41,7 +45,7 @@ func (t *taskDirHook) Name() string {
 	return "task-dir"
 }
 
-func (t *taskDirHook) Prestart(ctx chan struct{}, req *hooks.TaskPrestartHookRequest) error {
+func (t *taskDirHook) Prestart(ctx context.Context, req *hooks.TaskPrestartHookRequest) error {
 	if t.done {
 		return nil
 	}

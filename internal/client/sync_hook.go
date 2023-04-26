@@ -19,6 +19,7 @@ type syncStateUpdater interface {
 
 var _ hooks.TaskHook = &syncHook{}
 var _ hooks.TaskPoststartHook = &syncHook{}
+var _ hooks.TaskStopHook = &metricsHook{}
 
 type syncHook struct {
 	logger           hclog.Logger
@@ -44,7 +45,7 @@ func (m *syncHook) Name() string {
 	return "sync-hook"
 }
 
-func (m *syncHook) Poststart(ctx chan struct{}, req *hooks.TaskPoststartHookRequest) error {
+func (m *syncHook) Poststart(ctx context.Context, req *hooks.TaskPoststartHookRequest) error {
 	if req.Spec.Ip == "" {
 		return nil
 	}
@@ -83,6 +84,7 @@ func (m *syncHook) collectMetrics() {
 	}
 }
 
-func (m *syncHook) Stop() {
+func (m *syncHook) Stop(ctx context.Context, req *hooks.TaskStopRequest) error {
 	close(m.closeCh)
+	return nil
 }

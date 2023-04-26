@@ -44,7 +44,7 @@ func (t *TaskRunner) preStart() error {
 		}
 
 		// Run the prestart hook
-		if err := pre.Prestart(t.killCh, &req); err != nil {
+		if err := pre.Prestart(t.killCtx, &req); err != nil {
 			return nil
 		}
 
@@ -87,13 +87,54 @@ func (t *TaskRunner) postStart() error {
 		}
 
 		// Run the poststart hook
-		if err := post.Poststart(t.killCh, &req); err != nil {
+		if err := post.Poststart(t.killCtx, &req); err != nil {
 			return nil
 		}
 
 		if t.logger.IsTrace() {
 			end := time.Now()
 			t.logger.Trace("finished poststart hook", "name", name, "end", end, "duration", end.Sub(start))
+		}
+	}
+
+	return nil
+}
+
+func (t *TaskRunner) stop() error {
+	if t.logger.IsTrace() {
+		start := time.Now()
+		t.logger.Trace("running stop hooks", "start", start)
+		defer func() {
+			end := time.Now()
+			t.logger.Trace("finished stop hooks", "end", end, "duration", end.Sub(start))
+		}()
+	}
+
+	for _, hook := range t.runnerHooks {
+		stop, ok := hook.(hooks.TaskStopHook)
+		if !ok {
+			continue
+		}
+
+		name := stop.Name()
+
+		// Build the request
+		req := hooks.TaskStopRequest{}
+
+		var start time.Time
+		if t.logger.IsTrace() {
+			start = time.Now()
+			t.logger.Trace("running stop hook", "name", name, "start", start)
+		}
+
+		// Run the stop hook
+		if err := stop.Stop(t.killCtx, &req); err != nil {
+			return nil
+		}
+
+		if t.logger.IsTrace() {
+			end := time.Now()
+			t.logger.Trace("finished stop hook", "name", name, "end", end, "duration", end.Sub(start))
 		}
 	}
 
