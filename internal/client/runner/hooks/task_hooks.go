@@ -1,6 +1,8 @@
 package hooks
 
 import (
+	"context"
+
 	"github.com/hashicorp/go-hclog"
 	proto "github.com/umbracle/vesta/internal/client/runner/structs"
 )
@@ -18,7 +20,7 @@ type TaskPoststartHookRequest struct {
 type TaskPoststartHook interface {
 	TaskHook
 
-	Poststart(chan struct{}, *TaskPoststartHookRequest) error
+	Poststart(context.Context, *TaskPoststartHookRequest) error
 }
 
 type TaskPrestartHookRequest struct {
@@ -27,5 +29,14 @@ type TaskPrestartHookRequest struct {
 type TaskPrestartHook interface {
 	TaskHook
 
-	Prestart(chan struct{}, *TaskPrestartHookRequest) error
+	Prestart(context.Context, *TaskPrestartHookRequest) error
+}
+
+type TaskStopRequest struct {
+}
+
+type TaskStopHook interface {
+	TaskHook
+
+	Stop(context.Context, *TaskStopRequest) error
 }

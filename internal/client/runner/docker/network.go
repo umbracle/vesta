@@ -68,6 +68,7 @@ func (d *Docker) CreateNetwork(allocID string, dnsAlias []string, hostname strin
 		return nil, false, err
 	}
 	if container != nil {
+		// the network for this allocation is already available
 		return specFromContainer(container), false, nil
 	}
 

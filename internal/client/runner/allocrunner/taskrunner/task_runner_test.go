@@ -177,6 +177,10 @@ func TestTaskRunner_Restore_RequiresRestart(t *testing.T) {
 	testWaitForTaskToStart(t, newRunner)
 
 	events := newRunner.TaskState().Events
+	for _, ev := range events {
+		t.Log(ev.Type, ev.Details)
+	}
+
 	require.Equal(t, events[0].Type, proto.TaskStarted)    // initial start
 	require.Equal(t, events[1].Type, proto.TaskTerminated) // emitted during newRunner.Run
 	require.Equal(t, events[2].Type, proto.TaskRestarting)

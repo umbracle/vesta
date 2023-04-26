@@ -25,7 +25,8 @@ type TaskRunner struct {
 	alloc            *proto.Allocation
 	task             *proto.Task
 	shutdownCh       chan struct{}
-	killCh           chan struct{}
+	killCtx          context.Context
+	killCtxCancel    context.CancelFunc
 	state            state.State
 	taskDir          *allocdir.TaskDir
 	taskStateUpdated func()
@@ -53,6 +54,8 @@ type Config struct {
 func NewTaskRunner(config *Config) *TaskRunner {
 	logger := config.Logger.Named("task_runner").With("task-name", config.Task.Name)
 
+	killCtx, killCancel := context.WithCancel(context.Background())
+
 	tr := &TaskRunner{
 		logger:           logger,
 		driver:           config.Driver,
@@ -60,7 +63,8 @@ func NewTaskRunner(config *Config) *TaskRunner {
 		task:             config.Task.Copy(),
 		waitCh:           make(chan struct{}),
 		shutdownCh:       make(chan struct{}),
-		killCh:           make(chan struct{}),
+		killCtx:          killCtx,
+		killCtxCancel:    killCancel,
 		state:            config.State,
 		status:           proto.NewTaskState(),
 		taskStateUpdated: config.TaskStateUpdated,
@@ -91,15 +95,6 @@ func (t *TaskRunner) Handle() *proto.TaskHandle {
 	return t.handle
 }
 
-func (t *TaskRunner) IsShuttingDown() bool {
-	select {
-	case <-t.killCh:
-		return true
-	default:
-		return false
-	}
-}
-
 func (t *TaskRunner) Task() *proto.Task {
 	return t.task
 }
@@ -111,7 +106,7 @@ func (t *TaskRunner) Run() {
 MAIN:
 	for {
 		select {
-		case <-t.killCh:
+		case <-t.killCtx.Done():
 			break MAIN
 		case <-t.shutdownCh:
 			return
@@ -124,7 +119,7 @@ MAIN:
 		}
 
 		select {
-		case <-t.killCh:
+		case <-t.killCtx.Done():
 			break MAIN
 		case <-t.shutdownCh:
 			return
@@ -149,7 +144,7 @@ MAIN:
 				t.logger.Error("failed to wait for task", "err", err)
 			} else {
 				select {
-				case <-t.killCh:
+				case <-t.killCtx.Done():
 					result = t.handleKill(resultCh)
 				case <-t.shutdownCh:
 					return
@@ -177,6 +172,11 @@ MAIN:
 
 	// task is dead
 	t.UpdateStatus(proto.TaskState_Dead, nil)
+
+	// Run the stop hooks
+	if err := t.stop(); err != nil {
+		t.logger.Error("stop failed", "error", err)
+	}
 }
 
 func (t *TaskRunner) handleKill(resultCh <-chan *proto.ExitResult) *proto.ExitResult {
@@ -260,6 +260,7 @@ func (t *TaskRunner) shouldRestart() (bool, time.Duration) {
 
 	if t.task.Batch {
 		// batch tasks are not restarted
+		t.UpdateStatus(proto.TaskState_Dead, proto.NewTaskEvent(proto.TaskNotRestarting).SetFailsTask())
 		return false, 0
 	}
 
@@ -331,14 +332,10 @@ func (t *TaskRunner) appendEventLocked(ev *proto.TaskState_Event) {
 	t.status.Events = append(t.status.Events, ev)
 }
 
-func (t *TaskRunner) KillNoWait(ev *proto.TaskState_Event) {
-	close(t.killCh)
-
-	t.status.Killing = true
-}
-
 func (t *TaskRunner) Kill(ctx context.Context, ev *proto.TaskState_Event) error {
-	t.KillNoWait(ev)
+	t.logger.Trace("Kill requested")
+
+	t.killCtxCancel()
 
 	select {
 	case <-t.WaitCh():

@@ -58,10 +58,11 @@ message Allocation {
     NetworkSpec networkSpec = 8;
     
     enum Status {
-        Pending = 0;
-        Running = 1;
-        Complete = 2;
-        Failed = 3;
+        Unknown = 0;
+        Pending = 1;
+        Running = 2;
+        Complete = 3;
+        Failed = 4;
     }
 }
 

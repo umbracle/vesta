@@ -30,6 +30,8 @@ type Docker struct {
 func NewDockerDriver(logger hclog.Logger, networkName string) (*Docker, error) {
 	if logger == nil {
 		logger = hclog.NewNullLogger()
+	} else {
+		logger = logger.Named("docker")
 	}
 
 	client, err := client.NewClientWithOpts(client.FromEnv)
@@ -59,7 +61,7 @@ func NewDockerDriver(logger hclog.Logger, networkName string) (*Docker, error) {
 	}
 
 	d := &Docker{
-		logger:      hclog.NewNullLogger(),
+		logger:      logger,
 		client:      client,
 		coordinator: newDockerImageCoordinator(client),
 		store:       newTaskStore(),
@@ -156,7 +158,7 @@ func (d *Docker) ExecTask(taskID string, cmd []string) (*driver.ExecTaskResult, 
 }
 
 func (d *Docker) StartTask(task *driver.Task) (*proto.TaskHandle, error) {
-	d.logger.Info("Create task", "image", task.Image, "tag", task.Tag)
+	d.logger.Debug("Create task", "image", task.Image, "tag", task.Tag)
 
 	if err := d.createImage(task.Image + ":" + task.Tag); err != nil {
 		return nil, err

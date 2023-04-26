@@ -1,6 +1,7 @@
 package allocrunner
 
 import (
+	"context"
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
@@ -27,52 +28,71 @@ type Config struct {
 }
 
 type AllocRunner struct {
-	config          *Config
-	logger          hclog.Logger
-	tasks           map[string]*taskrunner.TaskRunner
-	waitCh          chan struct{}
-	alloc           *proto.Allocation
-	driver          driver.Driver
-	taskUpdated     chan struct{}
-	stateUpdater    StateUpdater
-	state           state.State
-	allocUpdatedCh  chan *proto.Allocation
-	volume          string
-	shutdownStarted chan struct{}
-	shutdownCh      chan struct{}
-	destroyCh       chan struct{}
-	wg              sync.WaitGroup
-	allocDir        *allocdir.AllocDir
-	runnerHooks     []hooks.RunnerHook
+	config                   *Config
+	logger                   hclog.Logger
+	tasks                    map[string]*taskrunner.TaskRunner
+	waitCh                   chan struct{}
+	alloc                    *proto.Allocation
+	driver                   driver.Driver
+	taskUpdated              chan struct{}
+	stateUpdater             StateUpdater
+	state                    state.State
+	allocUpdatedCh           chan *proto.Allocation
+	volume                   string
+	shutdownStarted          chan struct{}
+	shutdownCh               chan struct{}
+	destroyCh                chan struct{}
+	taskStateUpdateHandlerCh chan struct{}
+	wg                       sync.WaitGroup
+	allocDir                 *allocdir.AllocDir
+	runnerHooks              []hooks.RunnerHook
 }
 
-func NewAllocRunner(c *Config) (*AllocRunner, error) {
+func NewAllocRunner(c *Config) *AllocRunner {
 	logger := c.Logger.Named("alloc_runner").With("alloc", c.Alloc.Deployment.Name)
 
 	runner := &AllocRunner{
-		config:          c,
-		logger:          logger,
-		tasks:           map[string]*taskrunner.TaskRunner{},
-		waitCh:          make(chan struct{}),
-		alloc:           c.Alloc,
-		driver:          c.Driver,
-		taskUpdated:     make(chan struct{}),
-		stateUpdater:    c.StateUpdater,
-		state:           c.State,
-		volume:          c.ClientVolumeDir,
-		shutdownStarted: make(chan struct{}),
-		shutdownCh:      make(chan struct{}),
-		destroyCh:       make(chan struct{}),
-		allocUpdatedCh:  make(chan *proto.Allocation, 1),
-		runnerHooks:     []hooks.RunnerHook{},
-		allocDir:        allocdir.NewAllocDir(c.ClientVolumeDir, c.Alloc.Deployment.Name),
+		config:                   c,
+		logger:                   logger,
+		tasks:                    map[string]*taskrunner.TaskRunner{},
+		waitCh:                   make(chan struct{}),
+		alloc:                    c.Alloc,
+		driver:                   c.Driver,
+		taskUpdated:              make(chan struct{}),
+		stateUpdater:             c.StateUpdater,
+		state:                    c.State,
+		volume:                   c.ClientVolumeDir,
+		shutdownStarted:          make(chan struct{}),
+		shutdownCh:               make(chan struct{}),
+		destroyCh:                make(chan struct{}),
+		taskStateUpdateHandlerCh: make(chan struct{}),
+		allocUpdatedCh:           make(chan *proto.Allocation, 1),
+		runnerHooks:              []hooks.RunnerHook{},
+		allocDir:                 allocdir.NewAllocDir(c.ClientVolumeDir, c.Alloc.Deployment.Name),
 	}
 
-	if err := runner.initHooks(); err != nil {
-		return nil, err
-	}
+	runner.initTaskRunners(c.Alloc.Deployment.Tasks)
+	runner.initHooks()
 
-	return runner, nil
+	return runner
+}
+
+func (a *AllocRunner) initTaskRunners(tasks []*proto.Task) error {
+	for _, task := range tasks {
+		config := &taskrunner.Config{
+			Logger:           a.logger,
+			Task:             task,
+			Allocation:       a.config.Alloc,
+			Driver:           a.config.Driver,
+			State:            a.config.State,
+			TaskStateUpdated: a.TaskStateUpdated,
+			Hooks:            a.config.Hooks,
+			TaskDir:          a.allocDir.NewTaskDir(task.Name),
+		}
+		runner := taskrunner.NewTaskRunner(config)
+		a.tasks[task.Name] = runner
+	}
+	return nil
 }
 
 func (a *AllocRunner) Deployment() *proto.Deployment {
@@ -92,103 +112,128 @@ func (a *AllocRunner) Alloc() *proto.Allocation {
 }
 
 func (a *AllocRunner) handleTaskStateUpdates() {
+	defer close(a.taskStateUpdateHandlerCh)
 
-	// start any tasks that were started during Restore
-	for _, task := range a.tasks {
-		a.wg.Add(1)
-		go func(runner *taskrunner.TaskRunner) {
-			runner.Run()
-			a.wg.Done()
-		}(task)
-	}
-
-	// start the reconcile loop
-	for {
-		tasks := map[string]*proto.Task{}
-		tasksState := map[string]*proto.TaskState{}
-		for name, t := range a.tasks {
-			tasks[name] = t.Task()
-			tasksState[name] = t.TaskState()
-		}
-
-		res := &allocResults{}
-		if !a.isShuttingDown() {
-			// if the alloc runner is shutting down, the tasks have been removed
-			// and the reconciler would try to allocate them again.
-			r := newAllocReconciler(a.alloc, tasks, tasksState)
-			res = r.Compute()
-		}
-
-		if !res.Empty() {
-			a.logger.Info(res.GoString())
-
-			// remove tasks
-			for _, name := range res.removeTasks {
-				a.tasks[name].KillNoWait(proto.NewTaskEvent(""))
-			}
-
-			// create a tasks
-			for name, task := range res.newTasks {
-				// write the task on the state
-				runner := a.newTaskRunner(task)
-
-				a.wg.Add(1)
-				go func(runner *taskrunner.TaskRunner) {
-					runner.Run()
-					a.wg.Done()
-				}(runner)
-
-				a.tasks[name] = runner
-			}
-		}
-
-		states := map[string]*proto.TaskState{}
-		for taskName, task := range a.tasks {
-			state := task.TaskState()
-			if state.State == proto.TaskState_Dead && !a.isShuttingDown() {
-				// garbage collect the task if it has finished and not shutting down
-				delete(a.tasks, taskName)
-			} else {
-				states[taskName] = task.TaskState()
-			}
-		}
-
-		// Notify about the update on the allocation
-		calloc := a.clientAlloc(states)
-
-		// Update the server
-		a.stateUpdater.AllocStateUpdated(calloc)
-
+	for done := false; !done; {
 		// wait for more updates
 		select {
 		case <-a.taskUpdated:
+		case <-a.waitCh:
+			// sync once more to collect the final states
+			done = true
 		}
+
+		liveRunners := []*taskrunner.TaskRunner{}
+
+		var killEvent *proto.TaskState_Event
+		var killTask string
+
+		states := map[string]*proto.TaskState{}
+		for name, t := range a.tasks {
+			taskState := t.TaskState()
+			states[name] = taskState
+
+			if taskState.State != proto.TaskState_Dead {
+				liveRunners = append(liveRunners, t)
+				continue
+			}
+
+			if taskState.Failed {
+				if killEvent == nil {
+					killTask = name
+					killEvent = proto.NewTaskEvent(proto.TaskSiblingFailed).
+						SetTaskFailed(killTask)
+				}
+			}
+		}
+
+		if len(liveRunners) > 0 {
+			if killEvent != nil {
+				// kill the live tasks
+				for _, tr := range liveRunners {
+					tr.EmitEvent(killEvent)
+				}
+
+				states = a.killTasks()
+
+				// wait for the liverunners to stop
+				for _, tr := range liveRunners {
+					a.logger.Info("waiting for task to exit", "task", tr.Task().Name)
+					select {
+					case <-tr.WaitCh():
+					case <-a.waitCh:
+					}
+				}
+			}
+		}
+
+		calloc := a.clientAlloc(states)
+
+		a.stateUpdater.AllocStateUpdated(calloc)
 	}
 }
 
+func (a *AllocRunner) runTasks() {
+	// Start and wait for all tasks.
+	for _, task := range a.tasks {
+		go task.Run()
+	}
+	for _, task := range a.tasks {
+		<-task.WaitCh()
+	}
+}
+
+func (ar *AllocRunner) killTasks() map[string]*proto.TaskState {
+	var mu sync.Mutex
+	states := make(map[string]*proto.TaskState, len(ar.tasks))
+
+	wg := sync.WaitGroup{}
+	for name, tr := range ar.tasks {
+		wg.Add(1)
+		go func(name string, tr *taskrunner.TaskRunner) {
+			defer wg.Done()
+
+			taskEvent := proto.NewTaskEvent(proto.TaskKilling)
+			err := tr.Kill(context.TODO(), taskEvent)
+			if err != nil { // TODO (what if the task is not running anymore)
+				ar.logger.Warn("error stopping task", "error", err, "task_name", name)
+			}
+
+			taskState := tr.TaskState()
+			mu.Lock()
+			states[name] = taskState
+			mu.Unlock()
+		}(name, tr)
+	}
+	wg.Wait()
+
+	return states
+}
+
 func (a *AllocRunner) Run() {
+	defer close(a.waitCh)
+
+	go a.handleAllocUpdates()
+
+	go a.handleTaskStateUpdates()
+
 	if err := a.prerun(); err != nil {
 		a.logger.Error("prerun failed", "error", err)
 
 		goto POST
 	}
 
-	go a.handleAllocUpdates()
-
-	go a.handleTaskStateUpdates()
-
-	// wait for the shutdown to start and wait for the tasks to finish
-	<-a.shutdownStarted
-
-	a.wg.Wait()
+	a.runTasks()
 
 POST:
+	if a.isShuttingDown() {
+		return
+	}
+
 	// Run the postrun hooks
 	if err := a.postrun(); err != nil {
 		a.logger.Error("postrun failed", "error", err)
 	}
-
-	close(a.waitCh)
 }
 
 func (a *AllocRunner) handleAllocUpdates() {
@@ -210,24 +255,35 @@ func (a *AllocRunner) handleAllocUpdate(alloc *proto.Allocation) {
 	a.TaskStateUpdated()
 
 	if alloc.Deployment.DesiredStatus == proto.Deployment_Stop {
-		close(a.shutdownStarted)
-
-		// destroy all tasks
-		for _, task := range a.tasks {
-			task.KillNoWait(proto.NewTaskEvent(""))
-		}
-
-		// wait for all the tasks to finish
-		<-a.waitCh
+		a.killTasks()
 	}
 }
 
-func (a *AllocRunner) AllocStatus() proto.Allocation_Status {
+type Status struct {
+	Status proto.Allocation_Status
+	States map[string]*proto.TaskState
+}
+
+func (a *AllocRunner) Status() *Status {
 	states := map[string]*proto.TaskState{}
 	for name, task := range a.tasks {
 		states[name] = task.TaskState()
 	}
-	return getClientStatus(states)
+
+	res := &Status{Status: getClientStatus(states), States: states}
+
+	select {
+	case <-a.waitCh:
+	default:
+		// wait is not over yet
+		if res.Status == proto.Allocation_Complete {
+			// post run task have not finished yet adn the task are still running
+			// wait until everything stops to assert it is completed
+			res.Status = proto.Allocation_Running
+		}
+	}
+
+	return res
 }
 
 func (a *AllocRunner) clientAlloc(states map[string]*proto.TaskState) *proto.Allocation {
@@ -235,8 +291,18 @@ func (a *AllocRunner) clientAlloc(states map[string]*proto.TaskState) *proto.All
 	calloc := a.alloc.Copy()
 	calloc.TaskStates = states
 
-	// TODO: Measure also pending tasks to be created
 	calloc.Status = getClientStatus(states)
+
+	select {
+	case <-a.waitCh:
+	default:
+		// wait is not over yet
+		if calloc.Status == proto.Allocation_Complete {
+			// post run task have not finished yet adn the task are still running
+			// wait until everything stops to assert it is completed
+			calloc.Status = proto.Allocation_Running
+		}
+	}
 
 	return calloc
 }
@@ -264,11 +330,7 @@ func (a *AllocRunner) TaskStateUpdated() {
 }
 
 func (a *AllocRunner) Restore() error {
-	// read from db the tasks?
-	for _, task := range a.alloc.Deployment.Tasks {
-		runner := a.newTaskRunner(task)
-		a.tasks[task.Name] = runner
-
+	for _, runner := range a.tasks {
 		if err := runner.Restore(); err != nil {
 			return err
 		}
@@ -291,16 +353,15 @@ func (a *AllocRunner) DestroyCh() chan struct{} {
 
 func (a *AllocRunner) Destroy() {
 	a.logger.Info("alloc destroyed")
-	close(a.shutdownStarted)
 
 	go func() {
-		// Kill the tasks and update the allocation status
-		for _, task := range a.tasks {
-			task.KillNoWait(proto.NewTaskEvent(""))
-		}
+		states := a.killTasks()
+		calloc := a.clientAlloc(states)
+		a.stateUpdater.AllocStateUpdated(calloc)
 
-		// wait for all the tasks to finish
 		<-a.waitCh
+
+		<-a.taskStateUpdateHandlerCh
 
 		// delete the allocation folder
 		if err := a.state.DeleteAllocationBucket(a.alloc.Deployment.Name); err != nil {
@@ -394,5 +455,5 @@ func getClientStatus(taskStates map[string]*proto.TaskState) proto.Allocation_St
 		return proto.Allocation_Complete
 	}
 
-	return proto.Allocation_Complete
+	return proto.Allocation_Unknown
 }

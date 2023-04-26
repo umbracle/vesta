@@ -15,7 +15,8 @@ func NewTestDockerDriver(t *testing.T) *Docker {
 	// create a custom name for the network
 	testingNetworkName := uuid.Generate()
 
-	d, err := NewDockerDriver(hclog.NewNullLogger(), testingNetworkName)
+	logger := hclog.New(&hclog.LoggerOptions{Level: hclog.Debug})
+	d, err := NewDockerDriver(logger, testingNetworkName)
 	require.NoError(t, err)
 
 	// destroy the network afterwards

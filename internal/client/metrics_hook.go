@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 
 var _ hooks.TaskHook = &metricsHook{}
 var _ hooks.TaskPoststartHook = &metricsHook{}
+var _ hooks.TaskStopHook = &metricsHook{}
 
 type MetricsUpdater interface {
 	UpdateMetrics(string, map[string]*dto.MetricFamily)
@@ -43,7 +45,7 @@ func (m *metricsHook) Name() string {
 	return "metrics-hook"
 }
 
-func (m *metricsHook) Poststart(ctx chan struct{}, req *hooks.TaskPoststartHookRequest) error {
+func (m *metricsHook) Poststart(ctx context.Context, req *hooks.TaskPoststartHookRequest) error {
 	if req.Spec.Ip == "" {
 		return nil
 	}
@@ -86,8 +88,9 @@ func (m *metricsHook) collectMetrics() {
 	}
 }
 
-func (m *metricsHook) Stop() {
+func (m *metricsHook) Stop(ctx context.Context, req *hooks.TaskStopRequest) error {
 	close(m.closeCh)
+	return nil
 }
 
 func getMetricFamilies(sourceData io.Reader) (map[string]*dto.MetricFamily, error) {

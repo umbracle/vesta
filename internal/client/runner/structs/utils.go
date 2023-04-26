@@ -45,11 +45,18 @@ func (t *TaskState_Event) SetFailsTask() *TaskState_Event {
 	return t
 }
 
+func (t *TaskState_Event) SetTaskFailed(name string) *TaskState_Event {
+	t.Details["failed_task"] = name
+	return t
+}
+
 const (
 	TaskStarted       = "Started"
 	TaskTerminated    = "Terminated"
 	TaskRestarting    = "Restarting"
 	TaskNotRestarting = "Not-restarting"
+	TaskSiblingFailed = "Sibling-failed"
+	TaskKilling       = "Task-Killing"
 )
 
 func (a *Allocation) Copy() *Allocation {
