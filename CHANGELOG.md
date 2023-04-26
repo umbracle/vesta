@@ -6,6 +6,7 @@ BUG FIXES:
 
 IMPROVEMENTS:
 
+- catalog: Add `--catalog` flag to server to load an external catalog [[GH-75](https://github.com/umbracle/eth2-validator/issues/75)]
 - core: Add sync tracker with babel [[GH-41](https://github.com/umbracle/eth2-validator/issues/41)]
 - catalog: Add logging field in catalog [[GH-62](https://github.com/umbracle/eth2-validator/issues/62)]
 - core: Add an alias for the deployment [[GH-23](https://github.com/umbracle/eth2-validator/issues/23)]
