@@ -158,7 +158,7 @@ func (d *Docker) ExecTask(taskID string, cmd []string) (*driver.ExecTaskResult, 
 }
 
 func (d *Docker) StartTask(task *driver.Task) (*proto.TaskHandle, error) {
-	d.logger.Info("Create task", "image", task.Image, "tag", task.Tag)
+	d.logger.Debug("Create task", "image", task.Image, "tag", task.Tag)
 
 	if err := d.createImage(task.Image + ":" + task.Tag); err != nil {
 		return nil, err

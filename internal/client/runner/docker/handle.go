@@ -28,7 +28,7 @@ type taskHandle struct {
 }
 
 func (t *taskHandle) run() {
-	t.logger.Info("handle running", "id", t.containerID)
+	t.logger.Debug("handle running", "id", t.containerID)
 
 	statusCh, errCh := t.client.ContainerWait(context.Background(), t.containerID, container.WaitConditionNotRunning)
 
