@@ -5,8 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/umbracle/vesta/internal/framework"
 	"github.com/umbracle/vesta/internal/server/proto"
@@ -16,18 +20,64 @@ import (
 var builtinBackends embed.FS
 
 type Catalog struct {
+	logger   hclog.Logger
 	backends map[string]framework.Framework
 }
 
 func NewCatalog() (*Catalog, error) {
 	c := &Catalog{
 		backends: map[string]framework.Framework{},
+		logger:   hclog.NewNullLogger(),
 	}
 
 	if err := c.initBuiltin(); err != nil {
 		return nil, err
 	}
 	return c, nil
+}
+
+func (c *Catalog) SetLogger(logger hclog.Logger) {
+	c.logger = logger.Named("catalog")
+}
+
+func (c *Catalog) Load(path string) error {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	var starFiles []string
+	if fileInfo.IsDir() {
+		// directory
+		if err := filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
+			if d.IsDir() {
+				return nil
+			}
+			if strings.HasSuffix(path, ".star") {
+				starFiles = append(starFiles, path)
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	} else {
+		// single file
+		starFiles = append(starFiles, path)
+	}
+
+	for _, starFile := range starFiles {
+		starContent, err := ioutil.ReadFile(starFile)
+		if err != nil {
+			return err
+		}
+
+		fr := newBackend(starContent).(*backend)
+		c.backends[fr.name] = fr
+
+		c.logger.Info("Loaded backend", "name", fr.name)
+	}
+
+	return nil
 }
 
 func (c *Catalog) initBuiltin() error {

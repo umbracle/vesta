@@ -23,6 +23,7 @@ type ServerCommand struct {
 
 	logLevel string
 	volume   string
+	catalog  []string
 }
 
 // Help implements the cli.Command interface
@@ -42,6 +43,7 @@ func (c *ServerCommand) Run(args []string) int {
 	flags := flag.NewFlagSet("server", flag.ContinueOnError)
 	flags.StringVar(&c.logLevel, "log-level", "info", "")
 	flags.StringVar(&c.volume, "volume", "", "")
+	flags.StringSliceVar(&c.catalog, "catalog", []string{}, "")
 
 	if err := flags.Parse(args); err != nil {
 		c.UI.Error(err.Error())
@@ -60,6 +62,7 @@ func (c *ServerCommand) Run(args []string) int {
 	}
 
 	sCfg := server.DefaultConfig()
+	sCfg.Catalog = c.catalog
 	sCfg.PersistentDB = db
 
 	srv, err := server.NewServer(logger, sCfg)
