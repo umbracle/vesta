@@ -20,6 +20,7 @@ import (
 type Config struct {
 	GrpcAddr     string
 	PersistentDB *bolt.DB
+	Catalog      []string
 }
 
 // DefaultConfig returns a default configuration
@@ -63,6 +64,15 @@ func NewServer(logger hclog.Logger, config *Config) (*Server, error) {
 	catalog, err := catalog.NewCatalog()
 	if err != nil {
 		return nil, err
+	}
+
+	catalog.SetLogger(logger)
+
+	// load the custom catalogs
+	for _, ctg := range config.Catalog {
+		if err := catalog.Load(ctg); err != nil {
+			return nil, fmt.Errorf("failed to load catalog '%s': %v", ctg, err)
+		}
 	}
 
 	srv := &Server{
