@@ -21,6 +21,14 @@ func (d *dummyCatalog) Build(prev []byte, req *proto.ApplyRequest) ([]byte, map[
 	return req.Input, map[string]*proto.Task{"task": d.createTask}, nil
 }
 
+func (d *dummyCatalog) ListPlugins() []string {
+	return nil
+}
+
+func (d *dummyCatalog) GetPlugin(name string) (*proto.Item, error) {
+	return nil, nil
+}
+
 func TestCreate(t *testing.T) {
 	// test that we can create and update an allocation
 	tmpDir := t.TempDir()

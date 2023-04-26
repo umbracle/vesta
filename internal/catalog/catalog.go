@@ -2,23 +2,37 @@ package catalog
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io/fs"
-	"reflect"
 	"strings"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/umbracle/vesta/internal/framework"
 	"github.com/umbracle/vesta/internal/server/proto"
-	"go.starlark.net/starlark"
 )
 
-//go:embed templates/*
-var content embed.FS
+//go:embed builtin/*
+var builtinBackends embed.FS
 
-func init() {
+type Catalog struct {
+	backends map[string]framework.Framework
+}
+
+func NewCatalog() (*Catalog, error) {
+	c := &Catalog{
+		backends: map[string]framework.Framework{},
+	}
+
+	if err := c.initBuiltin(); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func (c *Catalog) initBuiltin() error {
 	var starFiles []string
-	if err := fs.WalkDir(content, ".", func(path string, d fs.DirEntry, err error) error {
+	if err := fs.WalkDir(builtinBackends, ".", func(path string, d fs.DirEntry, err error) error {
 		if d.IsDir() {
 			return nil
 		}
@@ -27,208 +41,175 @@ func init() {
 		}
 		return nil
 	}); err != nil {
-		panic(err)
+		return err
 	}
 
 	for _, starFile := range starFiles {
-		starContent, err := content.ReadFile(starFile)
+		starContent, err := builtinBackends.ReadFile(starFile)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		fr := newBackend(starContent).(*backend)
-		Catalog[fr.name] = fr
+		c.backends[fr.name] = fr
 	}
+
+	return nil
 }
 
-var Catalog = map[string]framework.Framework{}
-
-func newTestingFramework(chain string) *framework.TestingFramework {
-	fr := &framework.TestingFramework{
-		F: Catalog[chain],
+func (c *Catalog) Build(prev []byte, req *proto.ApplyRequest) ([]byte, map[string]*proto.Task, error) {
+	cc, ok := c.backends[strings.ToLower(req.Action)]
+	if !ok {
+		return nil, nil, fmt.Errorf("not found plugin: %s", req.Action)
 	}
-	return fr
-}
 
-type backend struct {
-	thread  *starlark.Thread
-	globals starlark.StringDict
-	name    string
-	fields  map[string]*framework.Field
-	chains  []string
-}
+	// validate that the plugin can run this chain
+	var found bool
+	for _, c := range cc.Chains() {
+		if c == req.Chain {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, nil, fmt.Errorf("cannot run chain '%s'", req.Chain)
+	}
 
-func newBackendFromFile(filename string) framework.Framework {
-	content, err := content.ReadFile("templates/" + filename + ".star")
+	var prevMap map[string]interface{}
+	if prev != nil {
+		if err := json.Unmarshal(prev, &prevMap); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	var inputMap map[string]interface{}
+	if err := json.Unmarshal(req.Input, &inputMap); err != nil {
+		return nil, nil, err
+	}
+
+	// add to input the typed parameters from the request
+	if req.LogLevel != "" {
+		inputMap["log_level"] = req.LogLevel
+	}
+
+	// validate the input and the state
+	state, data, err := processInput(cc.Config(), prevMap, inputMap)
 	if err != nil {
-		panic(fmt.Errorf("failed to load '%s': %v", filename, err))
+		return nil, nil, err
 	}
-	return newBackend(content)
-}
 
-func newBackend(content []byte) framework.Framework {
-	thread := &starlark.Thread{Name: "my thread"}
-	globals, err := starlark.ExecFile(thread, "", content, nil)
+	config := &framework.Config{
+		Metrics: req.Metrics,
+		Chain:   req.Chain,
+		Data:    data,
+	}
+
+	deployableTasks := cc.Generate(config)
+
+	rawState, err := json.Marshal(state)
 	if err != nil {
-		panic(fmt.Errorf("failed to exec: %v", err))
+		return nil, nil, err
 	}
 
-	b := &backend{
-		thread:  thread,
-		globals: globals,
-	}
-
-	if err := b.generateStaticConfig(); err != nil {
-		panic(fmt.Errorf("failed to generate static config: %v", err))
-	}
-
-	return b
+	return rawState, deployableTasks, nil
 }
 
-type field struct {
-	Type          string        `mapstructure:"type"`
-	Required      bool          `mapstructure:"required"`
-	Default       interface{}   `mapstructure:"default"`
-	ForceNew      bool          `mapstructure:"force_new"`
-	Description   string        `mapstructure:"description"`
-	AllowedValues []interface{} `mapstructure:"allowed_values"`
-}
-
-func (f *field) ToType() *framework.Field {
-	res := &framework.Field{
-		Required:      f.Required,
-		Default:       f.Default,
-		ForceNew:      f.ForceNew,
-		Description:   f.Description,
-		AllowedValues: f.AllowedValues,
+func processInput(fields map[string]*framework.Field, state map[string]interface{}, input map[string]interface{}) (map[string]interface{}, *framework.FieldData, error) {
+	// validate that the input matches the schema
+	inputData := &framework.FieldData{
+		Raw:    input,
+		Schema: fields,
 	}
-	if f.Type == "string" {
-		res.Type = framework.TypeString
-	} else if f.Type == "bool" {
-		res.Type = framework.TypeBool
-	} else if f.Type == "int" {
-		res.Type = framework.TypeInt
+	if err := inputData.Validate(); err != nil {
+		return nil, nil, fmt.Errorf("failed to validate input: %v", err)
+	}
+
+	if state != nil {
+		// validate that any new value is not a forceNew field
+		stateData := &framework.FieldData{
+			Raw:    state,
+			Schema: fields,
+		}
+		for k := range input {
+			if fields[k].ForceNew {
+				oldVal := stateData.Get(k)
+				newVal := inputData.Get(k)
+
+				if newVal != oldVal {
+					return nil, nil, fmt.Errorf("force new value '%s' has changed", k)
+				}
+			}
+		}
+
+		// merge the input values into the state
+		for k, v := range input {
+			state[k] = v
+		}
+
 	} else {
-		panic(fmt.Sprintf("type '%s' not found", f.Type))
+		// new deployment, take as state the current input
+		state = input
+	}
+
+	data := &framework.FieldData{
+		Raw:    state,
+		Schema: fields,
+	}
+	if err := data.Validate(); err != nil {
+		return nil, nil, fmt.Errorf("failed to validate input: %v", err)
+	}
+
+	return state, data, nil
+}
+
+func (c *Catalog) ListPlugins() []string {
+	res := []string{}
+	for name := range c.backends {
+		res = append(res, name)
 	}
 	return res
 }
 
-func (b *backend) generateStaticConfig() error {
-	nameValue := b.globals["name"]
-	if err := mapstructure.Decode(toGoValue(nameValue), &b.name); err != nil {
-		return err
+func (c *Catalog) GetPlugin(name string) (*proto.Item, error) {
+	pl, ok := c.backends[strings.ToLower(name)]
+	if !ok {
+		return nil, fmt.Errorf("plugin %s not found", name)
 	}
 
-	configValue := b.globals["config"]
+	cfg := pl.Config()
 
-	var configResult map[string]*field
-	if err := mapstructure.Decode(toGoValue(configValue), &configResult); err != nil {
-		return err
+	// convert to the keys to return a list of inputs. Note, this does
+	// not work if the config has nested items
+	var input map[string]interface{}
+	if err := mapstructure.Decode(cfg, &input); err != nil {
+		return nil, err
 	}
 
-	b.fields = map[string]*framework.Field{}
-	for name, res := range configResult {
-		b.fields[name] = res.ToType()
+	var inputNames []string
+	for name := range input {
+		inputNames = append(inputNames, name)
 	}
 
-	// append the default configuration fields
-	for name, res := range defaultConfiguration {
-		b.fields[name] = res
+	item := &proto.Item{
+		Name:   name,
+		Fields: []*proto.Item_Field{},
+		Chains: pl.Chains(),
+	}
+	for name, field := range cfg {
+		item.Fields = append(item.Fields, &proto.Item_Field{
+			Name:        name,
+			Type:        field.Type.String(),
+			Description: field.Description,
+			Required:    field.Required,
+		})
 	}
 
-	chainsValue := b.globals["chains"]
-	if err := mapstructure.Decode(toGoValue(chainsValue), &b.chains); err != nil {
-		return err
-	}
-	return nil
+	return item, nil
 }
 
-var defaultConfiguration = map[string]*framework.Field{
-	"log_level": {
-		Type:          framework.TypeString,
-		Default:       "info",
-		Description:   "Log level for the logs emitted by the client",
-		AllowedValues: []interface{}{"all", "debug", "info", "warn", "error", "silent"},
-	},
-}
-
-func (b *backend) Config() map[string]*framework.Field {
-	return b.fields
-}
-
-func (b *backend) Chains() []string {
-	return b.chains
-}
-
-func (b *backend) Generate(config *framework.Config) map[string]*proto.Task {
-	input := starlark.NewDict(1)
-	input.SetKey(starlark.String("chain"), starlark.String(config.Chain))
-	input.SetKey(starlark.String("metrics"), starlark.Bool(config.Metrics))
-
-	for name := range config.Data.Schema {
-		val := config.Data.Get(name)
-		if str, ok := val.(string); ok {
-			input.SetKey(starlark.String(name), starlark.String(str))
-		} else if bol, ok := val.(bool); ok {
-			input.SetKey(starlark.String(name), starlark.Bool(bol))
-		} else if num, ok := val.(uint64); ok {
-			input.SetKey(starlark.String(name), starlark.MakeInt(int(num)))
-		} else {
-			panic(fmt.Errorf("unknown type %s", reflect.TypeOf(val).Kind()))
-		}
+func newTestingFramework(f framework.Framework) *framework.TestingFramework {
+	fr := &framework.TestingFramework{
+		F: f,
 	}
-
-	v, err := starlark.Call(b.thread, b.globals["generate"], starlark.Tuple{input}, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	var result map[string]*proto.Task
-	if err := mapstructure.Decode(toGoValue(v), &result); err != nil {
-		panic(err)
-	}
-
-	return result
-}
-
-func toGoValue(v starlark.Value) interface{} {
-	switch obj := v.(type) {
-	case *starlark.List:
-		res := []interface{}{}
-		for i := 0; i < obj.Len(); i++ {
-			res = append(res, toGoValue(obj.Index(i)))
-		}
-		return res
-
-	case *starlark.Dict:
-		res := map[string]interface{}{}
-		for _, k := range obj.Keys() {
-			val, ok, err := obj.Get(k)
-			if err != nil {
-				panic(err)
-			}
-			if !ok {
-				panic("expected to be found")
-			}
-			res[string(k.(starlark.String))] = toGoValue(val)
-		}
-		return res
-
-	case starlark.Int:
-		val, ok := obj.Uint64()
-		if !ok {
-			panic(fmt.Errorf("cannot convert uint64"))
-		}
-		return val
-
-	case starlark.String:
-		return string(obj)
-
-	case starlark.Bool:
-		return bool(obj)
-
-	default:
-		panic(fmt.Sprintf("BUG: starlark type %s not found", v.Type()))
-	}
+	return fr
 }

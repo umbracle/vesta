@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-memdb"
 	babel "github.com/umbracle/babel/sdk"
+	"github.com/umbracle/vesta/internal/catalog"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/server/state"
 	"github.com/umbracle/vesta/internal/uuid"
@@ -26,6 +27,12 @@ func DefaultConfig() *Config {
 	return &Config{
 		GrpcAddr: "localhost:4003",
 	}
+}
+
+type Catalog interface {
+	Build(prev []byte, req *proto.ApplyRequest) ([]byte, map[string]*proto.Task, error)
+	ListPlugins() []string
+	GetPlugin(name string) (*proto.Item, error)
 }
 
 type Server struct {
@@ -53,10 +60,15 @@ func NewServer(logger hclog.Logger, config *Config) (*Server, error) {
 		statedb = s
 	}
 
+	catalog, err := catalog.NewCatalog()
+	if err != nil {
+		return nil, err
+	}
+
 	srv := &Server{
 		logger:  logger,
 		state:   statedb,
-		catalog: &localCatalog{},
+		catalog: catalog,
 	}
 
 	if err := srv.setupGRPCServer(config.GrpcAddr); err != nil {
