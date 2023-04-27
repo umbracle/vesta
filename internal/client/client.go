@@ -115,6 +115,13 @@ func (c *Client) handle() {
 					Batch:       tt.Batch,
 					Volumes:     map[string]*cproto.Task_Volume{},
 					Metadata:    map[string]string{},
+					Artifacts:   []*cproto.Task_Artifact{},
+				}
+				for _, t := range tt.Artifacts {
+					ttt.Artifacts = append(ttt.Artifacts, &cproto.Task_Artifact{
+						Source:      t.Source,
+						Destination: t.Destination,
+					})
 				}
 				for name, v := range tt.Volumes {
 					ttt.Volumes[name] = &cproto.Task_Volume{

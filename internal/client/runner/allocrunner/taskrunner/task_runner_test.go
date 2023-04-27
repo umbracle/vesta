@@ -257,7 +257,7 @@ func TestTaskRunner_Volumes(t *testing.T) {
 	// create and build the task runner volumes here? We need to move
 	// this out of alloc runner and into the task runner itself
 
-	cfg.TaskDir.CreateVolume("a")
+	cfg.TaskDir.CreateVolume("a", "/data")
 	require.NoError(t, cfg.TaskDir.Build())
 
 	// create a file

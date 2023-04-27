@@ -76,7 +76,7 @@ func (t *taskDirHook) Prestart(ctx context.Context, req *hooks.TaskPrestartHookR
 	}
 
 	for name, volume := range t.task.Volumes {
-		mountPath := t.taskDir.CreateVolume(name)
+		mountPath := t.taskDir.CreateVolume(name, volume.Path)
 
 		t.mountSetter.setMount(&driver.MountConfig{
 			HostPath: mountPath,

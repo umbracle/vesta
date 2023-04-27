@@ -2,7 +2,7 @@ version = "0.0.1"
 
 name = "prysm"
 
-chains = ["mainnet"]
+chains = ["mainnet", "sepolia"]
 
 config = {
     "execution_node": {
@@ -83,9 +83,21 @@ def generate(obj):
         )
 
     if obj["chain"] != "mainnet":
-        # It requires to download artifacts (TODO)
+        t["artifacts"] = [
+            {
+                "source": "https://github.com/eth-clients/eth2-networks/raw/master/shared/prater/genesis.ssz",
+                "destination": "/data/genesis.ssz",
+            }
+        ]
+
         # add '--sepolia' or '--goerli' (it defaults to mainnet)
-        t["args"].extend(["--" + obj["chain"]])
+        t["args"].extend(
+            [
+                "--" + obj["chain"],
+                "--genesis-state",
+                "/data/genesis.ssz",
+            ]
+        )
 
     if obj["metrics"]:
         t["telemetry"] = {"port": 8008, "path": "metrics"}
