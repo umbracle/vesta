@@ -2,7 +2,7 @@ version = "0.0.1"
 
 name = "prysm"
 
-chains = ["mainnet", "sepolia"]
+chains = ["mainnet", "sepolia", "goerli"]
 
 config = {
     "execution_node": {
@@ -85,7 +85,7 @@ def generate(obj):
     if obj["chain"] != "mainnet":
         t["artifacts"] = [
             {
-                "source": "https://github.com/eth-clients/eth2-networks/raw/master/shared/prater/genesis.ssz",
+                "source": getGenesisArtifact(obj["chain"]),
                 "destination": "/data/genesis.ssz",
             }
         ]
@@ -103,6 +103,15 @@ def generate(obj):
         t["telemetry"] = {"port": 8008, "path": "metrics"}
 
     return {"node": t, "babel": babel}
+
+
+def getGenesisArtifact(chain):
+    if chain == "goerli":
+        return "https://github.com/eth-clients/eth2-networks/raw/master/shared/prater/genesis.ssz"
+    elif chain == "sepolia":
+        return (
+            "https://github.com/eth-clients/merge-testnets/raw/main/sepolia/genesis.ssz"
+        )
 
 
 def getBeaconCheckpoint(chain):
