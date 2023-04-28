@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type AllocDir struct {
@@ -36,10 +37,15 @@ func (a *AllocDir) Build() error {
 	return nil
 }
 
+type volumeMount struct {
+	name string
+	path string
+}
+
 type TaskDir struct {
 	Dir        string
 	VolumesDir string
-	volumes    []string
+	volumes    []*volumeMount
 }
 
 func newTaskDir(allocDir, taskName string) *TaskDir {
@@ -73,7 +79,7 @@ func (a *TaskDir) Build() error {
 
 	// create a new directory for each volume
 	for _, vol := range a.volumes {
-		dir := filepath.Join(a.VolumesDir, vol)
+		dir := filepath.Join(a.VolumesDir, vol.name)
 
 		if err := os.MkdirAll(dir, 0777); err != nil {
 			return err
@@ -90,8 +96,20 @@ func (a *TaskDir) GetVolume(name string) string {
 	return filepath.Join(a.VolumesDir, name)
 }
 
-func (a *TaskDir) CreateVolume(name string) string {
-	a.volumes = append(a.volumes, name)
+func (a *TaskDir) CreateVolume(name string, path string) string {
+	a.volumes = append(a.volumes, &volumeMount{name: name, path: path})
 
 	return a.GetVolume(name)
+}
+
+func (a *TaskDir) ResolvePath(path string) (string, bool) {
+	for _, vol := range a.volumes {
+		if strings.HasPrefix(path, vol.path) {
+			relPath := strings.TrimPrefix(path, vol.path)
+
+			dir := filepath.Join(a.VolumesDir, vol.name)
+			return filepath.Join(dir, relPath), true
+		}
+	}
+	return "", false
 }

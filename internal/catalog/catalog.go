@@ -259,7 +259,8 @@ func (c *Catalog) GetPlugin(name string) (*proto.Item, error) {
 
 func newTestingFramework(f framework.Framework) *framework.TestingFramework {
 	fr := &framework.TestingFramework{
-		F: f,
+		F:         f,
+		Artifacts: map[string]string{},
 	}
 	return fr
 }

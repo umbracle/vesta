@@ -39,12 +39,19 @@ message Task {
     map<string, string> data = 9;
     map<string, Volume> volumes = 11;
     
+    repeated Artifact artifacts = 12;
+    
     bool batch = 15;
     
     map<string, string> metadata = 16;
     
     message Volume {
         string path = 1;
+    }
+
+    message Artifact {
+        string source = 1;
+        string destination = 2;
     }
 }
 
