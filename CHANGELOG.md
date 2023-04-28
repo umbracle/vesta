@@ -2,10 +2,12 @@
 
 BUG FIXES:
 
+- catalog: `Sepolia` and `Goerli` on `Prysm` [[GH-77](https://github.com/umbracle/eth2-validator/issues/77)]
 - scheduler: Handle destroy desired status updates [[GH-65](https://github.com/umbracle/eth2-validator/issues/65)]
 
 IMPROVEMENTS:
 
+- core: Hook to download artifacts [[GH-77](https://github.com/umbracle/eth2-validator/issues/77)]
 - catalog: Add `--catalog` flag to server to load an external catalog [[GH-75](https://github.com/umbracle/eth2-validator/issues/75)]
 - core: Add sync tracker with babel [[GH-41](https://github.com/umbracle/eth2-validator/issues/41)]
 - catalog: Add logging field in catalog [[GH-62](https://github.com/umbracle/eth2-validator/issues/62)]
