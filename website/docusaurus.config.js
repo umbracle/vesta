@@ -40,8 +40,8 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         blog: {
-          blogTitle: 'Docusaurus blog!',
-          blogDescription: 'A Docusaurus powered blog!',
+          blogTitle: 'Blog',
+          blogDescription: 'Blog',
           postsPerPage: 'ALL',
         },
         docs: {
@@ -59,12 +59,11 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       // Replace with your project's social card
-      image: 'img/docusaurus-social-card.jpg',
       navbar: {
         title: 'Vesta',
         logo: {
           alt: 'Vesta Logo',
-          src: 'img/logo.svg',
+          src: 'img/vesta_logo_red.png',
         },
         items: [
           {
