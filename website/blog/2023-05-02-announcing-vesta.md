@@ -16,7 +16,7 @@ Check the Getting Started guide and download `Vesta` if you want to start using 
 
 ## Addressing Complexity
 
-Deploying and managing a production blockchain node is far from a trivial task.
+Deploying and managing a production blockchain node is complex.
 
 Though many teams provide now simple `docker-compose` templates to easily set up and join a decentralized network, this only solves a small subset of the problem.
 
