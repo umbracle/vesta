@@ -39,6 +39,11 @@ const config = {
       'classic',
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
+        blog: {
+          blogTitle: 'Blog',
+          blogDescription: 'Blog',
+          postsPerPage: 'ALL',
+        },
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
           editUrl: 'https://github.com/umbracle/vesta/tree/main/website/',
@@ -54,12 +59,11 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       // Replace with your project's social card
-      image: 'img/docusaurus-social-card.jpg',
       navbar: {
         title: 'Vesta',
         logo: {
           alt: 'Vesta Logo',
-          src: 'img/logo.svg',
+          src: 'img/vesta_logo_red.png',
         },
         items: [
           {
@@ -67,6 +71,11 @@ const config = {
             sidebarId: 'tutorialSidebar',
             position: 'left',
             label: 'Docs',
+          },
+          {
+            to: 'blog',
+            label: 'Blog',
+            position: 'left'
           },
           {
             href: 'https://discord.gg/YajpNSvT22',
