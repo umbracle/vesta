@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/mitchellh/cli"
 	flag "github.com/spf13/pflag"
-	"github.com/umbracle/vesta/internal/client"
 	"github.com/umbracle/vesta/internal/server"
 )
 
@@ -19,7 +18,6 @@ import (
 type ServerCommand struct {
 	UI     cli.Ui
 	server *server.Server
-	client *client.Client
 
 	logLevel string
 	volume   string
