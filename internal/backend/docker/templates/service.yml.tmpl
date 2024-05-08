@@ -1,0 +1,42 @@
+version: "3.7"
+services:
+  {{- range .Services }}
+  {{ .Name }}:
+    image: {{ .Image }}:{{ .Tag }}
+    command:
+      {{- range .Args }}
+      - "{{ . }}"
+      {{- end }}
+    {{- if .Files }}
+    configs:
+      {{- range .Files }}
+      - source: {{ .Name }}
+        target: {{ .Target }}
+      {{- end }}
+    {{- end }}
+    networks:
+      - default
+    {{- if .VolumesExtra }}
+    volumes:
+      {{- range $key, $val := .VolumesExtra }}
+      - type: bind
+        source: {{ $val.Source }}
+        target: {{ $val.Target }}
+      {{- end }}
+    {{- end }}
+    labels:
+      {{- range $key, $value := .Labels }}
+      {{ $key }}: {{ $value }}
+      {{- end }}
+  {{- end }}
+configs:
+  {{- range .Services }}
+  {{- range .Files }}
+  {{ .Name }}:
+    file: {{ .Source }}
+  {{- end }}
+  {{- end }}
+networks:
+  default:
+    external: true
+    name: sepolia-test

@@ -1,0 +1,58 @@
+version: "3.7"
+services:
+  babel:
+    image: ghcr.io/umbracle/babel:v0.0.1
+    command:
+      - "--plugin"
+      - "ethereum_cl"
+      - "server"
+      - "url=http://0.0.0.0:5052"
+    networks:
+      - default
+    labels:
+      service: goerli-lighthouse
+      task: babel
+  node:
+    image: sigp/lighthouse:v4.0.1
+    command:
+      - "lighthouse"
+      - "bn"
+      - "--network"
+      - "goerli"
+      - "--datadir"
+      - "/data"
+      - "--http"
+      - "--http-address"
+      - "0.0.0.0"
+      - "--http-port"
+      - "5052"
+      - "--execution-jwt"
+      - "/var/lib/jwtsecret/jwt.hex"
+      - "--execution-endpoint"
+      - "http://goerli-geth_node:8551"
+      - "--metrics-address"
+      - "0.0.0.0"
+      - "--metrics-port"
+      - "8008"
+      - "--debug-level"
+      - "info"
+      - "--metrics"
+    configs:
+      - source: file-0
+        target: /var/lib/jwtsecret/jwt.hex
+    networks:
+      - default
+    volumes:
+      - type: bind
+        source: /Users/ferranbt/go/src/github.com/umbracle/vesta/data-vesta/docker/volumes/896cf534-d3a8-e6b1-6b2a-8304bb7f1c26
+        target: /data
+    labels:
+      service: goerli-lighthouse
+      task: node
+configs:
+  file-0:
+    file: /tmp/file-temp2260346240
+networks:
+  default:
+    external: true
+    name: sepolia-test

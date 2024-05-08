@@ -11,6 +11,18 @@ service VestaService {
     rpc DeploymentStatus(DeploymentStatusRequest) returns (DeploymentStatusResponse);
     rpc CatalogList(CatalogListRequest) returns (CatalogListResponse);
     rpc CatalogInspect(CatalogInspectRequest) returns (CatalogInspectResponse);
+    rpc Ping(PingRequest) returns (PingResponse);
+    rpc SubscribeEvents(SubscribeEventsRequest) returns (stream Event);
+}
+
+message SubscribeEventsRequest {
+    string service = 1;
+}
+
+message PingRequest {
+}
+
+message PingResponse {
 }
 
 message CatalogListRequest {
@@ -97,6 +109,11 @@ message Node {
     string name = 3;
 }
 
+message Service {
+    string name = 1;
+    map<string, Task> tasks = 2;
+}
+
 // Task represents an single container process
 message Task {
     string image = 1;
@@ -119,6 +136,7 @@ message Task {
     
     message Volume {
         string path = 1;
+        string id = 2;
     }
 
     message Telemetry {
@@ -197,4 +215,18 @@ message TaskState {
         Running = 1;
         Dead = 2;
     }
+}
+
+message Event {
+    string id = 1;
+
+    uint64 timestamp = 2;
+
+    string service = 3;
+
+    string task = 4;
+
+    string type = 5;
+
+    string action = 6;
 }

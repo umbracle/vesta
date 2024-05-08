@@ -9,6 +9,7 @@ require (
 	github.com/hashicorp/go-getter v1.7.1
 	github.com/hashicorp/go-hclog v1.3.0
 	github.com/hashicorp/go-memdb v1.3.3
+	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/mitchellh/cli v1.1.4
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db
 	github.com/mitchellh/mapstructure v1.5.0

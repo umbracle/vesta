@@ -1,15 +1,19 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
+	"github.com/boltdb/bolt"
+	"github.com/hashicorp/go-hclog"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/mitchellh/cli"
 	"github.com/mitchellh/colorstring"
 	"github.com/ryanuber/columnize"
+	"github.com/umbracle/vesta/internal/server"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"google.golang.org/grpc"
 )
@@ -98,7 +102,37 @@ func (m *Meta) Conn() (proto.VestaServiceClient, error) {
 		return nil, fmt.Errorf("failed to connect to server: %v", err)
 	}
 	clt := proto.NewVestaServiceClient(conn)
+	if _, err := clt.Ping(context.Background(), &proto.PingRequest{}); err != nil {
+		// create the temporal server
+		srv, err := newTempServer()
+		if err != nil {
+			return nil, err
+		}
+		clt = srv.InMemoryConn()
+	}
 	return clt, nil
+}
+
+func newTempServer() (*server.Server, error) {
+	logger := hclog.New(&hclog.LoggerOptions{
+		Name:  "vesta",
+		Level: hclog.LevelFromString("info"),
+	})
+
+	db, err := bolt.Open("vesta.db", 0600, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	sCfg := server.DefaultConfig()
+	sCfg.GrpcAddr = ""
+	sCfg.PersistentDB = db
+
+	srv, err := server.NewServer(logger, sCfg)
+	if err != nil {
+		return nil, err
+	}
+	return srv, nil
 }
 
 func formatList(in []string) string {

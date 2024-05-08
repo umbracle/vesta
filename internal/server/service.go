@@ -13,6 +13,10 @@ type service struct {
 	srv *Server
 }
 
+func (s *service) Ping(ctx context.Context, req *proto.PingRequest) (*proto.PingResponse, error) {
+	return &proto.PingResponse{}, nil
+}
+
 func (s *service) Apply(ctx context.Context, req *proto.ApplyRequest) (*proto.ApplyResponse, error) {
 	// create
 	id, err := s.srv.Create(req)
@@ -48,15 +52,21 @@ func (s *service) DeploymentStatus(ctx context.Context, req *proto.DeploymentSta
 }
 
 func (s *service) Destroy(ctx context.Context, req *proto.DestroyRequest) (*proto.DestroyResponse, error) {
-	alloc, err := s.srv.state.AllocationByAliasOrIDOrPrefix(req.Id)
-	if err != nil {
-		return nil, err
-	}
 
-	if err := s.srv.state.DestroyAllocation(alloc.Id); err != nil {
-		return nil, err
-	}
+	s.srv.backend.Destroy(req.Id)
 	return &proto.DestroyResponse{}, nil
+
+	/*
+		alloc, err := s.srv.state.AllocationByAliasOrIDOrPrefix(req.Id)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := s.srv.state.DestroyAllocation(alloc.Id); err != nil {
+			return nil, err
+		}
+		return &proto.DestroyResponse{}, nil
+	*/
 }
 
 func (s *service) CatalogList(ctx context.Context, req *proto.CatalogListRequest) (*proto.CatalogListResponse, error) {
@@ -76,4 +86,32 @@ func (s *service) CatalogInspect(ctx context.Context, req *proto.CatalogInspectR
 		Item: item,
 	}
 	return resp, nil
+}
+
+func (s *service) SubscribeEvents(req *proto.SubscribeEventsRequest, stream proto.VestaService_SubscribeEventsServer) error {
+	for {
+		ws := memdb.NewWatchSet()
+		it := s.srv.state.SubscribeEvents(req.Service, ws)
+
+		for obj := it.Next(); obj != nil; obj = it.Next() {
+			event := obj.(*proto.Event)
+
+			if err := stream.Send(event); err != nil {
+				panic(err)
+			}
+
+			select {
+			case <-stream.Context().Done():
+				return nil
+			default:
+			}
+		}
+
+		// wait for the duties to change
+		select {
+		case <-ws.WatchCh(context.Background()):
+		case <-stream.Context().Done():
+			return nil
+		}
+	}
 }

@@ -1,12 +1,15 @@
 package state
 
 import (
+	"database/sql"
 	"fmt"
 
 	"github.com/boltdb/bolt"
 	"github.com/hashicorp/go-memdb"
 	"github.com/umbracle/vesta/internal/server/proto"
 	gproto "google.golang.org/protobuf/proto"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 // list of buckets
@@ -19,6 +22,8 @@ type StateStore struct {
 
 	// db is the persistence layer
 	db *bolt.DB
+
+	db2 *sql.DB
 }
 
 func NewStateStore(path string) (*StateStore, error) {
@@ -58,6 +63,18 @@ func NewStateStoreWithBoltDB(db *bolt.DB) (*StateStore, error) {
 	}
 
 	if err := s.reIndex(); err != nil {
+		return nil, err
+	}
+
+	// start sqlite db with foreign index checks
+	db2, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		return nil, err
+	}
+	s.db2 = db2
+
+	// apply the schema
+	if _, err := db2.Exec(schemaDB); err != nil {
 		return nil, err
 	}
 
@@ -252,6 +269,30 @@ func (s *StateStore) UpsertAllocation(alloc *proto.Allocation) error {
 	}
 
 	return err
+}
+
+func (s *StateStore) SubscribeEvents(service string, ws memdb.WatchSet) memdb.ResultIterator {
+	txn := s.memDb.Txn(false)
+	defer txn.Abort()
+
+	iter, err := txn.Get("events", "service", service)
+	if err != nil {
+		return nil
+	}
+	ws.Add(iter.WatchCh())
+	return iter
+}
+
+func (s *StateStore) InsertEvent(event *proto.Event) error {
+	memTxn := s.memDb.Txn(true)
+	defer memTxn.Abort()
+
+	if err := memTxn.Insert("events", event); err != nil {
+		return err
+	}
+
+	memTxn.Commit()
+	return nil
 }
 
 func (s *StateStore) putAllocation(dbTxn *bolt.Tx, memTxn *memdb.Txn, alloc *proto.Allocation) error {

@@ -72,25 +72,27 @@ func (c *ServerCommand) Run(args []string) int {
 	}
 	c.server = srv
 
-	cfg := &client.Config{
-		ControlPlane: srv,
-		NodeID:       "local",
-		PersistentDB: db,
-	}
-	if c.volume == "" {
-		logger.Warn("no volume is set")
-	} else {
-		cfg.Volume = &client.HostVolume{
-			Path: c.volume,
+	/*
+		cfg := &client.Config{
+			ControlPlane: srv,
+			NodeID:       "local",
+			PersistentDB: db,
 		}
-	}
+		if c.volume == "" {
+			logger.Warn("no volume is set")
+		} else {
+			cfg.Volume = &client.HostVolume{
+				Path: c.volume,
+			}
+		}
 
-	client, err := client.NewClient(logger, cfg)
-	if err != nil {
-		c.UI.Output(fmt.Sprintf("failed to start agent: %v", err))
-		return 1
-	}
-	c.client = client
+		client, err := client.NewClient(logger, cfg)
+		if err != nil {
+			c.UI.Output(fmt.Sprintf("failed to start agent: %v", err))
+			return 1
+		}
+		c.client = client
+	*/
 
 	return c.handleSignals()
 }
@@ -107,7 +109,7 @@ func (c *ServerCommand) handleSignals() int {
 	gracefulCh := make(chan struct{})
 	go func() {
 		c.server.Stop()
-		c.client.Stop()
+		//c.client.Stop()
 		close(gracefulCh)
 	}()
 

@@ -73,6 +73,7 @@ def generate(obj):
             "/var/lib/jwtsecret/jwt.hex",
             "--metrics.addr",
             "0.0.0.0",
+            "--ipcdisable",
             "--verbosity",
             verbosity,
             "--maxpeers",

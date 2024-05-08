@@ -13,20 +13,14 @@ import (
 // DeployCommand is the command to show the version of the agent
 type DeployCommand struct {
 	*Meta
-
-	chain string
-
-	typ string
-
-	allocId string
-
-	params string
-
-	metrics bool
-
-	alias string
-
+	chain    string
+	typ      string
+	allocId  string
+	params   string
+	metrics  bool
+	alias    string
 	logLevel string
+	watch    bool
 }
 
 // Help implements the cli.Command interface
@@ -51,7 +45,7 @@ func (c *DeployCommand) Run(args []string) int {
 	flags.BoolVar(&c.metrics, "metrics", true, "")
 	flags.StringVar(&c.alias, "alias", "", "")
 	flags.StringVar(&c.logLevel, "log-level", "info", "")
-
+	flags.BoolVar(&c.watch, "watch", false, "")
 	if err := flags.Parse(args); err != nil {
 		c.UI.Error(err.Error())
 		return 1
@@ -106,6 +100,24 @@ func (c *DeployCommand) Run(args []string) int {
 		c.UI.Error(err.Error())
 		return 1
 	}
+
+	if c.watch {
+		stream, err := clt.SubscribeEvents(context.TODO(), &proto.SubscribeEventsRequest{Service: resp.Id})
+		if err != nil {
+			c.UI.Error(err.Error())
+			return 1
+		}
+
+		for {
+			ev, err := stream.Recv()
+			if err != nil {
+				c.UI.Error(err.Error())
+				return 1
+			}
+			c.UI.Output(fmt.Sprintf("New event (%s)", ev))
+		}
+	}
+
 	c.UI.Output(resp.Id)
 	return 0
 }
