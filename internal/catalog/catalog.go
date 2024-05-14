@@ -125,7 +125,7 @@ func (c *Catalog) GetFields(id string, input []byte) (*framework.FieldData, erro
 	return data, nil
 }
 
-func (c *Catalog) Build(prev []byte, req *proto.ApplyRequest) ([]byte, map[string]*proto.Task, error) {
+func (c *Catalog) Build(prev []byte, req *proto.ApplyRequest) (*framework.FieldData, *proto.Service, error) {
 	cc, ok := c.backends[strings.ToLower(req.Action)]
 	if !ok {
 		return nil, nil, fmt.Errorf("not found plugin: %s", req.Action)
@@ -161,7 +161,7 @@ func (c *Catalog) Build(prev []byte, req *proto.ApplyRequest) ([]byte, map[strin
 	}
 
 	// validate the input and the state
-	state, data, err := processInput(cc.Config(), prevMap, inputMap)
+	_, data, err := processInput(cc.Config(), prevMap, inputMap)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -173,13 +173,7 @@ func (c *Catalog) Build(prev []byte, req *proto.ApplyRequest) ([]byte, map[strin
 	}
 
 	deployableTasks := cc.Generate(config)
-
-	rawState, err := json.Marshal(state)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return rawState, deployableTasks, nil
+	return data, deployableTasks, nil
 }
 
 func processInput(fields map[string]*framework.Field, state map[string]interface{}, input map[string]interface{}) (map[string]interface{}, *framework.FieldData, error) {
@@ -190,6 +184,11 @@ func processInput(fields map[string]*framework.Field, state map[string]interface
 	}
 	if err := inputData.Validate(); err != nil {
 		return nil, nil, fmt.Errorf("failed to validate input: %v", err)
+	}
+
+	stateCopy := map[string]interface{}{}
+	for k, v := range state {
+		stateCopy[k] = v
 	}
 
 	if state != nil {
@@ -220,6 +219,7 @@ func processInput(fields map[string]*framework.Field, state map[string]interface
 	}
 
 	data := &framework.FieldData{
+		Prev:   stateCopy,
 		Raw:    state,
 		Schema: fields,
 	}
@@ -251,11 +251,6 @@ func (c *Catalog) GetPlugin(name string) (*proto.Item, error) {
 	var input map[string]interface{}
 	if err := mapstructure.Decode(cfg, &input); err != nil {
 		return nil, err
-	}
-
-	var inputNames []string
-	for name := range input {
-		inputNames = append(inputNames, name)
 	}
 
 	item := &proto.Item{

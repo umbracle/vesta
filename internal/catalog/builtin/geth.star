@@ -20,8 +20,16 @@ config = {
     "archive": {
         "type": "bool",
         "description": "Enables archival node mode",
+        "force_new": True,
         "default": False,
     },
+    "volume": {
+        "type": "string",
+        "description": "Reference to the volume to use. Will create a new volume if empty",
+        "params": {
+            "ref": "data"
+        }
+    }
 }
 
 verbosity_levels = {
@@ -107,4 +115,11 @@ def generate(obj):
     if obj["dbengine"] == "pebble":
         t["args"].extend(["--db.engine", "pebble"])
 
-    return {"node": t, "babel": babel}
+
+    tasks = {
+        "node": t,
+        "babel": babel
+    }
+    return {"tasks": tasks, "volumes": [
+        {"name": "data"}
+    ]}

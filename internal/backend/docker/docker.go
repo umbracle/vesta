@@ -86,21 +86,32 @@ func (d *Docker) RunTasks(serviceSpec *proto.Service) {
 	service := &service{}
 	service.Services = make([]task1, 0, len(serviceSpec.Tasks))
 
+	// create the volume if it does not exists
+	volumesMap := map[string]string{}
+
+	fmt.Println("-- vv", serviceSpec.Volumes)
+
+	for _, volume := range serviceSpec.Volumes {
+		path := filepath.Join(d.dir, "volumes", volume.Id)
+
+		if err := os.MkdirAll(path, 0755); err != nil {
+			panic(err)
+		}
+		volumesMap[volume.Name] = path
+	}
+
+	fmt.Println("-- volumes map --")
+	fmt.Println(volumesMap)
+
 	for name, task := range serviceSpec.Tasks {
 		fileCount := 0
 		var files []File
 		var volumes1 []volume1
 
 		// decide what to do with the volumes
-		for _, volume := range task.Volumes {
-			path := filepath.Join(d.dir, "volumes", volume.Id)
-
-			if err := os.MkdirAll(path, 0755); err != nil {
-				panic(err)
-			}
-
+		for name, volume := range task.Volumes {
 			volumes1 = append(volumes1, volume1{
-				Source: path,
+				Source: volumesMap[name],
 				Target: volume.Path,
 			})
 		}
@@ -144,6 +155,7 @@ func execCmd(cmdName string, args []string) error {
 	cmd := exec.Command(cmdName, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		fmt.Println(string(output))
 		panic(err)
 	}
 	fmt.Println(string(output))

@@ -16,6 +16,7 @@ import (
 var (
 	allocationBucket = []byte("allocation")
 	deploymentBucket = []byte("deployment")
+	volumesBkt       = []byte("volumes")
 )
 
 type StateStore struct {
@@ -42,6 +43,7 @@ func NewStateStoreWithBoltDB(db *bolt.DB) (*StateStore, error) {
 		bkts := [][]byte{
 			allocationBucket,
 			deploymentBucket,
+			volumesBkt,
 		}
 
 		for _, b := range bkts {
@@ -206,6 +208,29 @@ func (s *StateStore) AllocationList(ws memdb.WatchSet) ([]*proto.Allocation, err
 	return tasks, nil
 }
 
+func (s *StateStore) GetVolume(id string) (*proto.Volume, error) {
+	var volume proto.Volume
+	err := s.db.View(func(tx *bolt.Tx) error {
+		bkt := tx.Bucket(volumesBkt)
+
+		return dbGet(bkt, []byte(id), &volume)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &volume, nil
+}
+
+func (s *StateStore) PutVolume(dep *proto.Volume) error {
+	err := s.db.Update(func(dbTxn *bolt.Tx) error {
+		return dbPut(dbTxn.Bucket(volumesBkt), []byte(dep.Id), dep)
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *StateStore) GetDeployment(id string) (*proto.Service, error) {
 	var service proto.Service
 	err := s.db.View(func(tx *bolt.Tx) error {
@@ -221,7 +246,16 @@ func (s *StateStore) GetDeployment(id string) (*proto.Service, error) {
 
 func (s *StateStore) PutDeployment(dep *proto.Service) error {
 	err := s.db.Update(func(dbTxn *bolt.Tx) error {
-		return dbPut(dbTxn.Bucket(deploymentBucket), []byte(dep.Name), dep)
+		if err := dbPut(dbTxn.Bucket(deploymentBucket), []byte(dep.Name), dep); err != nil {
+			return err
+		}
+		for _, vol := range dep.Volumes {
+			fmt.Println("-- write volume --", vol.Id)
+			if err := dbPut(dbTxn.Bucket(volumesBkt), []byte(vol.Id), vol); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return err

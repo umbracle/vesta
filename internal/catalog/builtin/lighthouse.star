@@ -93,7 +93,13 @@ def generate(obj):
         t["args"].extend(["--metrics"])
         t["telemetry"] = {"port": 8008, "path": "metrics"}
 
-    return {"node": t, "babel": babel}
+    tasks = {
+        "node": t,
+        "babel": babel
+    }
+    return {"tasks": tasks, "volumes": [
+        {"name": "data"}
+    ]}
 
 
 def getBeaconCheckpoint(chain):

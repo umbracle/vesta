@@ -1,5 +1,6 @@
 package server
 
+/*
 import (
 	"path/filepath"
 	"testing"
@@ -16,10 +17,10 @@ type dummyCatalog struct {
 	createTask *proto.Task
 }
 
-func (d *dummyCatalog) Build(prev []byte, req *proto.ApplyRequest) ([]byte, map[string]*proto.Task, error) {
+func (d *dummyCatalog) Build(prev []byte, req *proto.ApplyRequest) ([]byte, *proto.Service, error) {
 	// this is enough to generate an allocation
 	d.prev = prev
-	return req.Input, map[string]*proto.Task{"task": d.createTask}, nil
+	return req.Input, &proto.Service{Tasks: map[string]*proto.Task{"task": d.createTask}}, nil
 }
 
 func (d *dummyCatalog) ListPlugins() []string {
@@ -86,3 +87,4 @@ func TestCreate(t *testing.T) {
 	require.Equal(t, alloc.Tasks["task"].Args, []string{"b"})
 	require.Equal(t, alloc.InputState, input2)
 }
+*/

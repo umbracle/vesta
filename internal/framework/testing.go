@@ -49,8 +49,8 @@ func (tf *TestingFramework) ImageExists(t *testing.T) {
 		},
 	}
 
-	tasks := tf.F.Generate(cfg)
-	for _, task := range tasks {
+	service := tf.F.Generate(cfg)
+	for _, task := range service.Tasks {
 		if _, err := client.DistributionInspect(context.Background(), task.Image+":"+task.Tag, ""); err != nil {
 			t.Fatal(err)
 		}
@@ -104,12 +104,12 @@ func (tf *TestingFramework) validateInput(input map[string]interface{}) error {
 		return err
 	}
 
-	tasks := tf.F.Generate(cfg)
+	service := tf.F.Generate(cfg)
 
 	// create a docker task for each node and make sure it runs.
 	// since this nodes are only to validate the correctness of the flags, we do not want
 	// to run them connected to the world in order not to DDos the network with transient nodes.
-	for name, task := range tasks {
+	for name, task := range service.Tasks {
 		if name == "babel" {
 			continue
 		}

@@ -27,6 +27,9 @@ type Field struct {
 
 	// Filters is the list of filters to apply to the field
 	Filters []Filter
+
+	// Arbitrary params per field
+	Params map[string]string
 }
 
 type Filter struct {
@@ -77,6 +80,7 @@ func (t Type) String() string {
 }
 
 type FieldData struct {
+	Prev   map[string]interface{}
 	Raw    map[string]interface{}
 	Schema map[string]*Field
 }
@@ -172,6 +176,8 @@ func (d *FieldData) Validate() error {
 			if schema.Required {
 				return fmt.Errorf("required field '%s' not found", field)
 			}
+			// add the default value
+			d.Raw[field] = schema.Default
 			continue
 		}
 

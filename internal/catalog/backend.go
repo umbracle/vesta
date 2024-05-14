@@ -46,6 +46,7 @@ type field struct {
 	Description   string             `mapstructure:"description"`
 	AllowedValues []interface{}      `mapstructure:"allowed_values"`
 	Filters       []framework.Filter `mapstructure:"filters"`
+	Params        map[string]string  `mapstructure:"params"`
 }
 
 func (f *field) ToType() *framework.Field {
@@ -56,6 +57,7 @@ func (f *field) ToType() *framework.Field {
 		Description:   f.Description,
 		AllowedValues: f.AllowedValues,
 		Filters:       f.Filters,
+		Params:        f.Params,
 	}
 	if f.Type == "string" {
 		res.Type = framework.TypeString
@@ -120,7 +122,7 @@ func (b *backend) Chains() []string {
 	return b.chains
 }
 
-func (b *backend) Generate(config *framework.Config) map[string]*proto.Task {
+func (b *backend) Generate(config *framework.Config) *proto.Service {
 	input := starlark.NewDict(1)
 	input.SetKey(starlark.String("chain"), starlark.String(config.Chain))
 	input.SetKey(starlark.String("metrics"), starlark.Bool(config.Metrics))
@@ -133,6 +135,8 @@ func (b *backend) Generate(config *framework.Config) map[string]*proto.Task {
 			input.SetKey(starlark.String(name), starlark.Bool(bol))
 		} else if num, ok := val.(uint64); ok {
 			input.SetKey(starlark.String(name), starlark.MakeInt(int(num)))
+		} else if num, ok := val.(int); ok {
+			input.SetKey(starlark.String(name), starlark.MakeInt(num))
 		} else {
 			panic(fmt.Errorf("unknown type %s", reflect.TypeOf(val).Kind()))
 		}
@@ -143,7 +147,7 @@ func (b *backend) Generate(config *framework.Config) map[string]*proto.Task {
 		panic(err)
 	}
 
-	var result map[string]*proto.Task
+	var result *proto.Service
 	if err := mapstructure.Decode(toGoValue(v), &result); err != nil {
 		panic(err)
 	}

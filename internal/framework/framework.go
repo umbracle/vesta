@@ -5,7 +5,7 @@ import "github.com/umbracle/vesta/internal/server/proto"
 type Framework interface {
 	Config() map[string]*Field
 	Chains() []string
-	Generate(config *Config) map[string]*proto.Task
+	Generate(config *Config) *proto.Service
 }
 
 type Config struct {
