@@ -79,6 +79,13 @@ def generate(obj):
             "--maxpeers",
             str(obj["max_peers"]),
         ],
+        "ports": [
+            {"name": "http", "port": 8545},
+            {"name": "authrpc", "port": 8551},
+        ],
+        "labels": {
+            "node-type": "el"
+        },
         "data": {
             "/var/lib/jwtsecret/jwt.hex": "04592280e1778419b7aa954d43871cb2cfb2ebda754fb735e8adeb293a88f9bf"
         },

@@ -16,6 +16,7 @@ type backend struct {
 	name    string
 	fields  map[string]*framework.Field
 	chains  []string
+	labels  map[string]string
 }
 
 func newBackend(content []byte) framework.Framework {
@@ -38,12 +39,13 @@ func newBackend(content []byte) framework.Framework {
 }
 
 type field struct {
-	Type          string        `mapstructure:"type"`
-	Required      bool          `mapstructure:"required"`
-	Default       interface{}   `mapstructure:"default"`
-	ForceNew      bool          `mapstructure:"force_new"`
-	Description   string        `mapstructure:"description"`
-	AllowedValues []interface{} `mapstructure:"allowed_values"`
+	Type          string             `mapstructure:"type"`
+	Required      bool               `mapstructure:"required"`
+	Default       interface{}        `mapstructure:"default"`
+	ForceNew      bool               `mapstructure:"force_new"`
+	Description   string             `mapstructure:"description"`
+	AllowedValues []interface{}      `mapstructure:"allowed_values"`
+	Filters       []framework.Filter `mapstructure:"filters"`
 }
 
 func (f *field) ToType() *framework.Field {
@@ -53,6 +55,7 @@ func (f *field) ToType() *framework.Field {
 		ForceNew:      f.ForceNew,
 		Description:   f.Description,
 		AllowedValues: f.AllowedValues,
+		Filters:       f.Filters,
 	}
 	if f.Type == "string" {
 		res.Type = framework.TypeString
@@ -107,6 +110,10 @@ var defaultConfiguration = map[string]*framework.Field{
 
 func (b *backend) Config() map[string]*framework.Field {
 	return b.fields
+}
+
+func (b *backend) Labels() map[string]string {
+	return b.labels
 }
 
 func (b *backend) Chains() []string {

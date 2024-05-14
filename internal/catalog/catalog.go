@@ -107,6 +107,24 @@ func (c *Catalog) initBuiltin() error {
 	return nil
 }
 
+func (c *Catalog) GetFields(id string, input []byte) (*framework.FieldData, error) {
+	cc, ok := c.backends[strings.ToLower(id)]
+	if !ok {
+		return nil, fmt.Errorf("not found plugin: %s", id)
+	}
+
+	var inputMap map[string]interface{}
+	if err := json.Unmarshal(input, &inputMap); err != nil {
+		return nil, err
+	}
+
+	_, data, err := processInput(cc.Config(), nil, inputMap)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
 func (c *Catalog) Build(prev []byte, req *proto.ApplyRequest) ([]byte, map[string]*proto.Task, error) {
 	cc, ok := c.backends[strings.ToLower(req.Action)]
 	if !ok {

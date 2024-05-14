@@ -13,6 +13,14 @@ service VestaService {
     rpc CatalogInspect(CatalogInspectRequest) returns (CatalogInspectResponse);
     rpc Ping(PingRequest) returns (PingResponse);
     rpc SubscribeEvents(SubscribeEventsRequest) returns (stream Event);
+    rpc Stop(StopRequest) returns (StopResponse);
+}
+
+message StopRequest {
+    string id = 1;
+}
+
+message StopResponse {
 }
 
 message SubscribeEventsRequest {
@@ -112,6 +120,7 @@ message Node {
 message Service {
     string name = 1;
     map<string, Task> tasks = 2;
+    bytes prevState = 3;
 }
 
 // Task represents an single container process
@@ -134,6 +143,8 @@ message Task {
 
     bool batch = 14;
     
+    repeated Port ports = 15;
+
     message Volume {
         string path = 1;
         string id = 2;
@@ -147,6 +158,11 @@ message Task {
     message Artifact {
         string source = 1;
         string destination = 2;
+    }
+
+    message Port {
+        string name = 1;
+        uint64 port = 2;
     }
 }
 

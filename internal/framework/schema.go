@@ -24,6 +24,14 @@ type Field struct {
 
 	// AllowedValues is the list of allowed values for the field
 	AllowedValues []interface{}
+
+	// Filters is the list of filters to apply to the field
+	Filters []Filter
+}
+
+type Filter struct {
+	Criteria string
+	Value    string
 }
 
 func (s *Field) DefaultOrZero() interface{} {

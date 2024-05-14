@@ -15,6 +15,7 @@ import (
 // list of buckets
 var (
 	allocationBucket = []byte("allocation")
+	deploymentBucket = []byte("deployment")
 )
 
 type StateStore struct {
@@ -40,6 +41,7 @@ func NewStateStoreWithBoltDB(db *bolt.DB) (*StateStore, error) {
 	err := db.Update(func(tx *bolt.Tx) error {
 		bkts := [][]byte{
 			allocationBucket,
+			deploymentBucket,
 		}
 
 		for _, b := range bkts {
@@ -66,17 +68,19 @@ func NewStateStoreWithBoltDB(db *bolt.DB) (*StateStore, error) {
 		return nil, err
 	}
 
-	// start sqlite db with foreign index checks
-	db2, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		return nil, err
-	}
-	s.db2 = db2
+	/*
+		// start sqlite db with foreign index checks
+		db2, err := sql.Open("sqlite3", ":memory:")
+		if err != nil {
+			return nil, err
+		}
+		s.db2 = db2
 
-	// apply the schema
-	if _, err := db2.Exec(schemaDB); err != nil {
-		return nil, err
-	}
+		// apply the schema
+		if _, err := db2.Exec(schemaDB); err != nil {
+			return nil, err
+		}
+	*/
 
 	return s, nil
 }
@@ -200,6 +204,29 @@ func (s *StateStore) AllocationList(ws memdb.WatchSet) ([]*proto.Allocation, err
 
 	ws.Add(iter.WatchCh())
 	return tasks, nil
+}
+
+func (s *StateStore) GetDeployment(id string) (*proto.Service, error) {
+	var service proto.Service
+	err := s.db.View(func(tx *bolt.Tx) error {
+		bkt := tx.Bucket(deploymentBucket)
+
+		return dbGet(bkt, []byte(id), &service)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &service, nil
+}
+
+func (s *StateStore) PutDeployment(dep *proto.Service) error {
+	err := s.db.Update(func(dbTxn *bolt.Tx) error {
+		return dbPut(dbTxn.Bucket(deploymentBucket), []byte(dep.Name), dep)
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *StateStore) AllocationListByNodeId(nodeId string, ws memdb.WatchSet) ([]*proto.Allocation, error) {

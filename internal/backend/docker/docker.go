@@ -78,6 +78,10 @@ func (d *Docker) Destroy(name string) {
 	execCmd("docker", []string{"stack", "rm", name})
 }
 
+func (d *Docker) Connect(service string, task string, port uint64) (string, error) {
+	return fmt.Sprintf("http://%s.%s:%d", service, task, port), nil
+}
+
 func (d *Docker) RunTasks(serviceSpec *proto.Service) {
 	service := &service{}
 	service.Services = make([]task1, 0, len(serviceSpec.Tasks))
@@ -89,24 +93,16 @@ func (d *Docker) RunTasks(serviceSpec *proto.Service) {
 
 		// decide what to do with the volumes
 		for _, volume := range task.Volumes {
-			if volume.Id == "" {
-				path := filepath.Join(d.dir, "volumes", uuid.Generate())
+			path := filepath.Join(d.dir, "volumes", volume.Id)
 
-				fmt.Println(path)
-
-				if err := os.MkdirAll(path, 0755); err != nil {
-					panic(err)
-				}
-				volumes1 = append(volumes1, volume1{
-					Source: path,
-					Target: volume.Path,
-				})
-			} else {
-				volumes1 = append(volumes1, volume1{
-					Source: volume.Id,
-					Target: volume.Path,
-				})
+			if err := os.MkdirAll(path, 0755); err != nil {
+				panic(err)
 			}
+
+			volumes1 = append(volumes1, volume1{
+				Source: path,
+				Target: volume.Path,
+			})
 		}
 
 		for target, content := range task.Data {

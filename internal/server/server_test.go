@@ -7,6 +7,7 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
+	"github.com/umbracle/vesta/internal/framework"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
@@ -23,6 +24,10 @@ func (d *dummyCatalog) Build(prev []byte, req *proto.ApplyRequest) ([]byte, map[
 
 func (d *dummyCatalog) ListPlugins() []string {
 	return nil
+}
+
+func (d *dummyCatalog) GetFields(id string, input []byte) (*framework.FieldData, error) {
+	return nil, nil
 }
 
 func (d *dummyCatalog) GetPlugin(name string) (*proto.Item, error) {

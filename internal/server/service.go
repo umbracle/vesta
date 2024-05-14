@@ -88,6 +88,10 @@ func (s *service) CatalogInspect(ctx context.Context, req *proto.CatalogInspectR
 	return resp, nil
 }
 
+func (s *service) Stop(ctx context.Context, req *proto.StopRequest) (*proto.StopResponse, error) {
+	return nil, nil
+}
+
 func (s *service) SubscribeEvents(req *proto.SubscribeEventsRequest, stream proto.VestaService_SubscribeEventsServer) error {
 	for {
 		ws := memdb.NewWatchSet()

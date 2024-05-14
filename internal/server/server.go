@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -14,8 +15,10 @@ import (
 	babel "github.com/umbracle/babel/sdk"
 	"github.com/umbracle/vesta/internal/backend/docker"
 	"github.com/umbracle/vesta/internal/catalog"
+	"github.com/umbracle/vesta/internal/framework"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/server/state"
+	"github.com/umbracle/vesta/internal/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 )
@@ -34,6 +37,7 @@ func DefaultConfig() *Config {
 }
 
 type Catalog interface {
+	GetFields(id string, input []byte) (*framework.FieldData, error)
 	Build(prev []byte, req *proto.ApplyRequest) ([]byte, map[string]*proto.Task, error)
 	ListPlugins() []string
 	GetPlugin(name string) (*proto.Item, error)
@@ -166,20 +170,105 @@ func (s *Server) Stop() {
 func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
 	allocId := req.AllocationId
 
-	var alloc *proto.Allocation
-	var prevState []byte
+	var alloc *proto.Service
+	var prestate []byte
 
+	{
+		fields, err := s.catalog.GetFields(req.Action, req.Input)
+		if err != nil {
+			return "", err
+		}
+
+		for name, field := range fields.Schema {
+			if len(field.Filters) == 0 {
+				continue
+			}
+
+			// get the name of the deployment
+			linkName := fields.Raw[name].(string)
+			linkDeployment, err := s.state.GetDeployment(linkName)
+			if err != nil {
+				return "", fmt.Errorf("failed to get link deployment '%s': %v", linkName, err)
+			}
+
+			labels := map[string]string{}
+			for _, task := range linkDeployment.Tasks {
+				for k, v := range task.Labels {
+					labels[k] = v
+				}
+			}
+
+			type portWrapper struct {
+				task string
+				port *proto.Task_Port
+			}
+
+			ports := map[string]*portWrapper{}
+			for taskName, task := range linkDeployment.Tasks {
+				for _, port := range task.Ports {
+					ports[port.Name] = &portWrapper{
+						task: taskName,
+						port: port,
+					}
+				}
+			}
+
+			// also check the chain
+			field.Filters = append(field.Filters, framework.Filter{
+				Criteria: "chain",
+				Value:    req.Chain,
+			})
+
+			// check if the filters apply
+			for _, filter := range field.Filters {
+				if filter.Value == "" {
+					// assume this is for bind ports, make sure that ports exists
+					port, ok := ports[filter.Criteria]
+					if !ok {
+						return "", fmt.Errorf("filter criteria '%s' not found in ports", filter.Criteria)
+					}
+					// now try to resolve this port for this task and service
+					url, err := s.backend.Connect(linkName, port.task, port.port.Port)
+					if err != nil {
+						return "", err
+					}
+					// WE HAVE TO REPLACE NOW THIS VALUE IN THE INPUT
+					fields.Raw[name] = url
+				} else {
+					v, ok := labels[filter.Criteria]
+					if !ok {
+						return "", fmt.Errorf("filter criteria '%s' not found in labels", filter.Criteria)
+					} else if v != filter.Value {
+						return "", fmt.Errorf("filter criteria '%s' does not match with value '%s'", v, filter.Value)
+					}
+				}
+			}
+		}
+
+		// If there was some binding the input has changed so we need to replace it
+		newInput, err := json.Marshal(fields.Raw)
+		if err != nil {
+			return "", err
+		}
+
+		fmt.Println("-- replaced input --")
+		fmt.Println(string(newInput))
+
+		req.Input = newInput
+	}
+
+	// try to resolve the references to other nodes
 	if allocId != "" {
 		// load allocation from the state
 		var err error
 
-		if alloc, err = s.state.GetAllocation(allocId); err != nil {
+		if alloc, err = s.state.GetDeployment(allocId); err != nil {
 			return "", err
 		}
-		prevState = alloc.InputState
+		prestate = alloc.PrevState
 	}
 
-	_, deployableTasks, err := s.catalog.Build(prevState, req)
+	newState, deployableTasks, err := s.catalog.Build(prestate, req)
 	if err != nil {
 		return "", fmt.Errorf("failed to run plugin '%s': %v", req.Action, err)
 	}
@@ -197,44 +286,40 @@ func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
 		}
 		task.Labels["task"] = name
 		task.Labels["service"] = alias
-	}
+		task.Labels["chain"] = req.Chain
 
-	service := &proto.Service{
-		Name:  alias,
-		Tasks: deployableTasks,
-	}
-	s.backend.RunTasks(service)
-
-	return alias, nil
-
-	/*
+		// figure out the volumes in the task
+		definedVolumes := map[string]*proto.Task_Volume{}
 		if alloc != nil {
-			// update the deployment
-			alloc = alloc.Copy()
-			alloc.Sequence++
-			alloc.Tasks = deployableTasks
-			alloc.InputState = state
-
-			if err := s.state.UpsertAllocation(alloc); err != nil {
-				return "", err
-			}
-		} else {
-			allocId = uuid.Generate()
-
-			alloc := &proto.Allocation{
-				Id:         allocId,
-				NodeId:     "local",
-				Tasks:      deployableTasks,
-				InputState: state,
-				Alias:      req.Alias,
-			}
-			if err := s.state.UpsertAllocation(alloc); err != nil {
-				return "", err
+			if prevTask, ok := alloc.Tasks[name]; ok {
+				for name, vol := range prevTask.Volumes {
+					definedVolumes[name] = vol
+				}
 			}
 		}
 
-		return allocId, nil
-	*/
+		for name, vol := range task.Volumes {
+			if exists, ok := definedVolumes[name]; ok {
+				vol.Id = exists.Id
+			} else {
+				vol.Id = uuid.Generate()
+			}
+		}
+	}
+
+	newService := &proto.Service{
+		Name:      alias,
+		Tasks:     deployableTasks,
+		PrevState: newState,
+	}
+
+	if err := s.state.PutDeployment(newService); err != nil {
+		return "", err
+	}
+
+	s.backend.RunTasks(newService)
+
+	return alias, nil
 }
 
 func (s *Server) Pull(nodeId string, ws memdb.WatchSet) ([]*proto.Allocation, error) {

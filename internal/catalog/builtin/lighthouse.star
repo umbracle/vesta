@@ -9,6 +9,10 @@ config = {
         "type": "string",
         "required": True,
         "description": "Endpoint of the execution node",
+        "filters": [
+            {"criteria": "node-type", "value": "el"},
+            {"criteria": "authrpc"}
+        ]
     },
     "use_checkpoint": {
         "type": "bool",
@@ -61,7 +65,7 @@ def generate(obj):
             "--execution-jwt",
             "/var/lib/jwtsecret/jwt.hex",
             "--execution-endpoint",
-            "http://" + obj["execution_node"] + ":8551",
+            obj["execution_node"],
             "--metrics-address",
             "0.0.0.0",
             "--metrics-port",
@@ -73,6 +77,10 @@ def generate(obj):
             "/var/lib/jwtsecret/jwt.hex": "04592280e1778419b7aa954d43871cb2cfb2ebda754fb735e8adeb293a88f9bf"
         },
         "volumes": {"data": {"path": "/data"}},
+        "labels": {
+            "node-type": "cl",
+            "chain": obj["chain"],
+        },
     }
 
     if obj["use_checkpoint"]:
