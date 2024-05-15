@@ -8,7 +8,6 @@ service VestaService {
     rpc Apply(ApplyRequest) returns (ApplyResponse);
     rpc Destroy(DestroyRequest) returns (DestroyResponse);
     rpc DeploymentList(ListDeploymentRequest) returns (ListDeploymentResponse);
-    rpc DeploymentStatus(DeploymentStatusRequest) returns (DeploymentStatusResponse);
     rpc CatalogList(CatalogListRequest) returns (CatalogListResponse);
     rpc CatalogInspect(CatalogInspectRequest) returns (CatalogInspectResponse);
     rpc Ping(PingRequest) returns (PingResponse);
@@ -63,14 +62,6 @@ message DestroyRequest {
 message DestroyResponse {
 }
 
-message DeploymentStatusRequest {
-    string id = 1;
-}
-
-message DeploymentStatusResponse {
-    Allocation allocation = 1;
-}
-
 message ListDeploymentRequest {
 }
 
@@ -116,13 +107,6 @@ message Item {
         string default = 4;
         bool required = 5;
     }
-}
-
-// Node1 is a node that can allocate resources
-message Node {
-    string id = 1;
-    string datacenter = 2;
-    string name = 3;
 }
 
 message Service {
@@ -179,73 +163,6 @@ message Task {
     message Port {
         string name = 1;
         uint64 port = 2;
-    }
-}
-
-// Allocation represents an allocation of a deployment
-message Allocation {
-    // id of the allocation
-    string id = 1;
-
-    // node to which the allocation is assigned
-    string nodeId = 2;
-    
-    // tasks to run on the allocation
-    map<string,Task> tasks = 3;
-
-    // state of each of the tasks
-    map<string, TaskState> taskStates = 4;
-
-    // status of the allocation
-    Status status = 5;
-
-    map<string, SyncStatus> syncStatus = 6;
-
-    // desired status of the allocation
-    DesiredStatus desiredStatus = 7;
-
-    // modify index sequence number
-    int64 sequence = 8;
-
-    bytes inputState = 9;
-
-    string alias = 10;
-
-    enum Status {
-        Pending = 0;
-        Running = 1;
-        Complete = 2;
-        Failed = 3;
-    }
-
-    message SyncStatus {
-        bool isSynced = 1;
-        uint64 currentBlock = 2;
-        uint64 highestBlock = 3;
-        uint64 numPeers = 4;
-    }
-
-    enum DesiredStatus {
-        Run = 0;
-        Stop = 1;
-    }
-}
-
-message TaskState {
-    State state = 1;
-
-    bool failed = 2;
-
-    uint64 restarts = 3;
-    
-    string id = 6;
-
-    bool killing = 7;
-    
-    enum State {
-        Pending = 0;
-        Running = 1;
-        Dead = 2;
     }
 }
 

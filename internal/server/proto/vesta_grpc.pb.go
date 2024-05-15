@@ -25,7 +25,6 @@ type VestaServiceClient interface {
 	Apply(ctx context.Context, in *ApplyRequest, opts ...grpc.CallOption) (*ApplyResponse, error)
 	Destroy(ctx context.Context, in *DestroyRequest, opts ...grpc.CallOption) (*DestroyResponse, error)
 	DeploymentList(ctx context.Context, in *ListDeploymentRequest, opts ...grpc.CallOption) (*ListDeploymentResponse, error)
-	DeploymentStatus(ctx context.Context, in *DeploymentStatusRequest, opts ...grpc.CallOption) (*DeploymentStatusResponse, error)
 	CatalogList(ctx context.Context, in *CatalogListRequest, opts ...grpc.CallOption) (*CatalogListResponse, error)
 	CatalogInspect(ctx context.Context, in *CatalogInspectRequest, opts ...grpc.CallOption) (*CatalogInspectResponse, error)
 	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error)
@@ -63,15 +62,6 @@ func (c *vestaServiceClient) Destroy(ctx context.Context, in *DestroyRequest, op
 func (c *vestaServiceClient) DeploymentList(ctx context.Context, in *ListDeploymentRequest, opts ...grpc.CallOption) (*ListDeploymentResponse, error) {
 	out := new(ListDeploymentResponse)
 	err := c.cc.Invoke(ctx, "/proto.VestaService/DeploymentList", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *vestaServiceClient) DeploymentStatus(ctx context.Context, in *DeploymentStatusRequest, opts ...grpc.CallOption) (*DeploymentStatusResponse, error) {
-	out := new(DeploymentStatusResponse)
-	err := c.cc.Invoke(ctx, "/proto.VestaService/DeploymentStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +152,6 @@ type VestaServiceServer interface {
 	Apply(context.Context, *ApplyRequest) (*ApplyResponse, error)
 	Destroy(context.Context, *DestroyRequest) (*DestroyResponse, error)
 	DeploymentList(context.Context, *ListDeploymentRequest) (*ListDeploymentResponse, error)
-	DeploymentStatus(context.Context, *DeploymentStatusRequest) (*DeploymentStatusResponse, error)
 	CatalogList(context.Context, *CatalogListRequest) (*CatalogListResponse, error)
 	CatalogInspect(context.Context, *CatalogInspectRequest) (*CatalogInspectResponse, error)
 	Ping(context.Context, *PingRequest) (*PingResponse, error)
@@ -184,9 +173,6 @@ func (UnimplementedVestaServiceServer) Destroy(context.Context, *DestroyRequest)
 }
 func (UnimplementedVestaServiceServer) DeploymentList(context.Context, *ListDeploymentRequest) (*ListDeploymentResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeploymentList not implemented")
-}
-func (UnimplementedVestaServiceServer) DeploymentStatus(context.Context, *DeploymentStatusRequest) (*DeploymentStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeploymentStatus not implemented")
 }
 func (UnimplementedVestaServiceServer) CatalogList(context.Context, *CatalogListRequest) (*CatalogListResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CatalogList not implemented")
@@ -269,24 +255,6 @@ func _VestaService_DeploymentList_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(VestaServiceServer).DeploymentList(ctx, req.(*ListDeploymentRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _VestaService_DeploymentStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeploymentStatusRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(VestaServiceServer).DeploymentStatus(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.VestaService/DeploymentStatus",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(VestaServiceServer).DeploymentStatus(ctx, req.(*DeploymentStatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -420,10 +388,6 @@ var VestaService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeploymentList",
 			Handler:    _VestaService_DeploymentList_Handler,
-		},
-		{
-			MethodName: "DeploymentStatus",
-			Handler:    _VestaService_DeploymentStatus_Handler,
 		},
 		{
 			MethodName: "CatalogList",

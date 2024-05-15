@@ -57,17 +57,6 @@ func (s *service) DeploymentList(ctx context.Context, req *proto.ListDeploymentR
 	return resp, nil
 }
 
-func (s *service) DeploymentStatus(ctx context.Context, req *proto.DeploymentStatusRequest) (*proto.DeploymentStatusResponse, error) {
-	alloc, err := s.srv.state.AllocationByAliasOrIDOrPrefix(req.Id)
-	if err != nil {
-		return nil, err
-	}
-	resp := &proto.DeploymentStatusResponse{
-		Allocation: alloc,
-	}
-	return resp, nil
-}
-
 func (s *service) Destroy(ctx context.Context, req *proto.DestroyRequest) (*proto.DestroyResponse, error) {
 
 	s.srv.backend.Destroy(req.Id)
