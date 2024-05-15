@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/boltdb/bolt"
 	"github.com/hashicorp/go-hclog"
@@ -17,7 +16,6 @@ import (
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/server/state"
 	"github.com/umbracle/vesta/internal/uuid"
-	"google.golang.org/grpc"
 )
 
 type Config struct {
@@ -95,17 +93,6 @@ func (s *Server) UpdateEvent(event *proto.Event) {
 	if err := s.state.InsertEvent(event); err != nil {
 		s.logger.Error("failed to insert event", "err", err)
 	}
-}
-
-func (s *Server) withLoggingUnaryInterceptor() grpc.ServerOption {
-	return grpc.UnaryInterceptor(s.loggingServerInterceptor)
-}
-
-func (s *Server) loggingServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	start := time.Now()
-	h, err := handler(ctx, req)
-	s.logger.Trace("Request", "method", info.FullMethod, "duration", time.Since(start), "error", err)
-	return h, err
 }
 
 func (s *Server) Create(req *proto.ApplyRequest) (string, error) {

@@ -1,5 +1,7 @@
 package server
 
+import "testing"
+
 /*
 import (
 	"path/filepath"
@@ -88,3 +90,7 @@ func TestCreate(t *testing.T) {
 	require.Equal(t, alloc.InputState, input2)
 }
 */
+
+func TestServer_Deploy(t *testing.T) {
+
+}
