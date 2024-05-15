@@ -31,6 +31,7 @@ type VestaServiceClient interface {
 	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error)
 	SubscribeEvents(ctx context.Context, in *SubscribeEventsRequest, opts ...grpc.CallOption) (VestaService_SubscribeEventsClient, error)
 	Stop(ctx context.Context, in *StopRequest, opts ...grpc.CallOption) (*StopResponse, error)
+	VolumeList(ctx context.Context, in *VolumeListRequest, opts ...grpc.CallOption) (*VolumeListResponse, error)
 }
 
 type vestaServiceClient struct {
@@ -145,6 +146,15 @@ func (c *vestaServiceClient) Stop(ctx context.Context, in *StopRequest, opts ...
 	return out, nil
 }
 
+func (c *vestaServiceClient) VolumeList(ctx context.Context, in *VolumeListRequest, opts ...grpc.CallOption) (*VolumeListResponse, error) {
+	out := new(VolumeListResponse)
+	err := c.cc.Invoke(ctx, "/proto.VestaService/VolumeList", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // VestaServiceServer is the server API for VestaService service.
 // All implementations must embed UnimplementedVestaServiceServer
 // for forward compatibility
@@ -158,6 +168,7 @@ type VestaServiceServer interface {
 	Ping(context.Context, *PingRequest) (*PingResponse, error)
 	SubscribeEvents(*SubscribeEventsRequest, VestaService_SubscribeEventsServer) error
 	Stop(context.Context, *StopRequest) (*StopResponse, error)
+	VolumeList(context.Context, *VolumeListRequest) (*VolumeListResponse, error)
 	mustEmbedUnimplementedVestaServiceServer()
 }
 
@@ -191,6 +202,9 @@ func (UnimplementedVestaServiceServer) SubscribeEvents(*SubscribeEventsRequest, 
 }
 func (UnimplementedVestaServiceServer) Stop(context.Context, *StopRequest) (*StopResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
+}
+func (UnimplementedVestaServiceServer) VolumeList(context.Context, *VolumeListRequest) (*VolumeListResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VolumeList not implemented")
 }
 func (UnimplementedVestaServiceServer) mustEmbedUnimplementedVestaServiceServer() {}
 
@@ -370,6 +384,24 @@ func _VestaService_Stop_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _VestaService_VolumeList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VestaServiceServer).VolumeList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.VestaService/VolumeList",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VestaServiceServer).VolumeList(ctx, req.(*VolumeListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // VestaService_ServiceDesc is the grpc.ServiceDesc for VestaService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -408,6 +440,10 @@ var VestaService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Stop",
 			Handler:    _VestaService_Stop_Handler,
+		},
+		{
+			MethodName: "VolumeList",
+			Handler:    _VestaService_VolumeList_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

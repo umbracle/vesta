@@ -231,6 +231,54 @@ func (s *StateStore) PutVolume(dep *proto.Volume) error {
 	return nil
 }
 
+func (s *StateStore) GetVolumes() ([]*proto.Volume, error) {
+	var volumes []*proto.Volume
+
+	err := s.db.View(func(tx *bolt.Tx) error {
+		bkt := tx.Bucket(volumesBkt)
+
+		return bkt.ForEach(func(k, v []byte) error {
+			var volume proto.Volume
+			if err := dbGet(bkt, k, &volume); err != nil {
+				return err
+			}
+
+			volumes = append(volumes, &volume)
+			return nil
+		})
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return volumes, nil
+}
+
+func (s *StateStore) GetDeployments() ([]*proto.Service, error) {
+	var services []*proto.Service
+
+	err := s.db.View(func(tx *bolt.Tx) error {
+		bkt := tx.Bucket(deploymentBucket)
+
+		return bkt.ForEach(func(k, v []byte) error {
+			var service proto.Service
+			if err := dbGet(bkt, k, &service); err != nil {
+				return err
+			}
+
+			services = append(services, &service)
+			return nil
+		})
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return services, nil
+}
+
 func (s *StateStore) GetDeployment(id string) (*proto.Service, error) {
 	var service proto.Service
 	err := s.db.View(func(tx *bolt.Tx) error {

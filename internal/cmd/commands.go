@@ -86,6 +86,16 @@ func Commands() map[string]cli.CommandFactory {
 				UI: ui,
 			}, nil
 		},
+		"volume": func() (cli.Command, error) {
+			return &VolumeCommand{
+				Meta: meta,
+			}, nil
+		},
+		"volume list": func() (cli.Command, error) {
+			return &VolumeListCommand{
+				Meta: meta,
+			}, nil
+		},
 	}
 }
 

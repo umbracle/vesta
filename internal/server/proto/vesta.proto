@@ -14,6 +14,14 @@ service VestaService {
     rpc Ping(PingRequest) returns (PingResponse);
     rpc SubscribeEvents(SubscribeEventsRequest) returns (stream Event);
     rpc Stop(StopRequest) returns (StopResponse);
+    rpc VolumeList(VolumeListRequest) returns (VolumeListResponse); 
+}
+
+message VolumeListRequest{
+}
+
+message VolumeListResponse {
+    repeated Volume volumes = 1;
 }
 
 message StopRequest {
@@ -67,7 +75,7 @@ message ListDeploymentRequest {
 }
 
 message ListDeploymentResponse { 
-    repeated Allocation allocations = 1;
+    repeated Service services = 1;
 }
 
 message ApplyRequest {

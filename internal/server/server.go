@@ -263,10 +263,6 @@ func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
 		}
 	}
 
-	fmt.Println("-- services volumes --", service.Volumes)
-	fmt.Println(stateDiff.Schema)
-	fmt.Println(string(req.Input))
-
 	// If there is a param that matches the volume with a ref, check that you can use that volume
 	// if the user supplies the field.
 	// This is a bit hacky but it works for now.
@@ -315,56 +311,6 @@ func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
 		task.Labels["chain"] = req.Chain
 	}
 
-	/*
-		createVolumes := []*proto.Volume{}
-
-		// add a label with the alias for each task, I am assuming this alias is the service name
-		for name, task := range service.Tasks {
-			if task.Labels == nil {
-				task.Labels = map[string]string{}
-			}
-			task.Labels["task"] = name
-			task.Labels["service"] = alias
-			task.Labels["chain"] = req.Chain
-
-			// figure out the volumes in the task
-			definedVolumes := map[string]*proto.Task_Volume{}
-			if alloc != nil {
-				if prevTask, ok := alloc.Tasks[name]; ok {
-					for name, vol := range prevTask.Volumes {
-						definedVolumes[name] = vol
-					}
-				}
-			}
-
-			for name, vol := range task.Volumes {
-				if exists, ok := definedVolumes[name]; ok {
-					vol.Id = exists.Id
-				} else {
-
-					// as a label assign all the force new fields in the settings
-					labels := map[string]string{}
-					for name, field := range fields.Schema {
-						if field.ForceNew {
-							labels[name] = fmt.Sprintf("%v", fields.Raw[name])
-						}
-					}
-
-					fmt.Println("-- create with labels --")
-					fmt.Println(labels)
-
-					newVolume := &proto.Volume{
-						Id:     uuid.Generate(),
-						Labels: labels,
-					}
-
-					vol.Id = newVolume.Id
-					createVolumes = append(createVolumes, newVolume)
-				}
-			}
-		}
-	*/
-
 	newState, err := json.Marshal(stateDiff.Raw)
 	if err != nil {
 		return "", err
@@ -375,9 +321,9 @@ func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
 		Tasks:     service.Tasks,
 		PrevState: newState,
 		Volumes:   service.Volumes,
-		// Volumes:   createVolumes,
 	}
 
+	fmt.Println("-- write deployment --")
 	if err := s.state.PutDeployment(newService); err != nil {
 		return "", err
 	}

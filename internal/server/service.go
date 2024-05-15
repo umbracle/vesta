@@ -27,15 +27,32 @@ func (s *service) Apply(ctx context.Context, req *proto.ApplyRequest) (*proto.Ap
 	return &proto.ApplyResponse{Id: id}, nil
 }
 
-func (s *service) DeploymentList(ctx context.Context, req *proto.ListDeploymentRequest) (*proto.ListDeploymentResponse, error) {
-	ws := memdb.NewWatchSet()
-	allocs, err := s.srv.state.AllocationList(ws)
+func (s *service) VolumeList(ctx context.Context, req *proto.VolumeListRequest) (*proto.VolumeListResponse, error) {
+	volumes, err := s.srv.state.GetVolumes()
 	if err != nil {
 		return nil, err
 	}
 
+	resp := &proto.VolumeListResponse{
+		Volumes: volumes,
+	}
+	return resp, nil
+}
+
+func (s *service) DeploymentList(ctx context.Context, req *proto.ListDeploymentRequest) (*proto.ListDeploymentResponse, error) {
+	deps, err := s.srv.state.GetDeployments()
+	if err != nil {
+		return nil, err
+	}
+
+	//ws := memdb.NewWatchSet()
+	//allocs, err := s.srv.state.AllocationList(ws)
+	//if err != nil {
+	//	return nil, err
+	//}
+
 	resp := &proto.ListDeploymentResponse{
-		Allocations: allocs,
+		Services: deps,
 	}
 	return resp, nil
 }
