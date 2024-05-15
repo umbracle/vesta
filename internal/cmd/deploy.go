@@ -101,23 +101,25 @@ func (c *DeployCommand) Run(args []string) int {
 		return 1
 	}
 
-	if c.watch {
-		stream, err := clt.SubscribeEvents(context.TODO(), &proto.SubscribeEventsRequest{Service: resp.Id})
-		if err != nil {
-			c.UI.Error(err.Error())
-			return 1
-		}
-
-		for {
-			ev, err := stream.Recv()
+	/*
+		if c.watch {
+			stream, err := clt.SubscribeEvents(context.TODO(), &proto.SubscribeEventsRequest{Service: resp.Id})
 			if err != nil {
 				c.UI.Error(err.Error())
 				return 1
 			}
-			c.UI.Output(fmt.Sprintf("New event (%s)", ev))
-		}
-	}
 
-	c.UI.Output(resp.Id)
+			for {
+				ev, err := stream.Recv()
+				if err != nil {
+					c.UI.Error(err.Error())
+					return 1
+				}
+				c.UI.Output(fmt.Sprintf("New event (%s)", ev))
+			}
+		}
+	*/
+
+	c.UI.Output(resp)
 	return 0
 }

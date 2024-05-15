@@ -38,13 +38,13 @@ func (c *VolumeListCommand) Run(args []string) int {
 		return 1
 	}
 
-	resp, err := client.VolumeList(context.Background(), &proto.VolumeListRequest{})
+	resp, err := client.VolumeList(context.Background())
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 1
 	}
 
-	c.UI.Output(formatVolumes(resp.Volumes))
+	c.UI.Output(formatVolumes(resp))
 	return 0
 }
 

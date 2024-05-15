@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -19,20 +18,16 @@ import (
 	"github.com/umbracle/vesta/internal/server/state"
 	"github.com/umbracle/vesta/internal/uuid"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
 )
 
 type Config struct {
-	GrpcAddr     string
 	PersistentDB *bolt.DB
 	Catalog      []string
 }
 
 // DefaultConfig returns a default configuration
 func DefaultConfig() *Config {
-	return &Config{
-		GrpcAddr: "localhost:4003",
-	}
+	return &Config{}
 }
 
 type Catalog interface {
@@ -43,11 +38,10 @@ type Catalog interface {
 }
 
 type Server struct {
-	logger     hclog.Logger
-	grpcServer *grpc.Server
-	state      *state.StateStore
-	catalog    Catalog
-	backend    *docker.Docker
+	logger  hclog.Logger
+	state   *state.StateStore
+	catalog Catalog
+	backend *docker.Docker
 }
 
 func NewServer(logger hclog.Logger, config *Config) (*Server, error) {
@@ -94,59 +88,13 @@ func NewServer(logger hclog.Logger, config *Config) (*Server, error) {
 	}
 	srv.backend = docker.NewDocker(vestaPath, srv)
 
-	if err := srv.setupGRPCServer(config.GrpcAddr); err != nil {
-		return nil, err
-	}
 	return srv, nil
-}
-
-func (s *Server) InMemoryConn() proto.VestaServiceClient {
-	buffer := 1024 * 1024
-	listener := bufconn.Listen(buffer)
-
-	grpcServer := grpc.NewServer(s.withLoggingUnaryInterceptor())
-	proto.RegisterVestaServiceServer(grpcServer, &service{srv: s})
-
-	go func() {
-		if err := grpcServer.Serve(listener); err != nil {
-			panic(err)
-		}
-	}()
-
-	conn, _ := grpc.DialContext(context.TODO(), "", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-		return listener.Dial()
-	}), grpc.WithInsecure(), grpc.WithBlock())
-
-	client := proto.NewVestaServiceClient(conn)
-	return client
 }
 
 func (s *Server) UpdateEvent(event *proto.Event) {
 	if err := s.state.InsertEvent(event); err != nil {
 		s.logger.Error("failed to insert event", "err", err)
 	}
-}
-
-func (s *Server) setupGRPCServer(addr string) error {
-	if addr == "" {
-		return nil
-	}
-	s.grpcServer = grpc.NewServer(s.withLoggingUnaryInterceptor())
-	proto.RegisterVestaServiceServer(s.grpcServer, &service{srv: s})
-
-	lis, err := net.Listen("tcp", addr)
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		if err := s.grpcServer.Serve(lis); err != nil {
-			s.logger.Error("failed to serve grpc server", "err", err)
-		}
-	}()
-
-	s.logger.Info("GRPC Server started", "addr", addr)
-	return nil
 }
 
 func (s *Server) withLoggingUnaryInterceptor() grpc.ServerOption {
@@ -158,12 +106,6 @@ func (s *Server) loggingServerInterceptor(ctx context.Context, req interface{}, 
 	h, err := handler(ctx, req)
 	s.logger.Trace("Request", "method", info.FullMethod, "duration", time.Since(start), "error", err)
 	return h, err
-}
-
-func (s *Server) Stop() {
-	if s.grpcServer != nil {
-		s.grpcServer.Stop()
-	}
 }
 
 func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
@@ -330,3 +272,63 @@ func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
 
 	return alias, nil
 }
+
+func (s *Server) Apply(ctx context.Context, req *proto.ApplyRequest) (string, error) {
+	id, err := s.Create(req)
+	if err != nil {
+		return "", err
+	}
+
+	return id, nil
+}
+
+func (s *Server) VolumeList(ctx context.Context) ([]*proto.Volume, error) {
+	return s.state.GetVolumes()
+}
+
+func (s *Server) DeploymentList(ctx context.Context) ([]*proto.Service, error) {
+	return s.state.GetDeployments()
+}
+
+func (s *Server) Destroy(ctx context.Context, id string) error {
+	s.backend.Destroy(id)
+	return nil
+}
+
+func (s *Server) CatalogList(ctx context.Context) ([]string, error) {
+	return s.catalog.ListPlugins(), nil
+}
+
+func (s *Server) CatalogInspect(ctx context.Context, name string) (*proto.Item, error) {
+	return s.catalog.GetPlugin(name)
+}
+
+/*
+func (s *service) SubscribeEvents(req *proto.SubscribeEventsRequest, stream proto.VestaService_SubscribeEventsServer) error {
+	for {
+		ws := memdb.NewWatchSet()
+		it := s.srv.state.SubscribeEvents(req.Service, ws)
+
+		for obj := it.Next(); obj != nil; obj = it.Next() {
+			event := obj.(*proto.Event)
+
+			if err := stream.Send(event); err != nil {
+				panic(err)
+			}
+
+			select {
+			case <-stream.Context().Done():
+				return nil
+			default:
+			}
+		}
+
+		// wait for the duties to change
+		select {
+		case <-ws.WatchCh(context.Background()):
+		case <-stream.Context().Done():
+			return nil
+		}
+	}
+}
+*/

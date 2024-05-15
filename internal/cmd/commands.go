@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"context"
-	"fmt"
 	"os"
 
 	"github.com/boltdb/bolt"
@@ -14,8 +12,6 @@ import (
 	"github.com/mitchellh/colorstring"
 	"github.com/ryanuber/columnize"
 	"github.com/umbracle/vesta/internal/server"
-	"github.com/umbracle/vesta/internal/server/proto"
-	"google.golang.org/grpc"
 )
 
 // Commands returns the cli commands
@@ -31,11 +27,6 @@ func Commands() map[string]cli.CommandFactory {
 	}
 
 	return map[string]cli.CommandFactory{
-		"server": func() (cli.Command, error) {
-			return &ServerCommand{
-				UI: ui,
-			}, nil
-		},
 		"catalog": func() (cli.Command, error) {
 			return &CatalogCommand{
 				Meta: meta,
@@ -106,21 +97,12 @@ func (m *Meta) FlagSet(n string) *flag.FlagSet {
 }
 
 // Conn returns a grpc connection
-func (m *Meta) Conn() (proto.VestaServiceClient, error) {
-	conn, err := grpc.Dial(m.addr, grpc.WithInsecure())
+func (m *Meta) Conn() (*server.Server, error) {
+	srv, err := newTempServer()
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to server: %v", err)
+		return nil, err
 	}
-	clt := proto.NewVestaServiceClient(conn)
-	if _, err := clt.Ping(context.Background(), &proto.PingRequest{}); err != nil {
-		// create the temporal server
-		srv, err := newTempServer()
-		if err != nil {
-			return nil, err
-		}
-		clt = srv.InMemoryConn()
-	}
-	return clt, nil
+	return srv, nil
 }
 
 func newTempServer() (*server.Server, error) {
@@ -135,7 +117,6 @@ func newTempServer() (*server.Server, error) {
 	}
 
 	sCfg := server.DefaultConfig()
-	sCfg.GrpcAddr = ""
 	sCfg.PersistentDB = db
 
 	srv, err := server.NewServer(logger, sCfg)

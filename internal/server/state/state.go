@@ -1,12 +1,12 @@
 package state
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/boltdb/bolt"
 	"github.com/hashicorp/go-memdb"
 	"github.com/umbracle/vesta/internal/server/proto"
-	gproto "google.golang.org/protobuf/proto"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -197,8 +197,8 @@ func (s *StateStore) InsertEvent(event *proto.Event) error {
 	return nil
 }
 
-func dbPut(b *bolt.Bucket, id []byte, msg gproto.Message) error {
-	enc, err := gproto.Marshal(msg)
+func dbPut(b *bolt.Bucket, id []byte, msg interface{}) error {
+	enc, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
@@ -209,13 +209,13 @@ func dbPut(b *bolt.Bucket, id []byte, msg gproto.Message) error {
 	return nil
 }
 
-func dbGet(b *bolt.Bucket, id []byte, msg gproto.Message) error {
+func dbGet(b *bolt.Bucket, id []byte, msg interface{}) error {
 	raw := b.Get(id)
 	if raw == nil {
 		return fmt.Errorf("record not found")
 	}
 
-	if err := gproto.Unmarshal(raw, msg); err != nil {
+	if err := json.Unmarshal(raw, msg); err != nil {
 		return fmt.Errorf("failed to decode data: %v", err)
 	}
 	return nil

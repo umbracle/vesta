@@ -38,13 +38,13 @@ func (c *DeploymentListCommand) Run(args []string) int {
 		return 1
 	}
 
-	resp, err := client.DeploymentList(context.Background(), &proto.ListDeploymentRequest{})
+	resp, err := client.DeploymentList(context.Background())
 	if err != nil {
 		c.UI.Error(err.Error())
 		return 1
 	}
 
-	c.UI.Output(formatNodes(resp.Services))
+	c.UI.Output(formatNodes(resp))
 	return 0
 }
 

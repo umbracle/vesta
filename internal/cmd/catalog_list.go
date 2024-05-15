@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-
-	"github.com/umbracle/vesta/internal/server/proto"
 )
 
 // CatalogListCommand is the command to show the version of the agent
@@ -39,13 +37,13 @@ func (c *CatalogListCommand) Run(args []string) int {
 		return 1
 	}
 
-	resp, err := client.CatalogList(context.Background(), &proto.CatalogListRequest{})
+	resp, err := client.CatalogList(context.Background())
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("failed to get catalog list: %v", err.Error()))
 		return 1
 	}
 
-	items := resp.Plugins
+	items := resp
 
 	rows := make([]string, len(items)+1)
 	rows[0] = "Name"

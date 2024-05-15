@@ -18,8 +18,6 @@ import (
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/hashicorp/go-getter"
-	"github.com/umbracle/vesta/internal/uuid"
 )
 
 type TestingFramework struct {
@@ -139,23 +137,6 @@ func (tf *TestingFramework) validateInput(input map[string]interface{}) error {
 		if err := os.Mkdir(artifactsDir, 0750); err != nil {
 			return err
 		}
-		for _, artifact := range task.Artifacts {
-			if _, ok := tf.Artifacts[artifact.Source]; !ok {
-				dstFile := filepath.Join(artifactsDir, uuid.Short())
-
-				client := &getter.Client{
-					Ctx:  context.Background(),
-					Src:  artifact.Source,
-					Dst:  dstFile,
-					Mode: getter.ClientModeFile,
-				}
-				if err := client.Get(); err != nil {
-					return err
-				}
-
-				tf.Artifacts[artifact.Source] = dstFile
-			}
-		}
 
 		config := &container.Config{
 			Image: task.Image + ":" + task.Tag,
@@ -188,19 +169,6 @@ func (tf *TestingFramework) validateInput(input map[string]interface{}) error {
 				return err
 			}
 			host.Binds = append(host.Binds, tmpDir+":"+path.Path)
-
-			// mount any artifact that mounts over this path
-			for _, artifact := range task.Artifacts {
-				if strings.HasPrefix(artifact.Destination, path.Path) {
-					localPath := filepath.Join(tmpDir, strings.TrimPrefix(artifact.Destination, path.Path))
-
-					artifactLocalPath := tf.Artifacts[artifact.Source]
-
-					if err := copyFile(artifactLocalPath, localPath); err != nil {
-						return err
-					}
-				}
-			}
 		}
 
 		dockerCmd := "docker run "
@@ -333,28 +301,4 @@ func generateMinimumCombinations(vals map[string][]interface{}) []map[string]int
 	}
 
 	return combinations
-}
-
-func copyFile(from, to string) error {
-	// Open the source file
-	sourceFile, err := os.Open(from)
-	if err != nil {
-		return err
-	}
-	defer sourceFile.Close()
-
-	// Create the destination file
-	destinationFile, err := os.Create(to)
-	if err != nil {
-		return err
-	}
-	defer destinationFile.Close()
-
-	// Copy the content of the source file to the destination file
-	_, err = io.Copy(destinationFile, sourceFile)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

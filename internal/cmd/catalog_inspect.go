@@ -46,13 +46,13 @@ func (c *CatalogInspectCommand) Run(args []string) int {
 		return 1
 	}
 
-	resp, err := client.CatalogInspect(context.Background(), &proto.CatalogInspectRequest{Name: name})
+	resp, err := client.CatalogInspect(context.Background(), name)
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("failed to get status: %v", err.Error()))
 		return 1
 	}
 
-	c.UI.Output(c.Colorize().Color(formatItem(resp.Item)))
+	c.UI.Output(c.Colorize().Color(formatItem(resp)))
 	return 0
 }
 
