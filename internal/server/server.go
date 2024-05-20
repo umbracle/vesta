@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"reflect"
 	"strings"
 
 	"github.com/boltdb/bolt"
@@ -33,6 +32,7 @@ type Catalog interface {
 	Build(prev []byte, req *proto.ApplyRequest) (*framework.FieldData, *proto.Service, error)
 	ListPlugins() []string
 	GetPlugin(name string) (*proto.Item, error)
+	ValidateFn(plugin string, validationFn string, config, obj interface{}) bool
 }
 
 type Server struct {
@@ -116,102 +116,31 @@ func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
 		alias = fmt.Sprintf("%s-%s", strings.ToLower(req.Chain), strings.ToLower(req.Action))
 	}
 
-	// 1. If the endpoints have changed, check that they are valid.
-	// Force new has already being checked in Build.
+	// Validate if the external reference is valid or not
 	for fieldName, field := range stateDiff.Schema {
-		if len(field.Filters) == 0 {
-			continue
-		}
-
-		linkName := stateDiff.Raw[fieldName].(string)
-		linkDeployment, err := s.state.GetDeployment(linkName)
-		if err != nil {
-			return "", fmt.Errorf("failed to get link deployment '%s': %v", linkName, err)
-		}
-
-		// get both labels and ports that this deployment links
-		labels := map[string]string{}
-		for _, task := range linkDeployment.Tasks {
-			for k, v := range task.Labels {
-				labels[k] = v
+		if field.References != nil {
+			val, ok := stateDiff.Raw[fieldName]
+			if !ok {
+				continue
 			}
-		}
+			refName := val.(string)
 
-		type portWrapper struct {
-			task string
-			port *proto.Task_Port
-		}
-
-		ports := map[string]*portWrapper{}
-		for taskName, task := range linkDeployment.Tasks {
-			for _, port := range task.Ports {
-				ports[port.Name] = &portWrapper{
-					task: taskName,
-					port: port,
-				}
-			}
-		}
-
-		field.Filters = append(field.Filters, framework.Filter{
-			Criteria: "chain",
-			Value:    req.Chain,
-		})
-
-		// check if the filters apply
-		for _, filter := range field.Filters {
-			if filter.Value == "" {
-				// assume this is for bind ports, make sure that ports exists
-				port, ok := ports[filter.Criteria]
-				if !ok {
-					return "", fmt.Errorf("filter criteria '%s' not found in ports", filter.Criteria)
-				}
-				// now try to resolve this port for this task and service
-				url, err := s.backend.Connect(linkName, port.task, port.port.Port)
+			// validate the reference
+			var obj interface{}
+			if field.References.Type == "node" {
+				node, err := s.state.GetDeployment(refName)
 				if err != nil {
-					return "", err
+					return "", fmt.Errorf("failed to get node deployment '%s': %v", refName, err)
 				}
-				// WE HAVE TO REPLACE NOW THIS VALUE IN THE INPUT
-				stateDiff.Raw[fieldName] = url
-			} else {
-				v, ok := labels[filter.Criteria]
-				if !ok {
-					return "", fmt.Errorf("filter criteria '%s' not found in labels", filter.Criteria)
-				} else if v != filter.Value {
-					return "", fmt.Errorf("filter criteria '%s' does not match with value '%s'", v, filter.Value)
+				obj = node.Tasks["node"]
+			} else if field.References.Type == "volume" {
+				if obj, err = s.state.GetVolume(refName); err != nil {
+					return "", fmt.Errorf("failed to get volume '%s': %v", refName, err)
 				}
 			}
-		}
-	}
 
-	forceNewFields := map[string]string{}
-	for name, field := range stateDiff.Schema {
-		if field.ForceNew {
-			forceNewFields[name] = fmt.Sprintf("%v", stateDiff.Raw[name])
-		}
-	}
-
-	// If there is a param that matches the volume with a ref, check that you can use that volume
-	// if the user supplies the field.
-	// This is a bit hacky but it works for now.
-	for fieldName, field := range stateDiff.Schema {
-		fmt.Println("-- params", field.Params)
-
-		if _, ok := field.Params["ref"]; ok {
-			// check if it was supplied
-			if val, ok := stateDiff.Raw[fieldName]; ok && val != nil {
-				fmt.Println("-- val --", val)
-
-				// get the volume
-				volume, err := s.state.GetVolume(fmt.Sprintf("%v", val))
-				if err != nil {
-					return "", fmt.Errorf("failed to get volume '%s': %v", val, err)
-				}
-
-				if !reflect.DeepEqual(volume.Labels, forceNewFields) {
-					return "", fmt.Errorf("force new value has changed, you cannot use this volume")
-				}
-
-				// TODO: check if volume is not being used already.
+			if !s.catalog.ValidateFn(req.Action, field.References.FilterCriteriaFunc, stateDiff.Raw, obj) {
+				return "", fmt.Errorf("failed to validate reference '%s'", refName)
 			}
 		}
 	}
@@ -222,9 +151,6 @@ func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
 		if volume.Id == "" {
 			// this will force to create the new volume, now the volume is assigned to the service
 			volume.Id = uuid.Generate()
-
-			// to the volume also add the labels forceNew in the fields
-			volume.Labels = forceNewFields
 		}
 	}
 

@@ -125,6 +125,15 @@ func (c *Catalog) GetFields(id string, input []byte) (*framework.FieldData, erro
 	return data, nil
 }
 
+func (c *Catalog) ValidateFn(plugin string, validationFn string, config, obj interface{}) bool {
+	cc, ok := c.backends[strings.ToLower(plugin)]
+	if !ok {
+		return false
+	}
+
+	return cc.(*backend).validateFn(validationFn, config, obj)
+}
+
 func (c *Catalog) Build(prev []byte, req *proto.ApplyRequest) (*framework.FieldData, *proto.Service, error) {
 	cc, ok := c.backends[strings.ToLower(req.Action)]
 	if !ok {

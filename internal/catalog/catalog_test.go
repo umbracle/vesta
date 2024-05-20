@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -121,4 +122,18 @@ func TestCatalog_ProcessInput(t *testing.T) {
 			require.Equal(t, result, c.result)
 		}
 	}
+}
+
+func TestStarlark_Conversion(t *testing.T) {
+	type X struct {
+		A int
+	}
+
+	x := X{A: 10}
+
+	val := toStarlarkValue(x)
+	fmt.Println(val)
+
+	x2 := toGoValue(val)
+	fmt.Println(x2)
 }

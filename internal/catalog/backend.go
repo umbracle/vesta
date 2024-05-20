@@ -39,14 +39,15 @@ func newBackend(content []byte) framework.Framework {
 }
 
 type field struct {
-	Type          string             `mapstructure:"type"`
-	Required      bool               `mapstructure:"required"`
-	Default       interface{}        `mapstructure:"default"`
-	ForceNew      bool               `mapstructure:"force_new"`
-	Description   string             `mapstructure:"description"`
-	AllowedValues []interface{}      `mapstructure:"allowed_values"`
-	Filters       []framework.Filter `mapstructure:"filters"`
-	Params        map[string]string  `mapstructure:"params"`
+	Type          string                `mapstructure:"type"`
+	Required      bool                  `mapstructure:"required"`
+	Default       interface{}           `mapstructure:"default"`
+	ForceNew      bool                  `mapstructure:"force_new"`
+	Description   string                `mapstructure:"description"`
+	AllowedValues []interface{}         `mapstructure:"allowed_values"`
+	Filters       []framework.Filter    `mapstructure:"filters"`
+	Params        map[string]string     `mapstructure:"params"`
+	References    *framework.References `mapstructure:"references"`
 }
 
 func (f *field) ToType() *framework.Field {
@@ -58,6 +59,7 @@ func (f *field) ToType() *framework.Field {
 		AllowedValues: f.AllowedValues,
 		Filters:       f.Filters,
 		Params:        f.Params,
+		References:    f.References,
 	}
 	if f.Type == "string" {
 		res.Type = framework.TypeString
@@ -122,6 +124,19 @@ func (b *backend) Chains() []string {
 	return b.chains
 }
 
+func (b *backend) validateFn(name string, config interface{}, obj interface{}) bool {
+	v, err := starlark.Call(b.thread, b.globals[name], starlark.Tuple{toStarlarkValue(config), toStarlarkValue(obj)}, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	val, ok := toGoValue(v).(bool)
+	if !ok {
+		panic("it should be boolean")
+	}
+	return val
+}
+
 func (b *backend) Generate(config *framework.Config) *proto.Service {
 	input := starlark.NewDict(1)
 	input.SetKey(starlark.String("chain"), starlark.String(config.Chain))
@@ -153,6 +168,54 @@ func (b *backend) Generate(config *framework.Config) *proto.Service {
 	}
 
 	return result
+}
+
+func toStarlarkValue(obj interface{}) starlark.Value {
+	return toStarlarkValue2(reflect.ValueOf(obj))
+}
+
+func toStarlarkValue2(val reflect.Value) starlark.Value {
+	switch val.Kind() {
+	case reflect.Map:
+		dict := &starlark.Dict{}
+		for _, key := range val.MapKeys() {
+			dict.SetKey(toStarlarkValue2(key), toStarlarkValue2(val.MapIndex(key)))
+		}
+		return dict
+
+	case reflect.Slice:
+		list := &starlark.List{}
+		for i := 0; i < val.Len(); i++ {
+			list.Append(toStarlarkValue2(val.Index(i)))
+		}
+		return list
+
+	case reflect.Struct:
+		dict := &starlark.Dict{}
+		for i := 0; i < val.NumField(); i++ {
+			field := val.Type().Field(i)
+			dict.SetKey(starlark.String(field.Name), toStarlarkValue2(val.Field(i)))
+		}
+		return dict
+
+	case reflect.String:
+		return starlark.String(val.String())
+
+	case reflect.Bool:
+		return starlark.Bool(val.Bool())
+
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return starlark.MakeInt(int(val.Int()))
+
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return starlark.MakeUint(uint(val.Uint()))
+
+	case reflect.Interface, reflect.Ptr:
+		return toStarlarkValue2(val.Elem())
+
+	default:
+		panic(fmt.Sprintf("BUG: type %s not found", val.Kind()))
+	}
 }
 
 func toGoValue(v starlark.Value) interface{} {

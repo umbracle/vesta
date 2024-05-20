@@ -9,10 +9,10 @@ config = {
         "type": "string",
         "required": True,
         "description": "Endpoint of the execution node",
-        "filters": [
-            {"criteria": "node-type", "value": "el"},
-            {"criteria": "authrpc"}
-        ]
+        "references": {
+            "type": "node",
+            "filter_criteria_fn": "filter_criteria_fn_execution_node"
+        }
     },
     "use_checkpoint": {
         "type": "bool",
@@ -23,7 +23,22 @@ config = {
         "description": "Enables archival node mode",
         "default": False,
     },
+    "volume": {
+        "type": "string",
+        "references": {
+            "type": "volume",
+            "filter_criteria": [
+                ["config.archive", "eq", True]
+            ]
+        }
+    }
 }
+
+def filter_criteria_fn_execution_node(config, node):
+    if node["Labels"]["node-type"] != "el":
+        return False
+    
+    return True
 
 babel = {
     "image": "ghcr.io/umbracle/babel",

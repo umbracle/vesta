@@ -30,6 +30,13 @@ type Field struct {
 
 	// Arbitrary params per field
 	Params map[string]string
+
+	References *References
+}
+
+type References struct {
+	Type               string `mapstructure:"type"`
+	FilterCriteriaFunc string `mapstructure:"filter_criteria_fn"`
 }
 
 type Filter struct {
@@ -177,7 +184,9 @@ func (d *FieldData) Validate() error {
 				return fmt.Errorf("required field '%s' not found", field)
 			}
 			// add the default value
-			d.Raw[field] = schema.Default
+			if schema.Default != nil {
+				d.Raw[field] = schema.Default
+			}
 			continue
 		}
 
