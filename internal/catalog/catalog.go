@@ -12,7 +12,6 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/mitchellh/mapstructure"
-	"github.com/umbracle/vesta/internal/framework"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
@@ -21,12 +20,12 @@ var builtinBackends embed.FS
 
 type Catalog struct {
 	logger   hclog.Logger
-	backends map[string]framework.Framework
+	backends map[string]Framework
 }
 
 func NewCatalog() (*Catalog, error) {
 	c := &Catalog{
-		backends: map[string]framework.Framework{},
+		backends: map[string]Framework{},
 		logger:   hclog.NewNullLogger(),
 	}
 
@@ -107,7 +106,7 @@ func (c *Catalog) initBuiltin() error {
 	return nil
 }
 
-func (c *Catalog) GetFields(id string, input []byte) (*framework.FieldData, error) {
+func (c *Catalog) GetFields(id string, input []byte) (*FieldData, error) {
 	cc, ok := c.backends[strings.ToLower(id)]
 	if !ok {
 		return nil, fmt.Errorf("not found plugin: %s", id)
@@ -134,7 +133,11 @@ func (c *Catalog) ValidateFn(plugin string, validationFn string, config, obj int
 	return cc.(*backend).validateFn(validationFn, config, obj)
 }
 
-func (c *Catalog) Build(prev []byte, req *proto.ApplyRequest) (*framework.FieldData, *proto.Service, error) {
+func (c *Catalog) Build2(name string, data *FieldData) *proto.Service {
+	return nil
+}
+
+func (c *Catalog) Build(prev []byte, req *proto.ApplyRequest) (*FieldData, *proto.Service, error) {
 	cc, ok := c.backends[strings.ToLower(req.Action)]
 	if !ok {
 		return nil, nil, fmt.Errorf("not found plugin: %s", req.Action)
@@ -159,23 +162,18 @@ func (c *Catalog) Build(prev []byte, req *proto.ApplyRequest) (*framework.FieldD
 		}
 	}
 
-	var inputMap map[string]interface{}
-	if err := json.Unmarshal(req.Input, &inputMap); err != nil {
-		return nil, nil, err
-	}
-
 	// add to input the typed parameters from the request
 	if req.LogLevel != "" {
-		inputMap["log_level"] = req.LogLevel
+		req.Input["log_level"] = req.LogLevel
 	}
 
 	// validate the input and the state
-	_, data, err := processInput(cc.Config(), prevMap, inputMap)
+	_, data, err := processInput(cc.Config(), prevMap, req.Input)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	config := &framework.Config{
+	config := &Config{
 		Metrics: req.Metrics,
 		Chain:   req.Chain,
 		Data:    data,
@@ -185,9 +183,9 @@ func (c *Catalog) Build(prev []byte, req *proto.ApplyRequest) (*framework.FieldD
 	return data, deployableTasks, nil
 }
 
-func processInput(fields map[string]*framework.Field, state map[string]interface{}, input map[string]interface{}) (map[string]interface{}, *framework.FieldData, error) {
+func processInput(fields map[string]*Field, state map[string]interface{}, input map[string]interface{}) (map[string]interface{}, *FieldData, error) {
 	// validate that the input matches the schema
-	inputData := &framework.FieldData{
+	inputData := &FieldData{
 		Raw:    input,
 		Schema: fields,
 	}
@@ -202,7 +200,7 @@ func processInput(fields map[string]*framework.Field, state map[string]interface
 
 	if state != nil {
 		// validate that any new value is not a forceNew field
-		stateData := &framework.FieldData{
+		stateData := &FieldData{
 			Raw:    state,
 			Schema: fields,
 		}
@@ -227,7 +225,7 @@ func processInput(fields map[string]*framework.Field, state map[string]interface
 		state = input
 	}
 
-	data := &framework.FieldData{
+	data := &FieldData{
 		Prev:   stateCopy,
 		Raw:    state,
 		Schema: fields,
@@ -277,12 +275,4 @@ func (c *Catalog) GetPlugin(name string) (*proto.Item, error) {
 	}
 
 	return item, nil
-}
-
-func newTestingFramework(f framework.Framework) *framework.TestingFramework {
-	fr := &framework.TestingFramework{
-		F:         f,
-		Artifacts: map[string]string{},
-	}
-	return fr
 }

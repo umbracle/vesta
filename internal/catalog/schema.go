@@ -1,4 +1,4 @@
-package framework
+package catalog
 
 import (
 	"fmt"
@@ -52,6 +52,19 @@ func (s *Field) DefaultOrZero() interface{} {
 }
 
 type Type int
+
+func StringToType(s string) Type {
+	switch s {
+	case "string":
+		return TypeString
+	case "bool":
+		return TypeBool
+	case "int":
+		return TypeInt
+	default:
+		return TypeInvalid
+	}
+}
 
 const (
 	TypeInvalid Type = iota

@@ -9,14 +9,17 @@ type Item struct {
 type ApplyRequest struct {
 	// id name of the action
 	Action string
+
 	// input for the action
-	Input []byte
+	Input map[string]interface{}
+
 	// name of the allocation to modify
 	AllocationId string
-	Metrics      bool
-	Chain        string
-	Alias        string
-	LogLevel     string
+
+	Metrics  bool
+	Chain    string
+	Alias    string
+	LogLevel string
 }
 
 type Item_Field struct {

@@ -1,6 +1,13 @@
 package server
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+
+	"github.com/umbracle/vesta/internal/catalog"
+	"github.com/umbracle/vesta/internal/server/proto"
+	"github.com/umbracle/vesta/internal/server/state"
+)
 
 /*
 import (
@@ -92,5 +99,63 @@ func TestCreate(t *testing.T) {
 */
 
 func TestServer_Deploy(t *testing.T) {
+	s := &Server{
+		state: state.NewInmemStore(t),
+		catalog: &mockBackend{
+			item: &proto.Item{
+				Name: "test",
+				Fields: []*proto.Item_Field{
+					{
+						Name: "key",
+						Type: "string",
+					},
+				},
+			},
+			buildFn: func(data *catalog.FieldData) *proto.Service {
+				return &proto.Service{
+					Tasks: map[string]*proto.Task{
+						"task": {
+							Image: data.GetString("key"),
+							Args:  []string{"a"},
+						},
+					},
+				}
+			},
+		},
+	}
 
+	_, err := s.Create(&proto.ApplyRequest{
+		Action: "",
+		Input:  map[string]interface{}{"key": "value"},
+	})
+	fmt.Println(err)
+}
+
+type mockBackend struct {
+	item    *proto.Item
+	buildFn func(data *catalog.FieldData) *proto.Service
+}
+
+func (m *mockBackend) GetFields(id string, input []byte) (*catalog.FieldData, error) {
+	panic("TODO: implement")
+}
+
+func (m *mockBackend) Build2(name string, data *catalog.FieldData) *proto.Service {
+	return m.buildFn(data)
+}
+
+func (m *mockBackend) Build(prev []byte, req *proto.ApplyRequest) (*catalog.FieldData, *proto.Service, error) {
+	panic("TODO: implement")
+}
+
+func (m *mockBackend) ListPlugins() []string {
+	panic("TODO: implement")
+}
+
+func (m *mockBackend) GetPlugin(name string) (*proto.Item, error) {
+	return m.item, nil
+}
+
+func (m *mockBackend) ValidateFn(plugin string, validationFn string, config, obj interface{}) bool {
+	panic("TODO: implement")
 }

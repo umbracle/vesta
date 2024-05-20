@@ -9,9 +9,9 @@ import (
 
 	"github.com/boltdb/bolt"
 	"github.com/hashicorp/go-hclog"
+	"github.com/mitchellh/mapstructure"
 	"github.com/umbracle/vesta/internal/backend/docker"
 	"github.com/umbracle/vesta/internal/catalog"
-	"github.com/umbracle/vesta/internal/framework"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/server/state"
 	"github.com/umbracle/vesta/internal/uuid"
@@ -28,8 +28,9 @@ func DefaultConfig() *Config {
 }
 
 type Catalog interface {
-	GetFields(id string, input []byte) (*framework.FieldData, error)
-	Build(prev []byte, req *proto.ApplyRequest) (*framework.FieldData, *proto.Service, error)
+	GetFields(id string, input []byte) (*catalog.FieldData, error)
+	Build(prev []byte, req *proto.ApplyRequest) (*catalog.FieldData, *proto.Service, error)
+	Build2(name string, data *catalog.FieldData) *proto.Service
 	ListPlugins() []string
 	GetPlugin(name string) (*proto.Item, error)
 	ValidateFn(plugin string, validationFn string, config, obj interface{}) bool
@@ -95,9 +96,84 @@ func (s *Server) UpdateEvent(event *proto.Event) {
 	}
 }
 
+func validateField(raw interface{}, schema *proto.Item_Field) (interface{}, bool, error) {
+	switch t := schema.Type; t {
+	case "string":
+		var result string
+		if err := mapstructure.WeakDecode(raw, &result); err != nil {
+			return nil, false, err
+		}
+		return result, true, nil
+
+	case "bool":
+		var result bool
+		if err := mapstructure.WeakDecode(raw, &result); err != nil {
+			return nil, false, err
+		}
+		return result, true, nil
+
+	case "int":
+		var result int
+		if err := mapstructure.WeakDecode(raw, &result); err != nil {
+			return nil, false, err
+		}
+		return result, true, nil
+
+	default:
+		panic(fmt.Sprintf("Unknown type: %s", schema.Type))
+	}
+}
+
 func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
 	alias := req.AllocationId
 	var prestate []byte
+
+	// get the reference to the plugin and download on the background if necessary
+	backend, err := s.catalog.GetPlugin(req.Action)
+	if err != nil {
+		return "", fmt.Errorf("failed to get plugin '%s': %v", req.Action, err)
+	}
+
+	// validate that all the inputs are expected and the required items are present
+	visited := map[string]struct{}{}
+	for _, field := range backend.Fields {
+		visited[field.Name] = struct{}{}
+
+		val, ok := req.Input[field.Name]
+		if !ok && field.Required {
+			return "", fmt.Errorf("field '%s' is required", field.Name)
+		}
+		if ok {
+			// validate the type of the input
+			if _, _, err := validateField(val, field); err != nil {
+				return "", fmt.Errorf("failed to validate field '%s': %v", field.Name, err)
+			}
+		}
+	}
+
+	// check if there are extra fields
+	for k := range req.Input {
+		if _, ok := visited[k]; !ok {
+			return "", fmt.Errorf("field '%s' is not part of the schema", k)
+		}
+	}
+
+	// validate any reference input with the state.
+	// TODO
+
+	// create the field data
+	fieldData := catalog.FieldData{
+		Raw:    req.Input,
+		Schema: map[string]*catalog.Field{},
+	}
+	for _, field := range backend.Fields {
+		fieldData.Schema[field.Name] = &catalog.Field{
+			Type: catalog.StringToType(field.Type),
+		}
+	}
+
+	s.catalog.Build2(req.Action, &fieldData)
+	return "", nil
 
 	// try to resolve the alias to check if we have some previous allocation
 	if alias != "" {

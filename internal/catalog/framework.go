@@ -1,4 +1,4 @@
-package framework
+package catalog
 
 import "github.com/umbracle/vesta/internal/server/proto"
 

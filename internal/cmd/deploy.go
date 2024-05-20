@@ -81,14 +81,9 @@ func (c *DeployCommand) Run(args []string) int {
 		return 1
 	}
 
-	raw, err := json.Marshal(spec)
-	if err != nil {
-		c.UI.Error(err.Error())
-		return 1
-	}
 	req := &proto.ApplyRequest{
 		Action:       c.typ,
-		Input:        raw,
+		Input:        spec,
 		AllocationId: c.allocId,
 		Chain:        c.chain,
 		Metrics:      c.metrics,

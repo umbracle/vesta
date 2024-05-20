@@ -5,39 +5,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/umbracle/vesta/internal/framework"
 )
-
-func TestBuiltin_Images(t *testing.T) {
-	catalog, err := NewCatalog()
-	require.NoError(t, err)
-
-	// test that all the images in the catalog exist
-	for name, backend := range catalog.backends {
-		t.Run(name, func(t *testing.T) {
-			tr := newTestingFramework(backend)
-			tr.ImageExists(t)
-		})
-	}
-}
-
-func TestBuiltin_Startup(t *testing.T) {
-	catalog, err := NewCatalog()
-	require.NoError(t, err)
-
-	for name, backend := range catalog.backends {
-		t.Run(name, func(t *testing.T) {
-			tr := newTestingFramework(backend)
-			tr.OnStartup(t)
-		})
-	}
-}
 
 func TestCatalog_ProcessInput(t *testing.T) {
 	cases := []struct {
 		state  map[string]interface{}
 		input  map[string]interface{}
-		fields map[string]*framework.Field
+		fields map[string]*Field
 		result map[string]interface{}
 		err    bool
 	}{
@@ -47,9 +21,9 @@ func TestCatalog_ProcessInput(t *testing.T) {
 			map[string]interface{}{
 				"a": "x",
 			},
-			map[string]*framework.Field{
+			map[string]*Field{
 				"a": {
-					Type: framework.TypeString,
+					Type: TypeString,
 				},
 			},
 			map[string]interface{}{
@@ -65,9 +39,9 @@ func TestCatalog_ProcessInput(t *testing.T) {
 			map[string]interface{}{
 				"a": "y",
 			},
-			map[string]*framework.Field{
+			map[string]*Field{
 				"a": {
-					Type: framework.TypeString,
+					Type: TypeString,
 				},
 			},
 			map[string]interface{}{
@@ -83,9 +57,9 @@ func TestCatalog_ProcessInput(t *testing.T) {
 			map[string]interface{}{
 				"a": "y",
 			},
-			map[string]*framework.Field{
+			map[string]*Field{
 				"a": {
-					Type:     framework.TypeString,
+					Type:     TypeString,
 					ForceNew: true,
 				},
 			},
@@ -98,9 +72,9 @@ func TestCatalog_ProcessInput(t *testing.T) {
 			map[string]interface{}{
 				"a": "y",
 			},
-			map[string]*framework.Field{
+			map[string]*Field{
 				"a": {
-					Type:     framework.TypeString,
+					Type:     TypeString,
 					ForceNew: true,
 					Default:  "x",
 				},

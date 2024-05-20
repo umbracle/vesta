@@ -5,7 +5,6 @@ import (
 	"reflect"
 
 	"github.com/mitchellh/mapstructure"
-	"github.com/umbracle/vesta/internal/framework"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"go.starlark.net/starlark"
 )
@@ -14,12 +13,12 @@ type backend struct {
 	thread  *starlark.Thread
 	globals starlark.StringDict
 	name    string
-	fields  map[string]*framework.Field
+	fields  map[string]*Field
 	chains  []string
 	labels  map[string]string
 }
 
-func newBackend(content []byte) framework.Framework {
+func newBackend(content []byte) Framework {
 	thread := &starlark.Thread{Name: "my thread"}
 	globals, err := starlark.ExecFile(thread, "", content, nil)
 	if err != nil {
@@ -39,19 +38,19 @@ func newBackend(content []byte) framework.Framework {
 }
 
 type field struct {
-	Type          string                `mapstructure:"type"`
-	Required      bool                  `mapstructure:"required"`
-	Default       interface{}           `mapstructure:"default"`
-	ForceNew      bool                  `mapstructure:"force_new"`
-	Description   string                `mapstructure:"description"`
-	AllowedValues []interface{}         `mapstructure:"allowed_values"`
-	Filters       []framework.Filter    `mapstructure:"filters"`
-	Params        map[string]string     `mapstructure:"params"`
-	References    *framework.References `mapstructure:"references"`
+	Type          string            `mapstructure:"type"`
+	Required      bool              `mapstructure:"required"`
+	Default       interface{}       `mapstructure:"default"`
+	ForceNew      bool              `mapstructure:"force_new"`
+	Description   string            `mapstructure:"description"`
+	AllowedValues []interface{}     `mapstructure:"allowed_values"`
+	Filters       []Filter          `mapstructure:"filters"`
+	Params        map[string]string `mapstructure:"params"`
+	References    *References       `mapstructure:"references"`
 }
 
-func (f *field) ToType() *framework.Field {
-	res := &framework.Field{
+func (f *field) ToType() *Field {
+	res := &Field{
 		Required:      f.Required,
 		Default:       f.Default,
 		ForceNew:      f.ForceNew,
@@ -62,11 +61,11 @@ func (f *field) ToType() *framework.Field {
 		References:    f.References,
 	}
 	if f.Type == "string" {
-		res.Type = framework.TypeString
+		res.Type = TypeString
 	} else if f.Type == "bool" {
-		res.Type = framework.TypeBool
+		res.Type = TypeBool
 	} else if f.Type == "int" {
-		res.Type = framework.TypeInt
+		res.Type = TypeInt
 	} else {
 		panic(fmt.Sprintf("type '%s' not found", f.Type))
 	}
@@ -86,7 +85,7 @@ func (b *backend) generateStaticConfig() error {
 		return err
 	}
 
-	b.fields = map[string]*framework.Field{}
+	b.fields = map[string]*Field{}
 	for name, res := range configResult {
 		b.fields[name] = res.ToType()
 	}
@@ -103,16 +102,16 @@ func (b *backend) generateStaticConfig() error {
 	return nil
 }
 
-var defaultConfiguration = map[string]*framework.Field{
+var defaultConfiguration = map[string]*Field{
 	"log_level": {
-		Type:          framework.TypeString,
+		Type:          TypeString,
 		Default:       "info",
 		Description:   "Log level for the logs emitted by the client",
 		AllowedValues: []interface{}{"all", "debug", "info", "warn", "error", "silent"},
 	},
 }
 
-func (b *backend) Config() map[string]*framework.Field {
+func (b *backend) Config() map[string]*Field {
 	return b.fields
 }
 
@@ -137,7 +136,7 @@ func (b *backend) validateFn(name string, config interface{}, obj interface{}) b
 	return val
 }
 
-func (b *backend) Generate(config *framework.Config) *proto.Service {
+func (b *backend) Generate(config *Config) *proto.Service {
 	input := starlark.NewDict(1)
 	input.SetKey(starlark.String("chain"), starlark.String(config.Chain))
 	input.SetKey(starlark.String("metrics"), starlark.Bool(config.Metrics))
