@@ -126,7 +126,7 @@ func validateField(raw interface{}, sch schema.Type) (interface{}, bool, error) 
 }
 
 func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
-	entries := jsonnet.Load()
+	catalog := jsonnet.Load()
 
 	alias := req.AllocationId
 	if alias == "" {
@@ -139,7 +139,7 @@ func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
 	network, chain := spl[0], spl[1]
 
 	var entry *jsonnet.Network
-	for _, testEntry := range entries {
+	for _, testEntry := range catalog.Networks {
 		if strings.ToLower(testEntry.Network) == network {
 			entry = testEntry
 		}
@@ -179,8 +179,6 @@ func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
 	fmt.Println(node)
 	fmt.Println("nodeChain", nodeChain)
 
-	fmt.Println(entry.Exex, req.Action)
-
 	properties := map[string]*proto.Item_Field{}
 	for _, vol := range node.Volumes {
 		for k, v := range vol.Properties {
@@ -200,7 +198,7 @@ func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
 	input["chain"] = chain
 
 	// generate the input for the jsonnet
-	output := jsonnet.ApplyCode(entry.Exex[strings.ToLower(req.Action)].Content, input)
+	output := entry.Apply(strings.ToLower(req.Action), input)
 
 	// create the volumesSpec and the task volumes
 	taskVolumes := map[string]*proto.Task_Volume{}

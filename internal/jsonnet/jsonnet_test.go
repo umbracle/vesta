@@ -2,55 +2,75 @@ package jsonnet
 
 import (
 	"fmt"
-	"io/fs"
-	"log"
-	"strings"
 	"testing"
-
-	"github.com/google/go-jsonnet"
 )
 
 func TestStuff(t *testing.T) {
-	data, err := fs.ReadFile(builtin, "builtin/manifest.jsonnet")
-	if err != nil {
-		panic(err)
-	}
+	catalog := Load()
 
-	contents := map[string][]byte{}
-	fs.WalkDir(builtin, "builtin", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-
-		data, err := fs.ReadFile(builtin, path)
-		if err != nil {
-			return err
-		}
-		contents[strings.TrimPrefix(path, "builtin/")] = data
-		return nil
+	out := catalog.GetNetwork("ethereum").Apply("prysm", map[string]interface{}{
+		"chain":   "sepolia",
+		"archive": false,
 	})
+	fmt.Println(out.Args)
 
-	vm := jsonnet.MakeVM()
+	/*
+		return
 
-	importer := &jsonnet.MemoryImporter{
-		Data: map[string]jsonnet.Contents{},
-	}
-	for k, v := range contents {
-		importer.Data[k] = jsonnet.MakeContents(string(v))
-	}
-	vm.Importer(importer)
+		data, err := fs.ReadFile(builtin, "builtin/manifest.jsonnet")
+		if err != nil {
+			panic(err)
+		}
 
-	jsonStr, err := vm.EvaluateAnonymousSnippet("example1.jsonnet", string(data))
-	if err != nil {
-		log.Fatal(err)
-	}
+		contents := map[string][]byte{}
+		fs.WalkDir(builtin, "builtin", func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				return nil
+			}
 
-	fmt.Println(jsonStr)
+			data, err := fs.ReadFile(builtin, path)
+			if err != nil {
+				return err
+			}
+			contents[strings.TrimPrefix(path, "builtin/")] = data
+			return nil
+		})
+
+		var generateInput = &jsonnet.NativeFunction{
+			Name:   "input",
+			Params: ast.Identifiers{},
+			Func: func(x []interface{}) (interface{}, error) {
+				// return map[string]interface{}{}, nil
+
+				return map[string]interface{}{
+					"name": "geth",
+					"params": map[string]interface{}{
+						"chain":   "sepolia",
+						"archive": false,
+					},
+				}, nil
+			},
+		}
+
+		vm := jsonnet.MakeVM()
+
+		importer := &jsonnet.MemoryImporter{
+			Data: map[string]jsonnet.Contents{},
+		}
+		for k, v := range contents {
+			importer.Data[k] = jsonnet.MakeContents(string(v))
+		}
+		vm.Importer(importer)
+		vm.NativeFunction(generateInput)
+
+		jsonStr, err := vm.EvaluateAnonymousSnippet("example1.jsonnet", string(data))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println(jsonStr)
+	*/
 }
-
-var ctxData = `
- 
-`

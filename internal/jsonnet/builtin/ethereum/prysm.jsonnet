@@ -1,4 +1,4 @@
-local task = import 'task.jsonnet';
+local task = import 'std/task.jsonnet';
 
 task {
   name: 'prysm',
@@ -34,7 +34,7 @@ task {
       },
     },
   ],
-  match: function(input) {
+  generate: function(input) {
     artifacts: [] + (
       if input.chain != 'mainnet' then [
         {
