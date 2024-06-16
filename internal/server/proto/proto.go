@@ -1,8 +1,10 @@
 package proto
 
+import "github.com/umbracle/vesta/internal/schema"
+
 type Item struct {
 	Name   string
-	Fields []*Item_Field
+	Fields map[string]*schema.Field
 	Chains []string
 }
 
@@ -27,20 +29,54 @@ type Item_Field struct {
 	Type        string
 	Description string
 	Default     string
-	Required    bool
+	Required    bool // remove
+	ForceNew    bool
+}
+
+type VolumeStub struct {
 }
 
 type Service struct {
-	Name      string
-	Tasks     map[string]*Task
-	PrevState []byte
-	Volumes   []*Volume
+	Name           string
+	Task           *Task
+	Init           []*InitAction
+	Artifacts      []*Artifact
+	InitContainers []*Task
+	PrevState      []byte
+	Volumes        []*ServiceVolume
+}
+
+type InitAction struct {
+	Cmd []string
+}
+
+type Artifact struct {
+	Src string
+	Dst string
+}
+
+// ServiceVolume is the reference to a volume assigned to a service
+type ServiceVolume struct {
+	Name string
+	ID   string
 }
 
 type Volume struct {
 	Id     string
 	Name   string
 	Labels map[string]string
+}
+
+func (v *Volume) Copy() *Volume {
+	vv := new(Volume)
+	*vv = *v
+
+	vv.Labels = make(map[string]string)
+	for k, v := range v.Labels {
+		vv.Labels[k] = v
+	}
+
+	return vv
 }
 
 // Task represents an single container process
@@ -68,9 +104,11 @@ type Event struct {
 }
 
 type Task_Volume struct {
-	Name string
-	Path string
-	Id   string
+	Name       string
+	Path       string
+	Id         string
+	Labels     map[string]string
+	Properties map[string]*Item_Field
 }
 
 type Task_Port struct {

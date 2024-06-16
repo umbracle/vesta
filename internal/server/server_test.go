@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/umbracle/vesta/internal/catalog"
+	"github.com/umbracle/vesta/internal/schema"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"github.com/umbracle/vesta/internal/server/state"
 )
@@ -104,20 +104,17 @@ func TestServer_Deploy(t *testing.T) {
 		catalog: &mockBackend{
 			item: &proto.Item{
 				Name: "test",
-				Fields: []*proto.Item_Field{
-					{
-						Name: "key",
-						Type: "string",
+				Fields: map[string]*schema.Field{
+					"key": {
+						Type: schema.TypeString,
 					},
 				},
 			},
-			buildFn: func(data *catalog.FieldData) *proto.Service {
+			buildFn: func(data *schema.FieldData) *proto.Service {
 				return &proto.Service{
-					Tasks: map[string]*proto.Task{
-						"task": {
-							Image: data.GetString("key"),
-							Args:  []string{"a"},
-						},
+					Task: &proto.Task{
+						Image: data.GetString("key"),
+						Args:  []string{"a"},
 					},
 				}
 			},
@@ -133,18 +130,18 @@ func TestServer_Deploy(t *testing.T) {
 
 type mockBackend struct {
 	item    *proto.Item
-	buildFn func(data *catalog.FieldData) *proto.Service
+	buildFn func(data *schema.FieldData) *proto.Service
 }
 
-func (m *mockBackend) GetFields(id string, input []byte) (*catalog.FieldData, error) {
+func (m *mockBackend) GetFields(id string, input []byte) (*schema.FieldData, []proto.VolumeStub, error) {
 	panic("TODO: implement")
 }
 
-func (m *mockBackend) Build2(name string, data *catalog.FieldData) *proto.Service {
+func (m *mockBackend) Build2(name string, data *schema.FieldData) *proto.Service {
 	return m.buildFn(data)
 }
 
-func (m *mockBackend) Build(prev []byte, req *proto.ApplyRequest) (*catalog.FieldData, *proto.Service, error) {
+func (m *mockBackend) Build(prev []byte, req *proto.ApplyRequest) (*schema.FieldData, *proto.Service, error) {
 	panic("TODO: implement")
 }
 
@@ -152,8 +149,8 @@ func (m *mockBackend) ListPlugins() []string {
 	panic("TODO: implement")
 }
 
-func (m *mockBackend) GetPlugin(name string) (*proto.Item, error) {
-	return m.item, nil
+func (m *mockBackend) GetPlugin(name string) (*proto.Item, map[string]proto.VolumeStub, error) {
+	return m.item, nil, nil
 }
 
 func (m *mockBackend) ValidateFn(plugin string, validationFn string, config, obj interface{}) bool {

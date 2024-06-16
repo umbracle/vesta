@@ -24,10 +24,19 @@ services:
         target: {{ $val.Target }}
       {{- end }}
     {{- end }}
+    {{- if .Labels }}
     labels:
       {{- range $key, $value := .Labels }}
       {{ $key }}: {{ $value }}
       {{- end }}
+    {{- end }}
+    {{- if .InitContainer }}
+    depends_on:
+      {{- range .InitContainer }}
+      {{ . }}:
+        condition: service_completed_successfully
+      {{- end }}
+    {{- end }}
   {{- end }}
 configs:
   {{- range .Services }}

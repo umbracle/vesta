@@ -1,0 +1,27 @@
+- []: Add one main job and sidecar apps.
+  No pongas ningún sidecar todavía, solo el concepto.
+- []: Research symbolic logic to establish filter criteria.
+  Espera a que tengamos los volumenes fuera con mas tags por que la mayoria de filtros se aplicarán aquí.
+- []: Volumes definition outside.
+  Vamos a ver si definiendo los volumenes fuera podemos hacer mejor gestion de sus tags una vez están dentro del execute.
+  O sea, como si fuera un step function. Usas los filtros para saber si se da una cierta condición y luego usas
+  la función de generar para actualizar ese estado.
+- []: Init container y migrar a docker-compose
+  Empezar con el de prysmatic labs.
+- []: How does it look like now connecting two nodeS?
+- []: Create the Ethereum repo to own the chain info.
+
+Hay variso flavours de esto.
+
+- []: Make the whole Geth<>Prysm example.
+  How to connect one to another in the args? Is that solved?
+- []: Artifacts, you have to mount volume.
+- []: Ports in the manifest.
+- []: Features.
+- []: Volume features.
+- []: Connection features.
+- []: How to connect with the node with http?? That should be resolved internally.
+- []: How to describe something that can be two options? Like an or in a field? an enum?
+  But, if the field is internal in an enum we cannot play anymore with connections on the manifest in a speical field like volumes, it has
+  to be inbued on the features.
+- []: Default to the other node if nothing else set.

@@ -1,4 +1,4 @@
-package catalog
+package schema
 
 import (
 	"testing"

@@ -57,10 +57,8 @@ func formatNodes(allocs []*proto.Service) string {
 	rows[0] = "ID|Chain"
 	for i, d := range allocs {
 		labels := map[string]string{}
-		for _, task := range d.Tasks {
-			for k, v := range task.Labels {
-				labels[k] = v
-			}
+		for k, v := range d.Task.Labels {
+			labels[k] = v
 		}
 
 		rows[i+1] = fmt.Sprintf("%s|%s",

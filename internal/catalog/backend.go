@@ -1,20 +1,24 @@
 package catalog
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
 	"github.com/mitchellh/mapstructure"
+	"github.com/umbracle/vesta/internal/schema"
 	"github.com/umbracle/vesta/internal/server/proto"
 	"go.starlark.net/starlark"
+	"go.starlark.net/starlarkstruct"
 )
 
 type backend struct {
 	thread  *starlark.Thread
 	globals starlark.StringDict
 	name    string
-	fields  map[string]*Field
+	fields  map[string]*schema.Field
 	chains  []string
+	volumes map[string]proto.VolumeStub
 	labels  map[string]string
 }
 
@@ -37,20 +41,56 @@ func newBackend(content []byte) Framework {
 	return b
 }
 
-type field struct {
-	Type          string            `mapstructure:"type"`
-	Required      bool              `mapstructure:"required"`
-	Default       interface{}       `mapstructure:"default"`
-	ForceNew      bool              `mapstructure:"force_new"`
-	Description   string            `mapstructure:"description"`
-	AllowedValues []interface{}     `mapstructure:"allowed_values"`
-	Filters       []Filter          `mapstructure:"filters"`
-	Params        map[string]string `mapstructure:"params"`
-	References    *References       `mapstructure:"references"`
+func newOtherBackend(content []byte) {
+	thread := &starlark.Thread{Name: "my thread"}
+	globals, err := starlark.ExecFile(thread, "", content, nil)
+	if err != nil {
+		panic(fmt.Errorf("failed to exec: %v", err))
+	}
+
+	// convert string dict to dict (of type starlark.Value)
+	// to be able to make the conversion to Go types.
+	dict := starlark.NewDict(len(globals))
+	for k, v := range globals {
+		dict.SetKey(starlark.String(k), v)
+	}
+
+	fmt.Println(dict)
+
+	var desc ChainDescriptionModule
+	if err := toGoValueAt(dict, &desc); err != nil {
+		panic(fmt.Errorf("failed to convert dict to Go type: %v", err))
+	}
+
+	fmt.Println(desc)
 }
 
-func (f *field) ToType() *Field {
-	res := &Field{
+type ChainDescriptionModule struct {
+	Network Network `mapstructure:"network"`
+}
+
+type Network struct {
+	Name   string           `mapstructure:"name"`
+	Chains map[string]Chain `mapstructure:"chains"`
+}
+
+type Chain struct {
+}
+
+type field struct {
+	Type          string             `mapstructure:"type"`
+	Required      bool               `mapstructure:"required"`
+	Default       interface{}        `mapstructure:"default"`
+	ForceNew      bool               `mapstructure:"force_new"`
+	Description   string             `mapstructure:"description"`
+	AllowedValues []interface{}      `mapstructure:"allowed_values"`
+	Filters       []schema.Filter    `mapstructure:"filters"`
+	Params        map[string]string  `mapstructure:"params"`
+	References    *schema.References `mapstructure:"references"`
+}
+
+func (f *field) ToType() *schema.Field {
+	res := &schema.Field{
 		Required:      f.Required,
 		Default:       f.Default,
 		ForceNew:      f.ForceNew,
@@ -61,11 +101,11 @@ func (f *field) ToType() *Field {
 		References:    f.References,
 	}
 	if f.Type == "string" {
-		res.Type = TypeString
+		res.Type = schema.TypeString
 	} else if f.Type == "bool" {
-		res.Type = TypeBool
+		res.Type = schema.TypeBool
 	} else if f.Type == "int" {
-		res.Type = TypeInt
+		res.Type = schema.TypeInt
 	} else {
 		panic(fmt.Sprintf("type '%s' not found", f.Type))
 	}
@@ -73,19 +113,24 @@ func (f *field) ToType() *Field {
 }
 
 func (b *backend) generateStaticConfig() error {
-	nameValue := b.globals["name"]
+	nameValue, ok := b.globals["name"]
+	if !ok {
+		return fmt.Errorf("name not found")
+	}
 	if err := mapstructure.Decode(toGoValue(nameValue), &b.name); err != nil {
 		return err
 	}
 
-	configValue := b.globals["config"]
-
+	configValue, ok := b.globals["config"]
+	if !ok {
+		return fmt.Errorf("config not found")
+	}
 	var configResult map[string]*field
 	if err := mapstructure.Decode(toGoValue(configValue), &configResult); err != nil {
 		return err
 	}
 
-	b.fields = map[string]*Field{}
+	b.fields = map[string]*schema.Field{}
 	for name, res := range configResult {
 		b.fields[name] = res.ToType()
 	}
@@ -95,23 +140,38 @@ func (b *backend) generateStaticConfig() error {
 		b.fields[name] = res
 	}
 
-	chainsValue := b.globals["chains"]
+	chainsValue, ok := b.globals["chains"]
+	if !ok {
+		return fmt.Errorf("chains not found")
+	}
 	if err := mapstructure.Decode(toGoValue(chainsValue), &b.chains); err != nil {
 		return err
 	}
+
+	volumesValue, ok := b.globals["volumes"]
+	if ok {
+		if err := mapstructure.Decode(toGoValue(volumesValue), &b.volumes); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-var defaultConfiguration = map[string]*Field{
+var defaultConfiguration = map[string]*schema.Field{
 	"log_level": {
-		Type:          TypeString,
+		Type:          schema.TypeString,
 		Default:       "info",
 		Description:   "Log level for the logs emitted by the client",
 		AllowedValues: []interface{}{"all", "debug", "info", "warn", "error", "silent"},
 	},
 }
 
-func (b *backend) Config() map[string]*Field {
+func (b *backend) Volumes() map[string]proto.VolumeStub {
+	return b.volumes
+}
+
+func (b *backend) Config() map[string]*schema.Field {
 	return b.fields
 }
 
@@ -169,6 +229,121 @@ func (b *backend) Generate(config *Config) *proto.Service {
 	return result
 }
 
+type starlarkFn = func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error)
+
+func convertToFunction(i interface{}) starlarkFn {
+	val := reflect.ValueOf(i)
+	if val.Kind() != reflect.Func {
+		panic("not a function")
+	}
+
+	typ := val.Type()
+	outNum := typ.NumOut()
+	if outNum > 2 {
+		panic(fmt.Errorf("expected 2 output arguments but got %d", outNum))
+	}
+	if outNum == 2 && !isErrorType(typ.Out(1)) {
+		panic(fmt.Errorf("expected the second output argument to be an error but got %s", typ.Out(1)))
+	}
+
+	fn := func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+		// convert the arguments
+		if len(args) != typ.NumIn() {
+			return nil, fmt.Errorf("expected %d arguments, got %d", typ.NumIn(), len(args))
+		}
+
+		// convert the input starlark arguments to Go types
+		inputArgs := make([]reflect.Value, typ.NumIn())
+		for i := 0; i < typ.NumIn(); i++ {
+			inputArg := reflect.New(typ.In(i))
+			if err := toGoValueAt(args.Index(i), inputArg.Interface()); err != nil {
+				return nil, fmt.Errorf("failed to convert argument %d: %v", i, err)
+			}
+			inputArgs[i] = inputArg.Elem()
+		}
+
+		// call the function
+		output := val.Call(inputArgs)
+
+		// decode the error type as the last argument (if there is any)
+		if outNum == 2 {
+			if err := getError(output[1]); err != nil {
+				return nil, err
+			}
+		}
+
+		// convert the output to a starlark value
+		res := output[0].Interface()
+		return toStarlarkValue(res), nil
+	}
+
+	return fn
+}
+
+type starlarkModule struct {
+	*starlarkstruct.Module
+}
+
+func createNewModule(name string) *starlarkModule {
+	return &starlarkModule{
+		Module: &starlarkstruct.Module{
+			Name:    name,
+			Members: starlark.StringDict{},
+		},
+	}
+}
+
+func (m *starlarkModule) addFunction(name string, fn interface{}) *starlarkModule {
+	m.Members[name] = starlark.NewBuiltin(name, convertToFunction(fn))
+	return m
+}
+
+func (b *backend) Generate2(data *schema.FieldData) *proto.Service {
+
+	module := createNewModule("ctx").
+		addFunction("get", data.Get).
+		addFunction("getString", data.GetString)
+
+	var argsTuple starlark.Tuple
+	argsTuple = append(argsTuple, module)
+
+	generateFn, ok := b.globals["generate2"]
+	if !ok {
+		panic("generate2 not found")
+	}
+
+	v, err := starlark.Call(b.thread, generateFn, argsTuple, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	var result *proto.Service
+	if err := mapstructure.Decode(toGoValue(v), &result); err != nil {
+		panic(err)
+	}
+
+	return result
+}
+
+var errt = reflect.TypeOf((*error)(nil)).Elem()
+
+func isErrorType(t reflect.Type) bool {
+	return t.Implements(errt)
+}
+
+func getError(v reflect.Value) error {
+	if v.IsNil() {
+		return nil
+	}
+
+	extractedErr, ok := v.Interface().(error)
+	if !ok {
+		return errors.New("invalid type assertion, unable to extract error")
+	}
+
+	return extractedErr
+}
+
 func toStarlarkValue(obj interface{}) starlark.Value {
 	return toStarlarkValue2(reflect.ValueOf(obj))
 }
@@ -215,6 +390,15 @@ func toStarlarkValue2(val reflect.Value) starlark.Value {
 	default:
 		panic(fmt.Sprintf("BUG: type %s not found", val.Kind()))
 	}
+}
+
+func toGoValueAt(v starlark.Value, obj interface{}) error {
+	val := toGoValue(v)
+	fmt.Println("-- val --", val)
+	if err := mapstructure.Decode(val, &obj); err != nil {
+		return err
+	}
+	return nil
 }
 
 func toGoValue(v starlark.Value) interface{} {

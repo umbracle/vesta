@@ -3,8 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-
-	"github.com/umbracle/vesta/internal/server/proto"
 )
 
 // CatalogInspectCommand is the command to show the version of the agent
@@ -52,10 +50,12 @@ func (c *CatalogInspectCommand) Run(args []string) int {
 		return 1
 	}
 
-	c.UI.Output(c.Colorize().Color(formatItem(resp)))
+	fmt.Println(resp)
+	//c.UI.Output(c.Colorize().Color(formatItem(resp)))
 	return 0
 }
 
+/*
 func formatItem(item *proto.Item) string {
 	base := formatKV([]string{
 		fmt.Sprintf("Name|%s", item.Name),
@@ -94,3 +94,4 @@ func formatItem(item *proto.Item) string {
 
 	return base
 }
+*/

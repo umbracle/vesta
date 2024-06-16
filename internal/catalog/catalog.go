@@ -12,6 +12,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/mitchellh/mapstructure"
+	"github.com/umbracle/vesta/internal/schema"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
@@ -80,6 +81,8 @@ func (c *Catalog) Load(path string) error {
 }
 
 func (c *Catalog) initBuiltin() error {
+	return nil
+
 	var starFiles []string
 	if err := fs.WalkDir(builtinBackends, ".", func(path string, d fs.DirEntry, err error) error {
 		if d.IsDir() {
@@ -106,22 +109,22 @@ func (c *Catalog) initBuiltin() error {
 	return nil
 }
 
-func (c *Catalog) GetFields(id string, input []byte) (*FieldData, error) {
+func (c *Catalog) GetFields(id string, input []byte) (*schema.FieldData, []proto.VolumeStub, error) {
 	cc, ok := c.backends[strings.ToLower(id)]
 	if !ok {
-		return nil, fmt.Errorf("not found plugin: %s", id)
+		return nil, nil, fmt.Errorf("not found plugin: %s", id)
 	}
 
 	var inputMap map[string]interface{}
 	if err := json.Unmarshal(input, &inputMap); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	_, data, err := processInput(cc.Config(), nil, inputMap)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return data, nil
+	return data, nil, nil
 }
 
 func (c *Catalog) ValidateFn(plugin string, validationFn string, config, obj interface{}) bool {
@@ -133,11 +136,16 @@ func (c *Catalog) ValidateFn(plugin string, validationFn string, config, obj int
 	return cc.(*backend).validateFn(validationFn, config, obj)
 }
 
-func (c *Catalog) Build2(name string, data *FieldData) *proto.Service {
-	return nil
+func (c *Catalog) Build2(name string, data *schema.FieldData) *proto.Service {
+	cc, ok := c.backends[strings.ToLower(name)]
+	if !ok {
+		return nil
+	}
+
+	return cc.Generate2(data)
 }
 
-func (c *Catalog) Build(prev []byte, req *proto.ApplyRequest) (*FieldData, *proto.Service, error) {
+func (c *Catalog) Build(prev []byte, req *proto.ApplyRequest) (*schema.FieldData, *proto.Service, error) {
 	cc, ok := c.backends[strings.ToLower(req.Action)]
 	if !ok {
 		return nil, nil, fmt.Errorf("not found plugin: %s", req.Action)
@@ -183,9 +191,9 @@ func (c *Catalog) Build(prev []byte, req *proto.ApplyRequest) (*FieldData, *prot
 	return data, deployableTasks, nil
 }
 
-func processInput(fields map[string]*Field, state map[string]interface{}, input map[string]interface{}) (map[string]interface{}, *FieldData, error) {
+func processInput(fields map[string]*schema.Field, state map[string]interface{}, input map[string]interface{}) (map[string]interface{}, *schema.FieldData, error) {
 	// validate that the input matches the schema
-	inputData := &FieldData{
+	inputData := &schema.FieldData{
 		Raw:    input,
 		Schema: fields,
 	}
@@ -200,7 +208,7 @@ func processInput(fields map[string]*Field, state map[string]interface{}, input 
 
 	if state != nil {
 		// validate that any new value is not a forceNew field
-		stateData := &FieldData{
+		stateData := &schema.FieldData{
 			Raw:    state,
 			Schema: fields,
 		}
@@ -225,7 +233,7 @@ func processInput(fields map[string]*Field, state map[string]interface{}, input 
 		state = input
 	}
 
-	data := &FieldData{
+	data := &schema.FieldData{
 		Prev:   stateCopy,
 		Raw:    state,
 		Schema: fields,
@@ -245,10 +253,10 @@ func (c *Catalog) ListPlugins() []string {
 	return res
 }
 
-func (c *Catalog) GetPlugin(name string) (*proto.Item, error) {
+func (c *Catalog) GetPlugin(name string) (*proto.Item, map[string]proto.VolumeStub, error) {
 	pl, ok := c.backends[strings.ToLower(name)]
 	if !ok {
-		return nil, fmt.Errorf("plugin %s not found", name)
+		return nil, nil, fmt.Errorf("plugin %s not found", name)
 	}
 
 	cfg := pl.Config()
@@ -257,22 +265,14 @@ func (c *Catalog) GetPlugin(name string) (*proto.Item, error) {
 	// not work if the config has nested items
 	var input map[string]interface{}
 	if err := mapstructure.Decode(cfg, &input); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	item := &proto.Item{
 		Name:   name,
-		Fields: []*proto.Item_Field{},
+		Fields: cfg,
 		Chains: pl.Chains(),
 	}
-	for name, field := range cfg {
-		item.Fields = append(item.Fields, &proto.Item_Field{
-			Name:        name,
-			Type:        field.Type.String(),
-			Description: field.Description,
-			Required:    field.Required,
-		})
-	}
 
-	return item, nil
+	return item, pl.Volumes(), nil
 }

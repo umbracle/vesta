@@ -22,14 +22,11 @@ config = {
         "description": "Enables archival node mode",
         "force_new": True,
         "default": False,
-    },
-    "volume": {
-        "type": "string",
-        "description": "Reference to the volume to use. Will create a new volume if empty",
-        "params": {
-            "ref": "data"
-        }
     }
+}
+
+volumes = {
+    "data": {}
 }
 
 verbosity_levels = {
@@ -52,6 +49,62 @@ babel = {
     ],
 }
 
+def generate2(ctx):
+    t = {
+        "image": "ethereum/client-go",
+        "tag": "v1.11.5",
+        "args": [
+            "--datadir",
+            "/data",
+            "--http.addr",
+            "0.0.0.0",
+            "--http",
+            "--http.port",
+            "8545",
+            "--http.vhosts",
+            "*",
+            "--http.corsdomain",
+            "*",
+            "--authrpc.addr",
+            "0.0.0.0",
+            "--authrpc.port",
+            "8551",
+            "--authrpc.vhosts",
+            "*",
+            "--authrpc.jwtsecret",
+            "/var/lib/jwtsecret/jwt.hex",
+            "--metrics.addr",
+            "0.0.0.0",
+            "--ipcdisable",
+            "--verbosity",
+            verbosity_levels["info"],
+            "--maxpeers",
+            "32"
+        ],
+        "ports": [
+            {"name": "http", "port": 8545},
+            {"name": "authrpc", "port": 8551},
+        ],
+        "labels": {
+            "node-type": "el"
+        },
+        "data": {
+            "/var/lib/jwtsecret/jwt.hex": "04592280e1778419b7aa954d43871cb2cfb2ebda754fb735e8adeb293a88f9bf"
+        },
+        "volumes": {"data": {"path": "/data", "labels": {"archive": ctx.getString("archive")}}},
+    }
+
+    if ctx.get("archive"):
+        t["args"].extend(["--syncmode", "full", "--gcmode", "archive"])
+    else:
+        t["args"].extend(["--syncmode", "snap"])
+
+    if ctx.get("dbengine") == "pebble":
+        t["args"].extend(["--db.engine", "pebble"])
+
+    return {"task": t, "init": [action], "artifacts": [
+        {"src": "https://github.com/eth-clients/merge-testnets/raw/main/sepolia/genesis.ssz", "dst": "/data/file"}
+    ]}
 
 def generate(obj):
     verbosity = verbosity_levels[obj["log_level"]]
@@ -115,11 +168,4 @@ def generate(obj):
     if obj["dbengine"] == "pebble":
         t["args"].extend(["--db.engine", "pebble"])
 
-
-    tasks = {
-        "node": t,
-        "babel": babel
-    }
-    return {"tasks": tasks, "volumes": [
-        {"name": "data"}
-    ]}
+    return {"task": t}

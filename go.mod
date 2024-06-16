@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/boltdb/bolt v1.3.1
 	github.com/docker/docker v20.10.17+incompatible
+	github.com/google/go-jsonnet v0.20.0
 	github.com/hashicorp/go-hclog v1.3.0
 	github.com/hashicorp/go-memdb v1.3.3
 	github.com/mattn/go-sqlite3 v1.14.22
@@ -64,4 +65,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.3.0 // indirect
+	sigs.k8s.io/yaml v1.1.0 // indirect
 )

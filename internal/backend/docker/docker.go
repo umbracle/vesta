@@ -68,8 +68,8 @@ func (d *Docker) Start() {
 			}
 			d.EventUpdater.UpdateEvent(event)
 
-		case err := <-errCh:
-			fmt.Println(err)
+		case <-errCh:
+
 		}
 	}
 }
@@ -82,17 +82,24 @@ func (d *Docker) Connect(service string, task string, port uint64) (string, erro
 	return fmt.Sprintf("http://%s.%s:%d", service, task, port), nil
 }
 
+type TaskDesc struct {
+	Task    *proto.Task
+	Volumes []*proto.Volume
+}
+
 func (d *Docker) RunTasks(serviceSpec *proto.Service) {
+	fmt.Println("XX")
 	service := &service{}
-	service.Services = make([]task1, 0, len(serviceSpec.Tasks))
+	service.Services = make([]task1, 0, 1)
 
 	// create the volume if it does not exists
 	volumesMap := map[string]string{}
 
 	fmt.Println("-- vv", serviceSpec.Volumes)
+	fmt.Println("-- task", serviceSpec.Task.Volumes)
 
 	for _, volume := range serviceSpec.Volumes {
-		path := filepath.Join(d.dir, "volumes", volume.Id)
+		path := filepath.Join(d.dir, "volumes", volume.ID)
 
 		if err := os.MkdirAll(path, 0755); err != nil {
 			panic(err)
@@ -100,47 +107,59 @@ func (d *Docker) RunTasks(serviceSpec *proto.Service) {
 		volumesMap[volume.Name] = path
 	}
 
-	fmt.Println("-- volumes map --")
-	fmt.Println(volumesMap)
+	task := serviceSpec.Task
 
-	for name, task := range serviceSpec.Tasks {
-		fileCount := 0
-		var files []File
-		var volumes1 []volume1
+	fileCount := 0
+	var files []File
+	var volumes1 []volume1
 
-		// decide what to do with the volumes
-		for name, volume := range task.Volumes {
-			volumes1 = append(volumes1, volume1{
-				Source: volumesMap[name],
-				Target: volume.Path,
-			})
+	// decide what to do with the volumes
+	for name, volume := range task.Volumes {
+		volumes1 = append(volumes1, volume1{
+			Source: volumesMap[name],
+			Target: volume.Path,
+		})
+	}
+
+	for target, content := range task.Data {
+		// create temporal file
+		f, err := os.CreateTemp("/tmp", "file-temp")
+		if err != nil {
+			panic(err)
 		}
-
-		for target, content := range task.Data {
-			// create temporal file
-			f, err := os.CreateTemp("/tmp", "file-temp")
-			if err != nil {
-				panic(err)
-			}
-			if _, err := f.Write([]byte(content)); err != nil {
-				panic(err)
-			}
-			f.Close()
-
-			files = append(files, File{
-				Name:   fmt.Sprintf("file-%d", fileCount),
-				Source: f.Name(),
-				Target: target,
-			})
+		if _, err := f.Write([]byte(content)); err != nil {
+			panic(err)
 		}
+		f.Close()
 
+		files = append(files, File{
+			Name:   fmt.Sprintf("file-%d", fileCount),
+			Source: f.Name(),
+			Target: target,
+		})
+	}
+
+	initContainers := []string{}
+	for indx, task := range serviceSpec.InitContainers {
+		name := fmt.Sprintf("init-%d", indx)
 		service.Services = append(service.Services, task1{
 			Task:         task,
 			Name:         name,
-			Files:        files,
 			VolumesExtra: volumes1,
 		})
+		initContainers = append(initContainers, name)
 	}
+
+	service.Services = append(service.Services, task1{
+		Task:          task,
+		Name:          "node",
+		Files:         files,
+		VolumesExtra:  volumes1,
+		InitContainer: initContainers,
+	})
+
+	fmt.Println("- service created -")
+	fmt.Println(initContainers)
 
 	content := executeTemplate(service)
 	fileName := filepath.Join(d.dir, fmt.Sprintf("srv-%s.yaml", serviceSpec.Name))
@@ -148,7 +167,9 @@ func (d *Docker) RunTasks(serviceSpec *proto.Service) {
 		panic(err)
 	}
 
-	execCmd("docker", []string{"stack", "deploy", "-c", fileName, serviceSpec.Name})
+	fmt.Println("- file written -", fileName)
+
+	// execCmd("docker", []string{"compose", "-f", fileName, "-d", "up"})
 }
 
 func execCmd(cmdName string, args []string) error {
@@ -164,10 +185,11 @@ func execCmd(cmdName string, args []string) error {
 
 type task1 struct {
 	*proto.Task
-	Name         string
-	Files        []File
-	ID           string
-	VolumesExtra []volume1
+	Name          string
+	Files         []File
+	ID            string
+	VolumesExtra  []volume1
+	InitContainer []string
 }
 
 type volume1 struct {

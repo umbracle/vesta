@@ -154,13 +154,12 @@ func (s *StateStore) GetDeployment(id string) (*proto.Service, error) {
 	return &service, nil
 }
 
-func (s *StateStore) PutDeployment(dep *proto.Service) error {
+func (s *StateStore) PutDeployment(dep *proto.Service, volumes []*proto.Volume) error {
 	err := s.db.Update(func(dbTxn *bolt.Tx) error {
 		if err := dbPut(dbTxn.Bucket(deploymentBucket), []byte(dep.Name), dep); err != nil {
 			return err
 		}
-		for _, vol := range dep.Volumes {
-			fmt.Println("-- write volume --", vol.Id)
+		for _, vol := range volumes {
 			if err := dbPut(dbTxn.Bucket(volumesBkt), []byte(vol.Id), vol); err != nil {
 				return err
 			}
