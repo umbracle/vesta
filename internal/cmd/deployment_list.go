@@ -48,18 +48,16 @@ func (c *DeploymentListCommand) Run(args []string) int {
 	return 0
 }
 
-func formatNodes(allocs []*proto.Allocation) string {
+func formatNodes(allocs []*proto.Deployment2) string {
 	if len(allocs) == 0 {
 		return "No allocations found"
 	}
 
 	rows := make([]string, len(allocs)+1)
-	rows[0] = "ID|Status|Alias"
+	rows[0] = "ID"
 	for i, d := range allocs {
-		rows[i+1] = fmt.Sprintf("%s|%s|%s",
+		rows[i+1] = fmt.Sprintf("%s",
 			d.Id,
-			d.Status.String(),
-			d.Alias,
 		)
 	}
 	return formatList(rows)

@@ -40,14 +40,15 @@ message DeploymentStatusRequest {
 }
 
 message DeploymentStatusResponse {
-    Allocation allocation = 1;
+    Deployment2 allocation = 1;
+    repeated Event2 events = 2;
 }
 
 message ListDeploymentRequest {
 }
 
 message ListDeploymentResponse { 
-    repeated Allocation allocations = 1;
+    repeated Deployment2 allocations = 1;
 }
 
 message ApplyRequest {
@@ -197,4 +198,18 @@ message TaskState {
         Running = 1;
         Dead = 2;
     }
+}
+
+
+message Deployment2 {
+    string id = 1;
+    string name = 2;
+    bytes spec = 3;
+}
+
+message Event2 {
+    string id = 1;
+    string task = 2;
+    string deployment = 3;
+    string type = 4;
 }

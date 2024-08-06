@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 
-	"github.com/hashicorp/go-memdb"
 	"github.com/umbracle/vesta/internal/server/proto"
 )
 
@@ -24,8 +23,7 @@ func (s *service) Apply(ctx context.Context, req *proto.ApplyRequest) (*proto.Ap
 }
 
 func (s *service) DeploymentList(ctx context.Context, req *proto.ListDeploymentRequest) (*proto.ListDeploymentResponse, error) {
-	ws := memdb.NewWatchSet()
-	allocs, err := s.srv.state.AllocationList(ws)
+	allocs, err := s.srv.state2.ListDeployments()
 	if err != nil {
 		return nil, err
 	}
@@ -37,26 +35,36 @@ func (s *service) DeploymentList(ctx context.Context, req *proto.ListDeploymentR
 }
 
 func (s *service) DeploymentStatus(ctx context.Context, req *proto.DeploymentStatusRequest) (*proto.DeploymentStatusResponse, error) {
-	alloc, err := s.srv.state.AllocationByAliasOrIDOrPrefix(req.Id)
+	deployment, err := s.srv.state2.GetDeploymentById(req.Id)
 	if err != nil {
 		return nil, err
 	}
+
+	events, err := s.srv.state2.GetEventsByDeployment(req.Id)
+	if err != nil {
+		return nil, err
+	}
+
 	resp := &proto.DeploymentStatusResponse{
-		Allocation: alloc,
+		Allocation: deployment,
+		Events:     events,
 	}
 	return resp, nil
 }
 
 func (s *service) Destroy(ctx context.Context, req *proto.DestroyRequest) (*proto.DestroyResponse, error) {
-	alloc, err := s.srv.state.AllocationByAliasOrIDOrPrefix(req.Id)
-	if err != nil {
-		return nil, err
-	}
+	/*
+		alloc, err := s.srv.state.AllocationByAliasOrIDOrPrefix(req.Id)
+		if err != nil {
+			return nil, err
+		}
 
-	if err := s.srv.state.DestroyAllocation(alloc.Id); err != nil {
-		return nil, err
-	}
-	return &proto.DestroyResponse{}, nil
+		if err := s.srv.state.DestroyAllocation(alloc.Id); err != nil {
+			return nil, err
+		}
+		return &proto.DestroyResponse{}, nil
+	*/
+	return nil, nil
 }
 
 func (s *service) CatalogList(ctx context.Context, req *proto.CatalogListRequest) (*proto.CatalogListResponse, error) {

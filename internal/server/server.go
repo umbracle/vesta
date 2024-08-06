@@ -8,11 +8,10 @@ import (
 
 	"github.com/boltdb/bolt"
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/go-memdb"
-	babel "github.com/umbracle/babel/sdk"
+	"github.com/umbracle/vesta/internal/backend"
 	"github.com/umbracle/vesta/internal/catalog"
 	"github.com/umbracle/vesta/internal/server/proto"
-	"github.com/umbracle/vesta/internal/server/state"
+	"github.com/umbracle/vesta/internal/server/state2"
 	"github.com/umbracle/vesta/internal/uuid"
 	"google.golang.org/grpc"
 )
@@ -39,27 +38,31 @@ type Catalog interface {
 type Server struct {
 	logger     hclog.Logger
 	grpcServer *grpc.Server
-	state      *state.StateStore
-	catalog    Catalog
+	state2     *state2.State
+	// state      *state.StateStore
+	catalog Catalog
+	swarm   *backend.Swarm
 }
 
 func NewServer(logger hclog.Logger, config *Config) (*Server, error) {
-	var statedb *state.StateStore
+	//var statedb *state.StateStore
 
-	if config.PersistentDB != nil {
-		s, err := state.NewStateStoreWithBoltDB(config.PersistentDB)
-		if err != nil {
-			return nil, err
-		}
-		statedb = s
+	/*
+		if config.PersistentDB != nil {
+			s, err := state.NewStateStoreWithBoltDB(config.PersistentDB)
+			if err != nil {
+				return nil, err
+			}
+			statedb = s
 
-	} else {
-		s, err := state.NewStateStore("server.db")
-		if err != nil {
-			return nil, err
+		} else {
+			s, err := state.NewStateStore("server.db")
+			if err != nil {
+				return nil, err
+			}
+			statedb = s
 		}
-		statedb = s
-	}
+	*/
 
 	catalog, err := catalog.NewCatalog()
 	if err != nil {
@@ -75,16 +78,32 @@ func NewServer(logger hclog.Logger, config *Config) (*Server, error) {
 		}
 	}
 
+	state, err := state2.NewState("example.db")
+	if err != nil {
+		return nil, err
+	}
+
 	srv := &Server{
-		logger:  logger,
-		state:   statedb,
+		logger: logger,
+		// state:   statedb,
+		state2:  state,
 		catalog: catalog,
 	}
+
+	srv.swarm = backend.NewSwarm(srv)
 
 	if err := srv.setupGRPCServer(config.GrpcAddr); err != nil {
 		return nil, err
 	}
 	return srv, nil
+}
+
+func (s *Server) UpdateEvent(event *proto.Event2) {
+	s.logger.Info("creating event", "deployment", event.Deployment, "task", event.Task, "type", event.Type)
+
+	if err := s.state2.CreateEvent(event); err != nil {
+		s.logger.Error("failed to create event", "err", err)
+	}
 }
 
 func (s *Server) setupGRPCServer(addr string) error {
@@ -127,60 +146,62 @@ func (s *Server) Stop() {
 func (s *Server) Create(req *proto.ApplyRequest) (string, error) {
 	allocId := req.AllocationId
 
-	var alloc *proto.Allocation
+	var alloc *proto.Deployment2
 	var prevState []byte
 
 	if allocId != "" {
 		// load allocation from the state
 		var err error
 
-		if alloc, err = s.state.GetAllocation(allocId); err != nil {
+		if alloc, err = s.state2.GetDeploymentById(allocId); err != nil {
 			return "", err
 		}
-		prevState = alloc.InputState
+		prevState = alloc.Spec
 	}
 
-	state, deployableTasks, err := s.catalog.Build(prevState, req)
+	_, deployableTasks, err := s.catalog.Build(prevState, req)
 	if err != nil {
 		return "", fmt.Errorf("failed to run plugin '%s': %v", req.Action, err)
 	}
 
 	if alloc != nil {
-		// update the deployment
-		alloc = alloc.Copy()
-		alloc.Sequence++
-		alloc.Tasks = deployableTasks
-		alloc.InputState = state
+		s.logger.Info("updating deployment")
 
-		if err := s.state.UpsertAllocation(alloc); err != nil {
+		// update the deployment
+		if err := s.state2.UpdateDeployment(alloc); err != nil {
 			return "", err
 		}
 	} else {
+		// create a new deployment
 		allocId = uuid.Generate()
 
-		alloc := &proto.Allocation{
-			Id:         allocId,
-			NodeId:     "local",
-			Tasks:      deployableTasks,
-			InputState: state,
-			Alias:      req.Alias,
+		s.logger.Info("creating deployment", "id", allocId)
+
+		alloc := &proto.Deployment2{
+			Id:   allocId,
+			Spec: req.Input,
 		}
-		if err := s.state.UpsertAllocation(alloc); err != nil {
+		if err := s.state2.CreateDeployment(alloc); err != nil {
 			return "", err
 		}
+	}
+
+	// do it here because if we create the deployment the alloc id is generated now
+	for _, task := range deployableTasks {
+		if task.Labels == nil {
+			task.Labels = map[string]string{}
+		}
+		task.Labels["deployment"] = allocId
+	}
+
+	if err := s.swarm.Deploy("test", deployableTasks); err != nil {
+		panic(err)
 	}
 
 	return allocId, nil
 }
 
-func (s *Server) Pull(nodeId string, ws memdb.WatchSet) ([]*proto.Allocation, error) {
-	tasks, err := s.state.AllocationListByNodeId(nodeId, ws)
-	if err != nil {
-		return nil, err
-	}
-	return tasks, nil
-}
-
+/*
 func (s *Server) UpdateSyncStatus(alloc, task string, status *babel.SyncStatus) error {
 	realAlloc, err := s.state.GetAllocation(alloc)
 	if err != nil {
@@ -227,3 +248,4 @@ func (s *Server) UpdateAlloc(alloc *proto.Allocation) error {
 	}
 	return nil
 }
+*/
